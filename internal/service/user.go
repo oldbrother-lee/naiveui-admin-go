@@ -1,0 +1,119 @@
+package service
+
+import (
+	"errors"
+	"recharge-go/internal/model"
+	"recharge-go/internal/repository"
+	"recharge-go/internal/utils"
+
+	"golang.org/x/crypto/bcrypt"
+)
+
+type UserService struct {
+	userRepo *repository.UserRepository
+}
+
+func NewUserService(userRepo *repository.UserRepository) *UserService {
+	return &UserService{userRepo: userRepo}
+}
+
+func (s *UserService) Register(req *model.UserRegisterRequest) error {
+	// Check if username exists
+	_, err := s.userRepo.GetByUsername(req.Username)
+	if err == nil {
+		return errors.New("username already exists")
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	user := &model.User{
+		Username: req.Username,
+		Password: string(hashedPassword),
+		Nickname: req.Nickname,
+		Email:    req.Email,
+		Phone:    req.Phone,
+		Status:   1,
+	}
+
+	return s.userRepo.Create(user)
+}
+
+func (s *UserService) Login(req *model.UserLoginRequest) (*model.UserLoginResponse, error) {
+	user, err := s.userRepo.GetByUsername(req.Username)
+	if err != nil {
+		return nil, errors.New("invalid username or password")
+	}
+
+	// Check password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		return nil, errors.New("invalid username or password")
+	}
+
+	// Generate JWT token
+	token, err := utils.GenerateJWT(user.ID, user.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.UserLoginResponse{
+		Token: token,
+		User:  *user,
+	}, nil
+}
+
+func (s *UserService) UpdateProfile(userID int64, req *model.UserUpdateRequest) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return err
+	}
+
+	if req.Nickname != nil {
+		user.Nickname = req.Nickname
+	}
+	if req.Email != nil {
+		user.Email = req.Email
+	}
+	if req.Phone != nil {
+		user.Phone = req.Phone
+	}
+	if req.Avatar != nil {
+		user.Avatar = req.Avatar
+	}
+
+	return s.userRepo.Update(user)
+}
+
+func (s *UserService) ChangePassword(userID int64, req *model.UserChangePasswordRequest) error {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return err
+	}
+
+	// Verify old password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword))
+	if err != nil {
+		return errors.New("invalid old password")
+	}
+
+	// Hash new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	user.Password = string(hashedPassword)
+	return s.userRepo.Update(user)
+}
+
+func (s *UserService) GetUserProfile(userID int64) (*model.User, error) {
+	return s.userRepo.GetByID(userID)
+}
+
+func (s *UserService) ListUsers(page, pageSize int) ([]model.User, int64, error) {
+	return s.userRepo.List(page, pageSize)
+}
