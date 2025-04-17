@@ -1,4 +1,4 @@
-import { addAPIProvider } from '@iconify/vue';
+import { addAPIProvider, disableCache } from '@iconify/vue';
 
 /** Setup the iconify offline */
 export function setupIconifyOffline() {
@@ -6,5 +6,7 @@ export function setupIconifyOffline() {
 
   if (VITE_ICONIFY_URL) {
     addAPIProvider('', { resources: [VITE_ICONIFY_URL] });
+
+    disableCache('all');
   }
 }

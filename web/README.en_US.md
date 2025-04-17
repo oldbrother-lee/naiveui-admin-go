@@ -19,12 +19,12 @@
 
 ## Introduction
 
-[`SoybeanAdmin`](https://github.com/soybeanjs/soybean-admin) is a clean, elegant, beautiful and powerful admin template, based on the latest front-end technology stack, including Vue3, Vite6, TypeScript, Pinia and UnoCSS. It has built-in rich theme configuration and components, strict code specifications, and an automated file routing system. In addition, it also uses the online mock data solution based on ApiFox. `SoybeanAdmin` provides you with a one-stop admin solution, no additional configuration, and out of the box. It is also a best practice for learning cutting-edge technologies quickly.
+[`SoybeanAdmin`](https://github.com/soybeanjs/soybean-admin) is a clean, elegant, beautiful and powerful admin template, based on the latest front-end technology stack, including Vue3, Vite5, TypeScript, Pinia and UnoCSS. It has built-in rich theme configuration and components, strict code specifications, and an automated file routing system. In addition, it also uses the online mock data solution based on ApiFox. `SoybeanAdmin` provides you with a one-stop admin solution, no additional configuration, and out of the box. It is also a best practice for learning cutting-edge technologies quickly.
 
 
 ## Features
 
-- **Cutting-edge technology application**: using the latest popular technology stack such as Vue3, Vite6, TypeScript, Pinia and UnoCSS.
+- **Cutting-edge technology application**: using the latest popular technology stack such as Vue3, Vite5, TypeScript, Pinia and UnoCSS.
 - **Clear project architecture**: using pnpm monorepo architecture, clear structure, elegant and easy to understand.
 - **Strict code specifications**: follow the [SoybeanJS specification](https://docs.soybeanjs.cn/standard), integrate eslint, prettier and simple-git-hooks to ensure the code is standardized.
 - **TypeScript**: support strict type checking to improve code maintainability.
@@ -128,7 +128,6 @@ Refer to the [Code Synchronization](https://docs.soybeanjs.cn/guide/sync) docume
 - [snail-job](https://github.com/aizuda/snail-job): A distributed task retry and task scheduling platform with "high performance, high value and high activity".
 - [SuperApi](https://github.com/TmmTop/SuperApi): Quickly turn your idea into an online stable product! Entity-less library and table building, add, delete, change and check entity-less library table, support 15 kinds of condition query, as well as paging, list, unlimited tree list and other functions of the API deployment! With interface documentation, Auth authorisation, interface flow restriction, access to the client's real IP, advanced server caching components, dynamic APIs and other features, we look forward to your experience!
 - [FastSoyAdmin](https://github.com/sleep1223/fast-soy-admin): A modern Management Platform based on FastAPI+Vue3+Naive UI.
-- [ba](https://github.com/xiatianYa/Ba-Server): Backend service docking with soybean admin based on goFrame framework, adapted to dynamic routing, and interface authentication permissions.
 
 
 ## How to Contribute
