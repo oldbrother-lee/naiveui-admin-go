@@ -64,7 +64,7 @@ func main() {
 	roleController := controller.NewRoleController(roleService)
 
 	// Setup router
-	r := router.SetupRouter(userController, permissionController, roleController)
+	r := router.SetupRouter(userController, permissionController, roleController, userService)
 
 	// Swagger
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

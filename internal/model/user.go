@@ -24,8 +24,16 @@ type UserLoginRequest struct {
 }
 
 type UserLoginResponse struct {
-	Token string `json:"token"`
-	User  User   `json:"user"`
+	Token        string   `json:"token"`
+	RefreshToken string   `json:"refreshToken"`
+	UserInfo     UserInfo `json:"userInfo"`
+}
+
+type UserInfo struct {
+	UserId   string   `json:"userId"`
+	UserName string   `json:"userName"`
+	Roles    []string `json:"roles"`
+	Buttons  []string `json:"buttons"`
 }
 
 type UserRegisterRequest struct {

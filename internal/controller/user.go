@@ -1,9 +1,12 @@
 package controller
 
 import (
+	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
+
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -91,9 +94,9 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 }
 
 func (c *UserController) ListUsers(ctx *gin.Context) {
-	page := 1
-	pageSize := 10
-
+	page, _ := strconv.Atoi(ctx.DefaultQuery("pageNo", "1"))
+	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("pageSize", "10"))
+	fmt.Println(page, pageSize, "llllllll")
 	users, total, err := c.userService.ListUsers(page, pageSize)
 	if err != nil {
 		utils.Error(ctx, 500, err.Error())

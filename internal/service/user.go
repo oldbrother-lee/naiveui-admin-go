@@ -5,12 +5,25 @@ import (
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/utils"
+	"strconv"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService struct {
 	userRepo *repository.UserRepository
+}
+type UserLoginResponse struct {
+	Token        string   `json:"token"`
+	RefreshToken string   `json:"refreshToken"`
+	UserInfo     UserInfo `json:"userInfo"`
+}
+
+type UserInfo struct {
+	UserId   string   `json:"userId"`
+	UserName string   `json:"userName"`
+	Roles    []string `json:"roles"`
+	Buttons  []string `json:"buttons"`
 }
 
 func NewUserService(userRepo *repository.UserRepository) *UserService {
@@ -60,9 +73,27 @@ func (s *UserService) Login(req *model.UserLoginRequest) (*model.UserLoginRespon
 		return nil, err
 	}
 
+	// Get user roles
+	userWithRoles, err := s.userRepo.GetUserWithRoles(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert roles to string array
+	roles := make([]string, 0)
+	for _, role := range userWithRoles.Roles {
+		roles = append(roles, role.Code)
+	}
+
 	return &model.UserLoginResponse{
-		Token: token,
-		User:  *user,
+		Token:        token,
+		RefreshToken: token, // 暂时使用相同的 token
+		UserInfo: model.UserInfo{
+			UserId:   strconv.FormatInt(user.ID, 10),
+			UserName: user.Username,
+			Roles:    roles,
+			Buttons:  []string{}, // 暂时返回空数组
+		},
 	}, nil
 }
 
@@ -116,4 +147,8 @@ func (s *UserService) GetUserProfile(userID int64) (*model.User, error) {
 
 func (s *UserService) ListUsers(page, pageSize int) ([]model.User, int64, error) {
 	return s.userRepo.List(page, pageSize)
+}
+
+func (s *UserService) GetUserWithRoles(userID int64) (*model.UserWithRoles, error) {
+	return s.userRepo.GetUserWithRoles(userID)
 }

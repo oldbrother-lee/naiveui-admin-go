@@ -3,11 +3,12 @@ package router
 import (
 	"recharge-go/internal/controller"
 	"recharge-go/internal/middleware"
+	"recharge-go/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(userController *controller.UserController, permissionController *controller.PermissionController, roleController *controller.RoleController) *gin.Engine {
+func SetupRouter(userController *controller.UserController, permissionController *controller.PermissionController, roleController *controller.RoleController, userService *service.UserService) *gin.Engine {
 	r := gin.Default()
 
 	// Global middleware
@@ -26,9 +27,7 @@ func SetupRouter(userController *controller.UserController, permissionController
 		auth.Use(middleware.Auth())
 		{
 			// User routes
-			auth.GET("/user/profile", userController.GetProfile)
-			auth.PUT("/user/profile", userController.UpdateProfile)
-			auth.PUT("/user/password", userController.ChangePassword)
+			RegisterUserRoutes(auth, userController, userService)
 
 			// Permission routes
 			RegisterPermissionRoutes(auth, permissionController)

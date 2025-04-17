@@ -48,12 +48,19 @@ func (r *UserRepository) List(page, pageSize int) ([]model.User, int64, error) {
 	var users []model.User
 	var total int64
 
-	err := r.db.Model(&model.User{}).Count(&total).Error
+	query := r.db.Model(&model.User{})
+
+	// 计算总数
+	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	err = r.db.Offset((page - 1) * pageSize).Limit(pageSize).Find(&users).Error
+	// 分页查询
+	err = query.Order("created_at desc").
+		Offset((page - 1) * pageSize).
+		Limit(pageSize).
+		Find(&users).Error
 	if err != nil {
 		return nil, 0, err
 	}
