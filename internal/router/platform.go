@@ -9,18 +9,18 @@ import (
 )
 
 func RegisterPlatformRoutes(r *gin.RouterGroup, platformController *controller.PlatformController, userService *service.UserService) {
-	platforms := r.Group("/platforms")
+	platforms := r.Group("/platform")
 	{
 		// 需要管理员权限的路由
 		admin := platforms.Group("")
 		admin.Use(middleware.CheckSuperAdmin(userService))
 		{
-			admin.GET("", platformController.ListPlatforms)
+			admin.GET("/list", platformController.ListPlatforms)
 			admin.POST("", platformController.CreatePlatform)
 			admin.PUT("/:id", platformController.UpdatePlatform)
 			admin.DELETE("/:id", platformController.DeletePlatform)
-			admin.GET("/accounts", platformController.ListPlatformAccounts)
-			admin.POST("/accounts", platformController.CreatePlatformAccount)
+			admin.GET("/account/list", platformController.ListPlatformAccounts)
+			admin.POST("/account", platformController.CreatePlatformAccount)
 			admin.PUT("/accounts/:id", platformController.UpdatePlatformAccount)
 			admin.DELETE("/accounts/:id", platformController.DeletePlatformAccount)
 		}

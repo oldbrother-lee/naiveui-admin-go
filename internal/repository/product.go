@@ -20,8 +20,8 @@ func (r *ProductRepository) List(req *model.ProductListRequest) ([]model.Product
 	var total int64
 
 	query := r.db.Model(&model.Product{}).
-		Preload("ProductType"). // 预加载分类
-		Preload("Category").    // 预加载商品类型
+		Preload("Category").    // 预加载分类
+		Preload("ProductType"). // 预加载商品类型
 		Where("status = ?", 1)
 
 	if req.Type > 0 {
@@ -53,7 +53,7 @@ func (r *ProductRepository) List(req *model.ProductListRequest) ([]model.Product
 // GetByID 根据ID获取商品
 func (r *ProductRepository) GetByID(id int64) (*model.Product, error) {
 	var product model.Product
-	err := r.db.Preload("ProductCategory").
+	err := r.db.Preload("Category").
 		Preload("ProductType").
 		First(&product, id).Error
 	if err != nil {
