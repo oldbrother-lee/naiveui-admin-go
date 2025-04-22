@@ -6,9 +6,9 @@ import (
 
 type User struct {
 	ID        int64      `json:"id" gorm:"primaryKey"`
-	Username  string     `json:"userName" gorm:"uniqueIndex;size:50"`
+	Username  string     `json:"user_name" gorm:"uniqueIndex;size:50"`
 	Password  string     `json:"-" gorm:"size:100"`
-	Nickname  *string    `json:"nickname" gorm:"size:50"`
+	Nickname  *string    `json:"nick_name" gorm:"size:50"`
 	Email     *string    `json:"email" gorm:"size:100"`
 	Phone     *string    `json:"phone" gorm:"size:20"`
 	Avatar    *string    `json:"avatar" gorm:"size:255"`
@@ -31,7 +31,7 @@ type UserLoginResponse struct {
 
 type UserInfo struct {
 	UserId   string   `json:"userId"`
-	UserName string   `json:"userName"`
+	Username string   `json:"userName"`
 	Roles    []string `json:"roles"`
 	Buttons  []string `json:"buttons"`
 }
@@ -40,7 +40,7 @@ type UserRegisterRequest struct {
 	Username string  `json:"username" binding:"required"`
 	Password string  `json:"password" binding:"required"`
 	Nickname *string `json:"nickname"`
-	Email    *string `json:"email" binding:"omitempty,email"`
+	Email    *string `json:"email"`
 	Phone    *string `json:"phone"`
 }
 
@@ -52,6 +52,20 @@ type UserUpdateRequest struct {
 }
 
 type UserChangePasswordRequest struct {
-	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required"`
+	OldPassword string `json:"oldPassword" binding:"required"`
+	NewPassword string `json:"newPassword" binding:"required"`
+}
+
+type UserListRequest struct {
+	Current  int    `json:"current" form:"current"`
+	Size     int    `json:"size" form:"size"`
+	Username string `json:"username" form:"username"`
+	Phone    string `json:"phone" form:"phone"`
+	Email    string `json:"email" form:"email"`
+	Status   int    `json:"status" form:"status"`
+}
+
+type UserListResponse struct {
+	List  []User `json:"list"`
+	Total int64  `json:"total"`
 }

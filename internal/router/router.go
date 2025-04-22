@@ -8,13 +8,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(userController *controller.UserController, permissionController *controller.PermissionController, roleController *controller.RoleController, userService *service.UserService) *gin.Engine {
+func SetupRouter(
+	userController *controller.UserController,
+	permissionController *controller.PermissionController,
+	roleController *controller.RoleController,
+	productController *controller.ProductController,
+	userService *service.UserService,
+	phoneLocationController *controller.PhoneLocationController,
+	productTypeController *controller.ProductTypeController,
+	platformController *controller.PlatformController,
+) *gin.Engine {
 	r := gin.Default()
 
 	// Global middleware
 	r.Use(middleware.CORS())
 	r.Use(middleware.Logger())
-
+	r.Use(middleware.Recovery())
 	// API routes
 	api := r.Group("/api/v1")
 	{
@@ -34,6 +43,18 @@ func SetupRouter(userController *controller.UserController, permissionController
 
 			// Role routes
 			RegisterRoleRoutes(auth, roleController)
+
+			// Product routes
+			RegisterProductRoutes(auth, productController, userService)
+
+			// Phone location routes
+			RegisterPhoneLocationRoutes(auth, phoneLocationController, userService)
+
+			// Product type routes
+			RegisterProductTypeRoutes(auth, productTypeController, userService)
+
+			// Platform routes
+			RegisterPlatformRoutes(auth, platformController, userService)
 		}
 	}
 

@@ -11,7 +11,7 @@ import (
 func CheckSuperAdmin(userService *service.UserService) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		userID := ctx.GetInt64("user_id")
-
+		fmt.Println(userID, "userID")
 		// 获取用户角色
 		userWithRoles, err := userService.GetUserWithRoles(userID)
 		if err != nil {

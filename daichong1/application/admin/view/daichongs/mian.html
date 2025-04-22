@@ -1,0 +1,614 @@
+{include file="public/header" /}
+
+<link rel="stylesheet" type="text/css" href="/public/admin/css/plugins/select/select-addl.min.css"/>
+<link rel="stylesheet" type="text/css" href="/public/admin/css/plugins/select/select-krajee.min.css"/>
+<link rel="stylesheet" type="text/css" href="/public/admin/css/plugins/select/select.min.css"/>
+<script type="text/javascript" src="/public/admin/js/plugins/select/select2.full.min.js"></script>
+<script type="text/javascript" src="/public/admin/js/plugins/select/select2-krajee.min.js"></script>
+
+<style>
+    .select2-container .select2-selection--multiple{
+        height: 0px;
+    }
+</style>
+
+<body class="gray-bg">
+<div class="wrapper wrapper-content animated fadeIn">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <h5>代付中控</h5>
+                </div>
+                <div class="ibox-content">
+                    <div class="row input-groups">
+                        <div class="col-md-8 form-inline text-left">
+
+
+<!--                            <div class="form-group">-->
+<!--                                <a class="btn btn-sm btn-primary open-window" title="账号列表" href="{:U('userlist')}"><i-->
+<!--                                        class="fa fa-plus"></i> 账号列表</a>-->
+<!--                                <div class="input-group">-->
+<!--                                     <span class="input-group-btn">-->
+<!--                                            <button type="button"-->
+<!--                                                    class="btn btn-sm btn-info ">专区id</button> </span><input type="text" placeholder="请输入专区"-->
+<!--                                           class="input-sm form-control" id="zhuanqu" name="zhuanqu"-->
+<!--                                           value="{$user.zhuanqu}">-->
+
+<!--                                </div>-->
+<!--                            </div>-->
+
+
+<!--                            <div class="form-group">-->
+<!--                                <div class="input-group">-->
+<!--                                    <input type="text" placeholder="运营商"-->
+<!--                                           class="input-sm form-control" id="yunying" name="yunying"-->
+<!--                                           value="{$user.yunying}">-->
+<!--                                    <span class="input-group-btn">-->
+<!--                                            <button type="button"-->
+<!--                                                    class="btn btn-sm btn-info ">运营商 1移动 2联通 3电信</button> </span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+
+
+
+<!--                            <div class="form-group">-->
+<!--                                <div class="input-group">-->
+<!--                                   <span class="input-group-btn">-->
+<!--                                            <button type="button"-->
+<!--                                                    class="btn btn-sm btn-info ">账户</button> </span> <input type="text" placeholder="请输入账号"-->
+<!--                                           class="input-sm form-control" id="key" name="key"-->
+<!--                                           value="{$user.user}">-->
+
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                            <div class="form-group">-->
+<!--                                <div class="input-group">-->
+<!--                                     <input type="text" placeholder="请输入密码"-->
+<!--                                           class="input-sm form-control" id="pwd" name="pwd"-->
+<!--                                           value="{$user.pwd}">-->
+<!--                                    <span class="input-group-btn">-->
+<!--                                            <button type="button" id="baocun" url="{:U('mian')}"-->
+<!--                                                    class="btn btn-sm btn-info bc">登录账号</button> </span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                            <div class="form-group">-->
+<!--                                <div class="input-group">-->
+<!--                                    <input type="text" placeholder="请输入超时时间"-->
+<!--                                           class="input-sm form-control" id="te" name="te"-->
+<!--                                           value="{$user.te}">-->
+<!--                                    <span class="input-group-btn">-->
+<!--                                            <button type="button"-->
+<!--                                                    class="btn btn-sm btn-info ">分</button> </span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+                            
+                         
+<!--                            <div class="form-group">-->
+<!--                                <div class="input-group">-->
+<!--                                    <select id="prov_select" class="form-control" name="prov_select[]" multiple placeholder="请选择地区" data-s2-options="provSelectOptions" data-krajee-select2="selectInitData" style="display:none">-->
+<!--                                    </select>-->
+<!--                                    <span class="input-group-btn"><button id="updateAreaBtn" type="button" class="btn btn-sm btn-info ">更新地区</button></span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+
+<!--                            <div class="form-group">-->
+<!--                                <div class="input-group">-->
+<!--                                       <span class="input-group-btn">-->
+<!--                                            <button type="button"-->
+<!--                                                    class="btn btn-sm btn-info ">接单金额</button> </span>-->
+<!--&lt;!&ndash;                                    <input type="text" placeholder="请输入接单金额"&ndash;&gt;-->
+<!--&lt;!&ndash;                                           class="input-sm form-control" id="money" name="money"&ndash;&gt;-->
+<!--&lt;!&ndash;                                           value="{$user.money}">&ndash;&gt;-->
+<!--&lt;!&ndash;                                    <span class="input-group-btn">&ndash;&gt;-->
+<!--&lt;!&ndash;                                            <button type="button"&ndash;&gt;-->
+<!--&lt;!&ndash;                                                    class="btn btn-sm btn-info ">元</button> </span>&ndash;&gt;-->
+
+<!--                                    <a href="javascript:setmoney(10)" class="btn btn-sm {eq name="user.money10" value="1"}btn-warning{else/}btn-primary{/eq}  "   title=""-->
+<!--                                    style="padding: 4px 12px;" type="button">10</a>-->
+<!--                                    <a href="javascript:setmoney(20)" class="btn btn-sm {eq name="user.money20" value="1"}btn-warning{else/}btn-primary{/eq}  "   title=""-->
+<!--                                    style="padding: 4px 12px;" type="button">20</a>-->
+
+<!--                                        <a href="javascript:setmoney(30)" class="btn btn-sm {eq name="user.money30" value="1"}btn-warning{else/}btn-primary{/eq}  "   title=""-->
+<!--                                           style="padding: 4px 12px;" type="button">30</a>-->
+
+
+<!--                                        <a href="javascript:setmoney(50)" class="btn btn-sm {eq name="user.money50" value="1"}btn-warning{else/}btn-primary{/eq} "   title=""-->
+<!--                                           style="padding: 4px 12px;" type="button">50</a>-->
+
+
+<!--                                        <a href="javascript:setmoney(100)" class="btn btn-sm {eq name="user.money100" value="1"}btn-warning{else/}btn-primary{/eq} "   title=""-->
+<!--                                           style="padding: 4px 12px;" type="button">100</a>-->
+
+<!--                                    <a href="javascript:setmoney(200)" class="btn btn-sm {eq name="user.money200" value="1"}btn-warning{else/}btn-primary{/eq} "   title=""-->
+<!--                                       style="padding: 4px 12px;" type="button">200</a>-->
+
+<!--                                    <a href="javascript:setmoney(300)" class="btn btn-sm {eq name="user.money300" value="1"}btn-warning{else/}btn-primary{/eq} "   title=""-->
+<!--                                    style="padding: 4px 12px;" type="button">300</a>-->
+<!--                                    <a href="javascript:setmoney(500)" class="btn btn-sm {eq name="user.money500" value="1"}btn-warning{else/}btn-primary{/eq} "   title=""-->
+<!--                                    style="padding: 4px 12px;" type="button">500</a>-->
+
+
+
+
+<!--                                </div>-->
+<!--                            </div>-->
+<!--                            <div class="form-group">-->
+<!--                                <div class="input-group">-->
+<!--                                     <span class="input-group-btn">-->
+<!--                                            <button type="button"-->
+<!--                                                    class="btn btn-sm btn-info ">每次</button> </span>-->
+<!--                                    <input type="text" placeholder="请输入每次接单数量"-->
+<!--                                           class="input-sm form-control" id="count" name="count"-->
+<!--                                           value="{$user.count}">-->
+<!--                                    <span class="input-group-btn">-->
+<!--                                            <button type="button"-->
+<!--                                                    class="btn btn-sm btn-info ">单</button> </span>-->
+<!--                                </div>-->
+<!--                            </div>-->
+
+
+<!--                            <div class="form-group">-->
+<!--                                <a href="javascript:void(0)" class="btn btn-sm    {eq name="user.type" value="1"}btn-warning{else/}btn-primary{/eq} " id="qd" title="启动"-->
+<!--                                   style="padding: 4px 12px;" type="button">{eq name="user.type" value="1"}停止程序{else/}开始接单{/eq}</a>-->
+<!--                            </div>-->
+                            <div class="form-group">
+                                <a href="javascript:void(0)" class="btn btn-sm btn-primary zdsx"   title="自动刷新"
+                                style="padding: 4px 12px;" type="button" >开启自动刷新
+                                    </a>
+                            </div>
+                            <div class="form-group">
+                                <a href="javascript:void(0)" class="btn btn-sm btn-primary sjqingli"   title="清理数据"
+                                   style="padding: 4px 12px;" type="button">清理数据</a>
+                            </div>
+                            <div class="form-group">
+                                <a href="javascript:void(0)" class="btn btn-sm btn-primary ladan" {if $is_getplan == 0} theval="1"{else}theval="0"{/if}  title="开始拉单"
+                                   style="padding: 4px 12px;" type="button">
+                                    {if $is_getplan == 0}
+                                    开启拉单
+                                    {else}
+                                    关闭拉单
+                                    {/if}</a>
+                            </div>
+                            <div class="form-group">
+                                <a href="javascript:void(0)" class="btn btn-sm btn-primary paifa" {if $is_pf == 0} theval="1"{else}theval="0"{/if}  title="清理数据"
+                                   style="padding: 4px 12px;" type="button">
+                                    {if $is_pf == 0}
+                                    开启派发
+                                    {else}
+                                    关闭派发
+                                    {/if}</a>
+                            </div>
+                            <div class="form-group">
+                                <a href="javascript:void(0)" class="btn btn-sm btn-primary xzx" {if $is_xzx == 0} theval="1"{else}theval="0"{/if}  title="闲赚侠拉单"
+                                style="padding: 4px 12px;" type="button">
+                                {if $is_xzx == 0}
+                                闲赚侠开启拉单
+                                {else}
+                                闲赚侠关闭拉单
+                                {/if}</a>
+                            </div>
+                            <div class="form-group">
+                                <a class="btn btn-sm btn-white open-reload"><i
+                                        class="glyphicon glyphicon-repeat"></i></a>
+                            </div>
+                        </div>
+
+
+
+
+                        <div class="col-md-4 m-b-xs form-inline text-right">
+                            <div class="form-group">
+                                <select class="input-sm form-control input-s-sm inline serach_selects" name="status"
+                                        style="width: auto;">
+                                    <option value="0"
+                                    <?php if(I('status')== 0){ echo "selected='selected'"; } ?>>全部</option>
+                                    <option value="1"
+                                    <?php if(I('status')== 1){ echo "selected='selected'"; } ?>>禁用</option>
+                                    <option value="2"
+                                    <?php if(I('status')== 2){ echo "selected='selected'"; } ?>>启用</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <div class="input-group">
+                                    <input type="text" placeholder="请输入关键词(ID或昵称)"
+                                           class="input-sm form-control" name="key"
+                                           value="{:I('key')}">
+                                    <span class="input-group-btn">
+                                            <button type="button" id="search" url="{:U('mian')}"
+                                                    class="btn btn-sm btn-primary">搜索</button> </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>上游单号</th>
+                                <th>本地单号</th>
+                                <th>充值账户</th>
+                                <th>面值</th>
+                                <th>备注</th>
+                                
+                                <th>接单时间</th>
+                                <th>超时时间</th>
+                                <th>上报时间</th>
+                                <th>上游订单状态</th>
+                                <th>系统订单状态</th>
+                                <th>结算状态</th>
+                                <th>订单类型</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {volist name='list' id='member'}
+                            <tr>
+                                <td
+                                        style="
+<?php if($member['is_cs'] == 1){echo "color:#00c103";} ?>
+                                <?php if($member['is_cs'] == 2){echo "color:#e7c002";} ?>
+                                <?php if($member['is_cs'] == 3){echo "color:#c3061a";} ?>
+"
+
+                                >
+                                    {$member.id}
+                                </td>
+                                <td>
+                                    {$member.order_id}
+                                </td>
+                                <td>{$member.yr_order_id}</td>
+                                <td>{$member.account}</td>
+                                <td>{$member.denom}
+                                </td>
+                                <td>{$member.beizhu}</td>
+                                <td>{$member.createTime}</td>
+                                <td>{$member.chargeTime}</td>
+                                <td>{$member.uploadTime}</td>
+                                <td>{if condition="($member['status'] == 5)"} 充值中
+
+                                    {elseif condition="$member['status'] eq 6"/}成功
+                                    {elseif condition="$member['status'] eq 7"/}申请人工介入
+                                    {elseif condition="$member['status'] eq 8"/}待确认
+                                    {elseif condition="$member['status'] eq 9"/}弃单
+
+                                    {else /}
+                                    未知
+
+                                    {/if}/{$member.status}</td>
+                                <td style="">
+                                    {if condition="($member['type'] == 0)"} 系统充值中
+
+                                    {elseif condition="$member['type'] eq 1"/}已上报失败
+                                    {elseif condition="$member['type'] eq 2"/}已上报成功
+
+                                    {/if}
+
+
+                                </td>
+                                <td>
+                                    {if condition="($member['settleStatus'] == 0)"} 未结算
+
+                                    {elseif condition="$member['settleStatus'] eq 1"/}已结算
+                                    {elseif condition="$member['settleStatus'] eq 3"/}结算中
+
+                                    {/if}
+
+
+                                </td>
+                                <td>{$member.way}</td>
+                                <td>
+
+                                    <a class="ajax-get text-warning" title="上报成功"
+                                       href="{:U('setstaus?id='.$member.order_id)}">
+                                        上报成功</a>
+                                    {eq name="member.status" value="1"}
+                                    {else/}
+                                    {/eq}
+                                    <a class="ajax-get text-danger" title="上报失败"
+                                       href="{:U('setstaus_w?id='.$member.order_id)}">上报失败</a>
+
+
+                                    <a class="ajax-get confirm text-danger" title="删除"
+                                       href="{:U('deletes?id='.$member.id)}">删除</a>
+
+                                </td>
+                            </tr>
+                            {/volist}
+                            </tbody>
+                        </table>
+
+                    </div>
+                    {$page}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<input id="sss" type="hidden" value="1">
+
+<script>
+    var provSelectOptions = {"themeCss":".select2-container--krajee","sizeCss":"","doReset":true,"doToggle":true,"doOrder":false};
+    window.selectInitData = {"theme":"krajee","width":"100%","placeholder":"请选择地区","language":"zh-CN"};
+    const daichongsProv = JSON.parse('{:json_encode($daichongs_prov)}')
+    $(document).ready(function () {
+
+        // setmoneysss(1);
+        setInterval("startRequest()",5000);
+        
+        
+        const provSelectList = [{"value": "北京","name": "北京"},{"value": "广东","name": "广东"},{"value": "上海","name": "上海"},{"value": "天津","name": "天津"},{"value": "重庆","name": "重庆"},{"value": "辽宁","name": "辽宁"},{"value": "江苏","name": "江苏"},{"value": "湖北","name": "湖北"},{"value": "四川","name": "四川"},{"value": "陕西","name": "陕西"},{"value": "河北","name": "河北"},{"value": "山西","name": "山西"},{"value": "河南","name": "河南"}, {"value": "吉林","name": "吉林"}, {"value": "黑龙江","name": "黑龙江"}, {"value": "内蒙古","name": "内蒙古"}, {"value": "山东","name": "山东"}, {"value": "安徽","name": "安徽"}, {"value": "浙江","name": "浙江"}, {"value": "福建","name": "福建"}, {"value": "湖南","name": "湖南"}, {"value": "广西","name": "广西"}, {"value": "江西","name": "江西"}, {"value": "贵州","name": "贵州"}, {"value": "云南","name": "云南"}, {"value": "西藏","name": "西藏"}, {"value": "海南","name": "海南"}, {"value": "甘肃","name": "甘肃"}, {"value": "宁夏","name": "宁夏"}, {"value": "青海","name": "青海"}, {"value": "新疆","name": "新疆"}];
+        let selectHtml = ``
+        provSelectList.forEach((item) => {
+            if($.inArray(item.value , daichongsProv) == -1){
+                selectHtml += `<option value="${item.value}" >${item.name}</option>`
+            }else{
+                selectHtml += `<option value="${item.value}" selected>${item.name}</option>`
+            }
+        })
+        $('#prov_select').append(selectHtml)
+        if ($('#prov_select').data('select2')){
+            $('#prov_select').select2('destroy');
+        }
+        $.when($('#prov_select').select2(selectInitData)).done(initS2Loading('prov_select','provSelectOptions'));
+        
+        
+    });
+    //预览账号密码
+    // $(function () {
+    //     setTimeout(function () {
+    //         myrefresh();
+    //     }, 3000);
+    //     setTimeout('myrefresh()',1000);
+    // });
+
+    function startRequest(){
+
+        var sss = $("#sss").val();
+        // layer.msg(sss);
+        if(sss>0){
+            // layer.msg('自动刷新启动成功！');
+            // getplan()
+            location.reload();
+        }
+    }
+    function getplan(){
+
+        var url = "{:url('daichongs/getplan')}";
+        $.get(url,function(data,status){
+            var code = data.errno;
+            if(code != 0){
+                var errmsg = data.errmsg;
+                layer.msg(errmsg);
+            }
+            // console.log(data);
+
+            // alert("数据: " + data + "\n状态: " + status);
+        });
+
+
+
+    }
+
+    function setmoneysss(e){
+
+        var url = "{:url('daichongs/zidonghua')}";
+        $.get(url+"?money=money"+e,function(data,status){
+
+
+            // alert("数据: " + data + "\n状态: " + status);
+        });
+
+
+
+    }
+
+
+
+    function setmoney(e){
+
+        var url = "{:url('daichongs/moneyset')}";
+        $.get(url+"?money=money"+e,function(data,status){
+            if(data.code==1){
+                layer.msg(e+'金额设置成功！');
+
+               // alert('注意：只能同时接一个金额的订单！');
+
+                location.reload();
+            }else{
+                layer.msg(e+'设置失败！');
+                location.reload();
+        }
+
+            // alert("数据: " + data + "\n状态: " + status);
+        });
+
+
+
+    }
+
+    $('.sjqingli').click(function () {
+
+        var url = "{:url('daichongs/deall')}";
+                alert("操作后会清理完所有数据 注意这是危险操作！");
+        $.get(url,function(data,status){
+            if(data.code==1){
+                layer.msg('清理成功！');
+            }else{
+                layer.msg('清理失败！');
+            }
+
+            // alert("数据: " + data + "\n状态: " + status);
+        });
+    });
+    $('.paifa').click(function(){
+        var val = $(this).attr('theval');
+        // alert(val);
+        var url = "{:url('daichongs/setpf')}";
+        // alert(url);return;
+        $.get(url+'?val='+val,function(data,status){
+              if(data.errno == 0){
+               location.reload();
+              }
+        })
+            
+    })
+     $('.xzx').click(function(){
+        var val = $(this).attr('theval');
+        // alert(val);
+        var url = "{:url('daichongs/setxzx')}";
+        // alert(url);return;
+        $.get(url+'?val='+val,function(data,status){
+              if(data.errno == 0){
+               location.reload();
+              }
+        })
+            
+    })
+    $('#baocun').click(function () {
+       var key = $("#key").val();
+       var pwd = $("#pwd").val();
+       var te = $("#te").val();
+        var zhuanqu  = $("#zhuanqu").val();
+        var yunying = $("#yunying").val();
+        if(zhuanqu.length<1){
+
+            layer.msg('请输入专区号！');
+            return ;
+        }
+       if(key.length<1){
+
+           layer.msg('请输入用户名！');
+           return ;
+       }
+       if(pwd.length<1){
+           layer.msg('请输入密码！');
+           return ;
+       }
+        var url = "{:url('login/newdaichonglog')}";
+        $.get(url+"?user="+key+"&pwd="+pwd+"&te="+te+"&zhuanqu="+zhuanqu+"&yunying="+yunying,function(data,status){
+                if(data.code==1){
+                    layer.msg('保存账号成功！');
+                }else{
+                    layer.msg('保存账号失败！');
+                }
+
+           // alert("数据: " + data + "\n状态: " + status);
+        });
+
+
+        $('#baocun').addClass('btn-warning');
+    });
+
+    $('.zdsx').click(function () {
+        layer.msg('自动刷新！');
+        var txt =  $('.zdsx').text();
+        var val = $(this).attr('theval');
+        if(val== 0){
+            $('.zdsx').text('开启自动刷新');
+            $('.zdsx').removeClass('btn-info');
+            $('.zdsx').addClass('btn-warning');
+            $("#sss").val(0);
+            
+        }else{
+            $("#sss").val(1);
+            $('.zdsx').text('关闭自动刷新');
+            $('.zdsx').addClass('btn-info');
+            $('.zdsx').removeClass('btn-warning');
+            
+
+        }
+        
+        
+
+    });
+    $(".ladan").click(function(){
+         var val = $(this).attr('theval');
+         var url = "{:url('daichongs/setgetplan')}";
+        $.get(url+'?val='+val,function(data,status){
+              if(data.errno == 0){
+               location.reload();
+              }
+        })
+    })
+    //ajax 加入S 缓存提示系统启动成功
+    $('#qd').click(function () {
+        var yunying = $("#yunying").val();
+        var count = $("#count").val();
+        var te = $("#te").val();
+        var txt =  $('#qd').text();
+        var prov = $("#prov_select").val()?.join(',')
+        console.log(txt);
+
+        if(txt=='停止程序'){
+            $('#qd').text('启动程序');
+            $('#qd').addClass('btn-info');
+            $('#qd').removeClass('btn-warning');
+
+            //停止操作
+            var url = "{:url('daichongs/stop')}";
+            $.get(url,function(data,status){
+                if(data.code==1){
+                    layer.msg('系统停止成功！');
+                }else{
+                    layer.msg('系统停止失败！');
+                }
+
+                // alert("数据: " + data + "\n状态: " + status);
+            });
+
+
+        }else{
+            $('#qd').text('停止程序');
+            $('#qd').removeClass('btn-info'); 
+            $('#qd').addClass('btn-warning');
+            //启动操作
+            var url = "{:url('daichongs/start')}";
+            $.get(url+"?&yunying="+yunying+'&count='+count+"&te="+te+"&prov="+(prov==undefined?"":prov),function(data,status){
+                if(data.code==1){
+                    layer.msg('系统启动成功！');
+                }else{
+                    layer.msg('系统启动失败！');
+                }
+
+                // alert("数据: " + data + "\n状态: " + status);
+            });
+
+        }
+
+
+
+    });
+
+
+
+    $(".resetpwd").click(function () {
+        $("#uppwdid").val($(this).data("id"));
+        $("#uppwdModal").show();
+    });
+    
+    $("#updateAreaBtn").click(function(){
+        let data = $('#prov_select').val()
+        if(data == null){
+            data = null
+        }
+        $.post('./update_prov', {'prov_data': data}, function (res){
+            layer.msg('更新成功');
+        })
+    })
+
+    function closeuppwdModal() {
+        $("#uppwdModal").hide();
+    }
+    $(".resetgoogle").click(function () {
+        $("#googleid").val($(this).data("id"));
+        $("#googleModal").show();
+    });
+
+    function closegoogleModal() {
+        $("#googleModal").hide();
+    }
+</script>
+</body>
+</html>

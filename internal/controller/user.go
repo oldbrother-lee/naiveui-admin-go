@@ -1,11 +1,10 @@
 package controller
 
 import (
+	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
-
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -93,19 +92,30 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 }
 
 func (c *UserController) ListUsers(ctx *gin.Context) {
-	current, _ := strconv.Atoi(ctx.DefaultQuery("current", "1"))
-	size, _ := strconv.Atoi(ctx.DefaultQuery("size", "10"))
+	var req struct {
+		Page     int    `form:"page" binding:"required"`
+		PageSize int    `form:"pageSize" binding:"required"`
+		UserName string `form:"user_name"`
+		Phone    string `form:"phone"`
+		Email    string `form:"email"`
+		Status   *int   `form:"status"`
+	}
 
-	users, total, err := c.userService.ListUsers(current, size)
+	if err := ctx.ShouldBindQuery(&req); err != nil {
+		utils.Error(ctx, 400, err.Error())
+		return
+	}
+	fmt.Println(req.Page, req.PageSize)
+	users, total, err := c.userService.GetUserList(req.Page, req.PageSize, req.UserName, req.Phone, req.Email, req.Status)
 	if err != nil {
 		utils.Error(ctx, 500, err.Error())
 		return
 	}
 
 	utils.Success(ctx, gin.H{
-		"records": users,
-		"total":   total,
-		"current": current,
-		"size":    size,
+		"records":  users,
+		"total":    total,
+		"page":     req.Page,
+		"pageSize": req.PageSize,
 	})
 }

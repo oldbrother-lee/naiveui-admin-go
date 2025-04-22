@@ -35,6 +35,11 @@ func InitDB() error {
 		&model.Role{},
 		&model.Permission{},
 		&model.RolePermission{},
+		&model.ProductType{},
+		&model.ProductTypeCategory{},
+		&model.Platform{},
+		&model.PlatformAccount{},
+		&model.PlatformAPI{},
 	)
 	if err != nil {
 		return err

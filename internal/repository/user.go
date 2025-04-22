@@ -14,6 +14,11 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// DB 返回数据库连接
+func (r *UserRepository) DB() *gorm.DB {
+	return r.db
+}
+
 func (r *UserRepository) Create(user *model.User) error {
 	return r.db.Create(user).Error
 }
@@ -44,11 +49,26 @@ func (r *UserRepository) Delete(id int64) error {
 	return r.db.Delete(&model.User{}, id).Error
 }
 
-func (r *UserRepository) List(page, pageSize int) ([]model.User, int64, error) {
+func (r *UserRepository) List(page, pageSize int, userName, phone, email string, status *int) ([]model.User, int64, error) {
 	var users []model.User
 	var total int64
 
 	query := r.db.Model(&model.User{})
+
+	// 添加搜索条件
+	if userName != "" {
+		query = query.Where("username LIKE ?", "%"+userName+"%")
+	}
+	if phone != "" {
+		query = query.Where("phone LIKE ?", "%"+phone+"%")
+	}
+	if email != "" {
+		query = query.Where("email LIKE ?", "%"+email+"%")
+	}
+
+	if status != nil {
+		query = query.Where("status = ?", *status)
+	}
 
 	// 计算总数
 	err := query.Count(&total).Error

@@ -90,7 +90,7 @@ func (s *UserService) Login(req *model.UserLoginRequest) (*model.UserLoginRespon
 		RefreshToken: token, // 暂时使用相同的 token
 		UserInfo: model.UserInfo{
 			UserId:   strconv.FormatInt(user.ID, 10),
-			UserName: user.Username,
+			Username: user.Username,
 			Roles:    roles,
 			Buttons:  []string{}, // 暂时返回空数组
 		},
@@ -146,9 +146,24 @@ func (s *UserService) GetUserProfile(userID int64) (*model.User, error) {
 }
 
 func (s *UserService) ListUsers(page, pageSize int) ([]model.User, int64, error) {
-	return s.userRepo.List(page, pageSize)
+	return s.userRepo.List(page, pageSize, "", "", "", nil)
 }
 
 func (s *UserService) GetUserWithRoles(userID int64) (*model.UserWithRoles, error) {
 	return s.userRepo.GetUserWithRoles(userID)
+}
+
+func (s *UserService) GetUserList(Page, PageSize int, userName, phone, email string, status *int) ([]*model.User, int64, error) {
+	users, total, err := s.userRepo.List(Page, PageSize, userName, phone, email, status)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 转换为指针类型
+	userPtrs := make([]*model.User, len(users))
+	for i := range users {
+		userPtrs[i] = &users[i]
+	}
+
+	return userPtrs, total, nil
 }

@@ -1,0 +1,145 @@
+{include file="public/header" /}
+
+<body class="gray-bg">
+<div class="wrapper wrapper-content animated fadeIn">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <h5>代付中控</h5>
+                </div>
+                {if $zdhq == 1}
+                <div class="form-group">
+                    <a href="javascript:void(0)" class="btn btn-sm btn-primary" onclick="kq(2)"   title="关闭自动取单"
+                       style="padding: 4px 12px;" type="button">关闭自动取单</a>
+                </div>
+                {else}
+                <div class="form-group">
+                    <a href="javascript:void(0)" class="btn btn-sm btn-primary" onclick="kq(1)"   title="开启自动取单"
+                       style="padding: 4px 12px;" type="button">开启自动取单</a>
+                </div>
+                {/if}
+                 <div class="form-group">
+                    <a class="btn btn-sm btn-primary" onclick="pf()">派发测试</a>
+                </div>
+                
+                <div class="ibox-content">
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>上游单号</th>
+                                <th>本地单号</th>
+                                <th>充值账户</th>
+                                <th>面值</th>
+                                <th>结算价格</th>
+                                <th>创建时间</th>
+                                <th>接单时间</th>
+                                <th>上报完成时间</th>
+                                <th>上游订单状态</th>
+                                <th>系统订单状态</th>
+                                <th>结算状态</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {volist name='list' id='member'}
+                            <tr>
+                                <td>
+                                    {$member.id}
+                                </td>
+                                <td>
+                                    {$member.order_id}
+                                </td>
+                                <td>{$member.order_sn}</td>
+                                <td>{$member.account}</td>
+                                <td>{$member.denom}
+                                </td>
+                                <td>{$member.settlePrice}</td>
+                                <td>{$member.createTime}</td>
+                                <td>{$member.chargeTime}</td>
+                                <td>{$member.uploadTime}</td>
+                                 <td>{if condition="($member['status'] == 1)"} 待支付
+
+                                    {elseif condition="$member['status'] eq 2"/}已支付
+                                    {elseif condition="$member['status'] eq 3"/}已上报
+
+                                    {else /}
+                                    未知
+
+                                    {/if}/{$member.status}</td>
+                                <td style="">
+
+
+
+                                </td>
+                                <td>
+
+
+
+                                </td>
+                                <td>
+                                    <a class="ajax-get confirm text-danger" title="删除"
+                                       href="{:U('deletes?id='.$member.id)}">删除</a>
+
+                                </td>
+                            </tr>
+                            {/volist}
+                            </tbody>
+                        </table>
+
+                    </div>
+                    {$page}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<input id="sss" type="hidden" value="1">
+
+<script>
+    $(document).ready(function () {
+
+        // setmoneysss(1);
+        
+    });
+    function kq(val) {
+        var url = 'zdhq';
+        if(val == 1){
+            var url = url+'?way=1';
+            $.get(url,function(data,status){
+                console.log(data);
+                // window.timer = setInterval("startRequest()",10000);
+                // location.reload();
+                
+            });
+        }else{
+            var url = url + '?way=2'
+            $.get(url,function(data,status){
+                console.log(data);
+                // location.reload();
+                // clearTimeout(window.timer);
+
+            });        }
+    }
+    function startRequest() {
+        var url="zdhq?way=1";
+        $.get(url,function(data,status){
+            console.log(data);
+            location.reload();
+
+        });
+    }
+    function pf() {
+        var url = "paifa";
+        $.get(url,function (data,status) {
+            console.log(data);
+             var msg = data.errmsg;
+            layer.msg(msg);
+        })
+    }
+</script>
+</body>
+</html>

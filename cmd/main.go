@@ -52,19 +52,41 @@ func main() {
 	userRepo := repository.NewUserRepository(database.DB)
 	permissionRepo := repository.NewPermissionRepository(database.DB)
 	roleRepo := repository.NewRoleRepository(database.DB)
+	productRepo := repository.NewProductRepository(database.DB)
+	phoneLocationRepo := repository.NewPhoneLocationRepository(database.DB)
+	productTypeRepo := repository.NewProductTypeRepository(database.DB)
+	productTypeCateRepo := repository.NewProductTypeCategoryRepository(database.DB)
+	platformRepo := repository.NewPlatformRepository(database.DB)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo)
 	permissionService := service.NewPermissionService(permissionRepo)
 	roleService := service.NewRoleService(roleRepo)
+	productService := service.NewProductService(productRepo)
+	phoneLocationService := service.NewPhoneLocationService(phoneLocationRepo)
+	productTypeService := service.NewProductTypeService(productTypeRepo, productTypeCateRepo)
+	platformService := service.NewPlatformService(platformRepo)
 
 	// Initialize controllers
 	userController := controller.NewUserController(userService)
 	permissionController := controller.NewPermissionController(permissionService)
 	roleController := controller.NewRoleController(roleService)
+	productController := controller.NewProductController(productService)
+	phoneLocationController := controller.NewPhoneLocationController(phoneLocationService)
+	productTypeController := controller.NewProductTypeController(productTypeService)
+	platformController := controller.NewPlatformController(platformService)
 
-	// Setup router
-	r := router.SetupRouter(userController, permissionController, roleController, userService)
+	// Setup router with dependencies
+	r := router.SetupRouter(
+		userController,
+		permissionController,
+		roleController,
+		productController,
+		userService,
+		phoneLocationController,
+		productTypeController,
+		platformController,
+	)
 
 	// Swagger
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

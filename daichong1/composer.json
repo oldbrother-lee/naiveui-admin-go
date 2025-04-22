@@ -1,0 +1,6 @@
+{
+    "require": {
+        "kkokk/poster": "^2.2",
+        "topthink/think-queue": "1.1.4"
+    }
+}

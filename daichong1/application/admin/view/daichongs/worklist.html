@@ -1,0 +1,124 @@
+{include file="public/header" /}
+<style>
+    .table-bordered > tbody > tr:hover {
+        background-color: #f5f5f5
+    }
+</style>
+<body class="gray-bg">
+<div class="wrapper wrapper-content animated fadeIn">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <h5>用户管理</h5>
+                </div>
+                <div class="ibox-content">
+                    <div class="row input-groups">
+                        <div class="col-md-3 form-inline text-left">
+                            <div class="form-group">
+                                <a class="btn btn-sm btn-white open-reload"><i class="glyphicon glyphicon-repeat"></i></a>
+                                <!--<a class="btn btn-sm btn-primary open-window" title="一键修改任务"-->
+                                <!--   href="{:U('alladdwork',['userid'=>$userid])}"><i-->
+                                <!--        class="fa fa-plus"></i> 一键修改任务</a>-->
+                                        <a class="btn btn-sm btn-primary open-window" title="新增"
+                                   href="{:U('addwork',['userid'=>$userid])}"><i
+                                        class="fa fa-plus"></i> 新增</a>
+
+                            </div>
+
+                        </div>
+                        <div class="col-md-10 m-b-xs form-inline text-right">
+                        </div>
+
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                            <tr>
+                                <th>id</th>
+                                <th>userid</th>
+                                <th>运营商</th>
+                                <th>地区</th>
+                                <th>金额</th>
+                                <th>每次接单数量</th>
+                                <th>超时时间</th>
+                                <th>任务状态</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {volist name="list" id="vo"}
+                            <tr>
+                                <td>{$vo.id}</td>
+                                <td>{$vo.user_id}</td>
+                                <td>{$vo.yunying}</td>
+                                <td>{$vo.prov_select}</td>
+                                <td>{$vo.money}</td>
+                                <td>{$vo.count}</td>
+                                <td>{$vo.te}</td>
+                                <td>{$vo.status}</td>
+                                <td>
+                                    <a class="open-window"
+                                       href="{:U('addwork',['id'=>$vo['id']])}"
+                                       title="编辑" >编辑</a>
+                                        <a onclick="del({$vo.id})"
+                                       title="删除" >删除</a>
+                                </td>
+                            </tr>
+                            {/volist}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+        $('.i-checks').iCheck({
+            checkboxClass: 'icheckbox_square-green',
+            radioClass: 'iradio_square-green'
+        });
+    });
+    $("#search,#excel").click(function () {
+        var url = $(this).attr('url');
+        var query = $('.input-groups').find('input').serialize();
+        var select = $('.input-groups').find('select').serialize();
+        query = query.replace(/(&|^)(\w*?\d*?\-*?_*?)*?=?((?=&)|(?=$))/g, '');
+        query = query.replace(/^&/g, '');
+        if (url.indexOf('?') > 0) {
+            url += '&' + query;
+        } else {
+            url += '?' + query;
+        }
+        if (url.indexOf('?') > 0) {
+            url += '&' + select;
+        } else {
+            url += '?' + select;
+        }
+        window.location.href = url;
+    });
+    //回车搜索
+    $(".input-sm").keyup(function (e) {
+        if (e.keyCode === 13) {
+            $("#search").click();
+            return false;
+        }
+    });
+    $(".serach_selects").change(function () {
+        $("#search").click();
+        return false;
+    });
+    function del(id){
+       
+         var url = "{:url('daichongs/delwork')}";
+        $.get(url+'?id='+id,function(data,status){
+                layer.msg('删除成功');
+                location.reload();
+        })
+            
+    }
+</script>
+</body>
+</html>

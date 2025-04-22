@@ -109,12 +109,26 @@ func (s *PermissionService) DeletePermission(id int64) error {
 	return s.permissionRepo.Delete(id)
 }
 
-func (s *PermissionService) CreatePermission(permission *model.Permission) (*model.Permission, error) {
-	err := s.permissionRepo.Create(permission)
-	if err != nil {
-		return nil, err
+func (s *PermissionService) CreatePermission(req *model.PermissionRequest) error {
+	permission := &model.Permission{
+		Code:        req.Code,
+		Name:        req.Name,
+		Type:        req.Type,
+		ParentID:    req.ParentID,
+		Path:        req.Path,
+		Component:   req.Component,
+		Icon:        req.Icon,
+		Layout:      req.Layout,
+		Method:      req.Method,
+		Description: req.Description,
+		Show:        req.Show,
+		Enable:      req.Enable,
+		Order:       req.Order,
+		KeepAlive:   req.KeepAlive,
+		Redirect:    req.Redirect,
 	}
-	return permission, nil
+
+	return s.permissionRepo.Create(permission)
 }
 
 func (s *PermissionService) UpdatePermission(permission *model.Permission) (*model.Permission, error) {
@@ -123,4 +137,14 @@ func (s *PermissionService) UpdatePermission(permission *model.Permission) (*mod
 		return nil, err
 	}
 	return permission, nil
+}
+
+// GetByRoleID 根据角色ID获取权限
+func (s *PermissionService) GetByRoleID(roleID int64) ([]*model.Permission, error) {
+	return s.permissionRepo.GetByRoleID(roleID)
+}
+
+// AssignToRole 为角色分配权限
+func (s *PermissionService) AssignToRole(roleID int64, permissionIDs []int64) error {
+	return s.permissionRepo.AssignToRole(roleID, permissionIDs)
 }

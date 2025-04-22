@@ -75,23 +75,22 @@ func (r *PermissionRepository) GetTree() ([]*model.PermissionTree, error) {
 	// First pass: create all nodes
 	for _, p := range permissions {
 		permissionTree := &model.PermissionTree{
-			ID:          p.ID,
-			Code:        p.Code,
-			Name:        p.Name,
-			Type:        p.Type,
-			ParentID:    p.ParentID,
-			Path:        p.Path,
-			Component:   p.Component,
-			Icon:        p.Icon,
-			Layout:      p.Layout,
-			Method:      p.Method,
-			Description: p.Description,
-			Show:        p.Show,
-			Enable:      p.Enable,
-			Order:       p.Order,
-			KeepAlive:   p.KeepAlive,
-			Redirect:    p.Redirect,
-			Children:    make([]*model.PermissionTree, 0),
+			ID:        p.ID,
+			Code:      p.Code,
+			Name:      p.Name,
+			Type:      p.Type,
+			ParentID:  p.ParentID,
+			Path:      p.Path,
+			Component: p.Component,
+			Icon:      p.Icon,
+			Layout:    p.Layout,
+			Method:    p.Method,
+			Show:      p.Show,
+			Enable:    p.Enable,
+			Order:     p.Order,
+			KeepAlive: p.KeepAlive,
+			Redirect:  p.Redirect,
+			Children:  make([]*model.PermissionTree, 0),
 		}
 		permissionMap[p.ID] = permissionTree
 	}
@@ -102,7 +101,8 @@ func (r *PermissionRepository) GetTree() ([]*model.PermissionTree, error) {
 		if p.ParentID == nil {
 			rootPermissions = append(rootPermissions, permissionTree)
 		} else {
-			if parent, ok := permissionMap[*p.ParentID]; ok {
+			parent, exists := permissionMap[*p.ParentID]
+			if exists {
 				parent.Children = append(parent.Children, permissionTree)
 			}
 		}
@@ -118,37 +118,41 @@ func (r *PermissionRepository) GetMenuTree() ([]*model.PermissionTree, error) {
 		return nil, err
 	}
 
-	// Build menu tree
+	// Build permission tree
 	permissionMap := make(map[int64]*model.PermissionTree)
 	var rootPermissions []*model.PermissionTree
 
+	// First pass: create all nodes
 	for _, p := range permissions {
 		permissionTree := &model.PermissionTree{
-			ID:          p.ID,
-			Code:        p.Code,
-			Name:        p.Name,
-			Type:        p.Type,
-			ParentID:    p.ParentID,
-			Path:        p.Path,
-			Component:   p.Component,
-			Icon:        p.Icon,
-			Layout:      p.Layout,
-			Method:      p.Method,
-			Description: p.Description,
-			Show:        p.Show,
-			Enable:      p.Enable,
-			Order:       p.Order,
-			KeepAlive:   p.KeepAlive,
-			Redirect:    p.Redirect,
-			Children:    make([]*model.PermissionTree, 0),
+			ID:        p.ID,
+			Code:      p.Code,
+			Name:      p.Name,
+			Type:      p.Type,
+			ParentID:  p.ParentID,
+			Path:      p.Path,
+			Component: p.Component,
+			Icon:      p.Icon,
+			Layout:    p.Layout,
+			Method:    p.Method,
+			Show:      p.Show,
+			Enable:    p.Enable,
+			Order:     p.Order,
+			KeepAlive: p.KeepAlive,
+			Redirect:  p.Redirect,
+			Children:  make([]*model.PermissionTree, 0),
 		}
-
 		permissionMap[p.ID] = permissionTree
+	}
 
+	// Second pass: build tree structure
+	for _, p := range permissions {
+		permissionTree := permissionMap[p.ID]
 		if p.ParentID == nil {
 			rootPermissions = append(rootPermissions, permissionTree)
 		} else {
-			if parent, ok := permissionMap[*p.ParentID]; ok {
+			parent, exists := permissionMap[*p.ParentID]
+			if exists {
 				parent.Children = append(parent.Children, permissionTree)
 			}
 		}
@@ -159,7 +163,7 @@ func (r *PermissionRepository) GetMenuTree() ([]*model.PermissionTree, error) {
 
 func (r *PermissionRepository) GetButtonPermissions() ([]model.Permission, error) {
 	var permissions []model.Permission
-	err := r.db.Where("type = ?", "BUTTON").Order("`order` asc").Find(&permissions).Error
+	err := r.db.Where("type = ?", "BUTTON").Find(&permissions).Error
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +173,7 @@ func (r *PermissionRepository) GetButtonPermissions() ([]model.Permission, error
 // GetAll retrieves all permissions
 func (r *PermissionRepository) GetAll() ([]*model.Permission, error) {
 	var permissions []*model.Permission
-	err := r.db.Order("`order` asc").Find(&permissions).Error
+	err := r.db.Find(&permissions).Error
 	if err != nil {
 		return nil, err
 	}
@@ -179,9 +183,52 @@ func (r *PermissionRepository) GetAll() ([]*model.Permission, error) {
 // GetByType retrieves permissions by type
 func (r *PermissionRepository) GetByType(permissionType string) ([]*model.Permission, error) {
 	var permissions []*model.Permission
-	err := r.db.Where("type = ?", permissionType).Order("`order` asc").Find(&permissions).Error
+	err := r.db.Where("type = ?", permissionType).Find(&permissions).Error
 	if err != nil {
 		return nil, err
 	}
 	return permissions, nil
+}
+
+// GetByRoleID 根据角色ID获取权限
+func (r *PermissionRepository) GetByRoleID(roleID int64) ([]*model.Permission, error) {
+	var permissions []*model.Permission
+	err := r.db.Table("permissions").
+		Joins("JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+		Where("role_permissions.role_id = ?", roleID).
+		Find(&permissions).Error
+	if err != nil {
+		return nil, err
+	}
+	return permissions, nil
+}
+
+// AssignToRole 为角色分配权限
+func (r *PermissionRepository) AssignToRole(roleID int64, permissionIDs []int64) error {
+	// 开启事务
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// 删除角色原有的权限
+	if err := tx.Where("role_id = ?", roleID).Delete(&model.RolePermission{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// 添加新的权限
+	for _, permissionID := range permissionIDs {
+		rolePermission := &model.RolePermission{
+			RoleID:       roleID,
+			PermissionID: permissionID,
+		}
+		if err := tx.Create(rolePermission).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// 提交事务
+	return tx.Commit().Error
 }

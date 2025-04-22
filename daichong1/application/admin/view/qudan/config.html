@@ -1,0 +1,57 @@
+{include file="public/header" /}
+
+<body class="gray-bg">
+<div class="wrapper wrapper-content animated fadeIn">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="ibox float-e-margins">
+                <div class="ibox-title">
+                    <div class="col-sm-7 m-b-xs">
+                        <a class="btn btn-primary open-window no-refresh btn-sm"
+                           href="{:U('addconfig',array('pid'=>I('get.pid',0),'module'=>''))}"><i
+                                class="fa fa-plus"></i> 新增</a>
+                        <a class="btn btn-white open-reload btn-sm"><i class="glyphicon glyphicon-repeat"></i></a>
+                    </div>
+                </div>
+                <div class="ibox-content">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                            <tr>
+                                <th>渠道ID</th>
+                                <th>运营商</th>
+                                <th>省份</th>
+                                <th>面值</th>
+                                <th>获取订单数量</th>
+                                <th>操作</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            {volist name='list' id='member'}
+                            <tr>
+                                <td>{$member.vender_id}</td>
+                                <td>
+                                {$member.operator_id}
+                                </td>
+                                <td>
+                                    {$member.prov_code}
+                                </td>
+                                <td>{$member.amount}</td>
+                                <td>{$member.order_num}</td>
+                                <td>
+                                    <a class="open-window no-refresh" title="修改"
+                                       href="{:U('addconfig?id='.$member.id)}">修改</a>
+                                    <a class="ajax-get confirm text-danger" title="删除"
+                                       href="{:U('delconfig?id='.$member.id)}">删除</a>
+                                </td>
+                            </tr>
+                            {/volist}
+                            </tbody>
+                        </table>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
