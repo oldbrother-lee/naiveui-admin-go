@@ -1,0 +1,135 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 前端管理后台开发规范
+
+## 项目说明
+本项目前端管理后台基于 Soybean Admin 开源项目开发，采用其标准规范进行开发。
+
+## 目录结构
+```
+web/
+├── src/
+│   ├── api/              # 接口请求
+│   ├── assets/           # 静态资源
+│   ├── components/       # 全局组件
+│   ├── composables/      # 组合式函数
+│   ├── config/           # 全局配置
+│   ├── layouts/          # 布局组件
+│   ├── router/           # 路由配置
+│   ├── store/            # 状态管理
+│   ├── styles/           # 全局样式
+│   ├── utils/            # 工具函数
+│   └── views/            # 页面组件
+├── .env                  # 环境变量
+├── .env.development      # 开发环境变量
+├── .env.production       # 生产环境变量
+├── package.json         # 项目依赖
+└── vite.config.ts       # Vite 配置
+```
+
+## 开发规范
+
+### 格式化规范
+1. 使用 ESLint + Prettier 进行代码格式化
+2. 使用 husky + lint-staged 进行提交前检查
+3. 遵循项目默认的 `.eslintrc` 和 `.prettierrc` 配置
+
+### 命名规范
+1. 文件命名：
+   - 组件文件：大驼峰命名，如 `UserInfo.vue`
+   - 工具文件：小驼峰命名，如 `httpRequest.ts`
+   - 样式文件：kebab-case，如 `main-layout.scss`
+
+2. 变量命名：
+   - 普通变量：小驼峰命名
+   - 常量：全大写下划线分隔
+   - 组件名：大驼峰命名
+   - 接口名：以 I 开头的大驼峰命名
+
+### Vue 组件规范
+1. 组件结构：
+   ```vue
+   <template>
+     <!-- 模板内容 -->
+   </template>
+
+   <script lang="ts" setup>
+   // 组合式 API
+   </script>
+
+   <style lang="scss" scoped>
+   // 样式内容
+   </style>
+   ```
+
+2. 组件通信：
+   - Props 定义使用 TypeScript 类型
+   - Emits 显式声明事件
+   - 优先使用 props/emits 进行父子组件通信
+   - 复杂状态管理使用 Pinia
+
+3. 组件编写原则：
+   - 单一职责
+   - 低耦合高内聚
+   - 可复用性优先
+   - Props 必须声明类型
+
+### TypeScript 规范
+1. 类型定义：
+   - 优先使用 interface 定义对象类型
+   - 使用 type 定义联合类型或工具类型
+   - 必须为函数声明返回类型
+   - 避免使用 any 类型
+
+2. 类型文件：
+   - 类型定义文件使用 `.d.ts` 后缀
+   - 按模块划分类型文件
+   - 公共类型放在 `types` 目录
+
+### API 请求规范
+1. 接口管理：
+   - 按模块划分接口文件
+   - 使用 TypeScript 定义请求响应类型
+   - 统一使用封装的请求函数
+
+2. 请求配置：
+   - 统一的错误处理
+   - 统一的请求拦截器
+   - 统一的响应拦截器
+   - 支持取消请求
+
+### 状态管理规范
+1. Pinia 使用规范：
+   - 按模块划分 store
+   - 定义完整的类型
+   - 使用组合式 API 风格
+   - 避免直接修改 state
+
+### 样式规范
+1. 样式编写：
+   - 使用 SCSS 预处理器
+   - 优先使用 scoped 样式
+   - 遵循 BEM 命名规范
+   - 使用变量管理主题色
+
+2. 样式组织：
+   - 全局样式在 styles 目录
+   - 组件样式在组件内部
+   - 使用 CSS 变量实现主题切换
+
+## 开发工具
+1. 推荐使用 VSCode 编辑器
+2. 必装插件：
+   - Vue Language Features (Volar)
+   - TypeScript Vue Plugin (Volar)
+   - ESLint
+   - Prettier
+   - SCSS IntelliSense
+
+## 参考文档
+- [Soybean Admin 官方文档](mdc:https:/docs.soybeanjs.cn/zh/standard)
+- [Vue 3 官方文档](mdc:https:/cn.vuejs.org)
+- [TypeScript 官方文档](mdc:https:/www.typescriptlang.org)

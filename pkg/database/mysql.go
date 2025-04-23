@@ -2,8 +2,9 @@ package database
 
 import (
 	"fmt"
-	"recharge-go/internal/config"
+	"recharge-go/configs"
 	"recharge-go/internal/model"
+	"recharge-go/pkg/database/migrations"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -11,38 +12,81 @@ import (
 
 var DB *gorm.DB
 
+// InitDB 初始化数据库连接
 func InitDB() error {
-	cfg := config.GetConfig()
-	dbConfig := cfg.Database
-
+	cfg := configs.GetConfig()
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		dbConfig.User,
-		dbConfig.Password,
-		dbConfig.Host,
-		dbConfig.Port,
-		dbConfig.DBName,
+		cfg.DB.User,
+		cfg.DB.Password,
+		cfg.DB.Host,
+		cfg.DB.Port,
+		cfg.DB.Name,
 	)
 
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 
-	// Auto migrate models
-	err = DB.AutoMigrate(
+	// 设置数据库连接池
+	sqlDB, err := DB.DB()
+	if err != nil {
+		return fmt.Errorf("failed to get database instance: %v", err)
+	}
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetMaxOpenConns(100)
+
+	// 禁用外键检查
+	if err := DB.Exec("SET FOREIGN_KEY_CHECKS = 0").Error; err != nil {
+		return fmt.Errorf("failed to disable foreign key checks: %v", err)
+	}
+
+	// 删除所有表
+	if err := DB.Migrator().DropTable(
 		&model.User{},
 		&model.Role{},
 		&model.Permission{},
+		&model.UserRole{},
 		&model.RolePermission{},
-		&model.ProductType{},
-		&model.ProductTypeCategory{},
-		&model.Platform{},
-		&model.PlatformAccount{},
-		&model.PlatformAPI{},
-	)
-	if err != nil {
-		return err
+		&model.ProductCategory{},
+		&model.Product{},
+		&model.ProductSpec{},
+		&model.MemberGrade{},
+		&model.ProductGradePrice{},
+	); err != nil {
+		return fmt.Errorf("failed to drop tables: %v", err)
+	}
+
+	// 创建所有表
+	if err := DB.AutoMigrate(
+		&model.User{},
+		&model.Role{},
+		&model.Permission{},
+		&model.UserRole{},
+		&model.RolePermission{},
+		&model.ProductCategory{},
+		&model.Product{},
+		&model.ProductSpec{},
+		&model.MemberGrade{},
+		&model.ProductGradePrice{},
+	); err != nil {
+		return fmt.Errorf("failed to migrate tables: %v", err)
+	}
+
+	// 启用外键检查
+	if err := DB.Exec("SET FOREIGN_KEY_CHECKS = 1").Error; err != nil {
+		return fmt.Errorf("failed to enable foreign key checks: %v", err)
+	}
+
+	// 初始化角色和权限
+	if err := migrations.InitRoles(DB); err != nil {
+		return fmt.Errorf("failed to init roles: %v", err)
+	}
+
+	// 初始化管理员账号
+	if err := migrations.InitAdmin(DB); err != nil {
+		return fmt.Errorf("failed to init admin: %v", err)
 	}
 
 	return nil

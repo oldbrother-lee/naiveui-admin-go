@@ -17,6 +17,7 @@ func SetupRouter(
 	phoneLocationController *controller.PhoneLocationController,
 	productTypeController *controller.ProductTypeController,
 	platformController *controller.PlatformController,
+	platformAPIParamController *controller.PlatformAPIParamController,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -55,6 +56,9 @@ func SetupRouter(
 
 			// Platform routes
 			RegisterPlatformRoutes(auth, platformController, userService)
+
+			// Platform API param routes
+			RegisterPlatformAPIParamRoutes(auth, platformAPIParamController, userService)
 		}
 	}
 

@@ -46,9 +46,9 @@ func (s *UserService) Register(req *model.UserRegisterRequest) error {
 	user := &model.User{
 		Username: req.Username,
 		Password: string(hashedPassword),
-		Nickname: req.Nickname,
-		Email:    req.Email,
-		Phone:    req.Phone,
+		Nickname: *req.Nickname,
+		Email:    *req.Email,
+		Phone:    *req.Phone,
 		Status:   1,
 	}
 
@@ -104,16 +104,16 @@ func (s *UserService) UpdateProfile(userID int64, req *model.UserUpdateRequest) 
 	}
 
 	if req.Nickname != nil {
-		user.Nickname = req.Nickname
+		user.Nickname = *req.Nickname
 	}
 	if req.Email != nil {
-		user.Email = req.Email
+		user.Email = *req.Email
 	}
 	if req.Phone != nil {
-		user.Phone = req.Phone
+		user.Phone = *req.Phone
 	}
 	if req.Avatar != nil {
-		user.Avatar = req.Avatar
+		user.Avatar = *req.Avatar
 	}
 
 	return s.userRepo.Update(user)

@@ -57,6 +57,7 @@ func main() {
 	productTypeRepo := repository.NewProductTypeRepository(database.DB)
 	productTypeCateRepo := repository.NewProductTypeCategoryRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
+	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 
 	// Initialize services
 	userService := service.NewUserService(userRepo)
@@ -66,6 +67,7 @@ func main() {
 	phoneLocationService := service.NewPhoneLocationService(phoneLocationRepo)
 	productTypeService := service.NewProductTypeService(productTypeRepo, productTypeCateRepo)
 	platformService := service.NewPlatformService(platformRepo)
+	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
 
 	// Initialize controllers
 	userController := controller.NewUserController(userService)
@@ -75,6 +77,7 @@ func main() {
 	phoneLocationController := controller.NewPhoneLocationController(phoneLocationService)
 	productTypeController := controller.NewProductTypeController(productTypeService)
 	platformController := controller.NewPlatformController(platformService)
+	platformAPIParamController := controller.NewPlatformAPIParamController(platformAPIParamService)
 
 	// Setup router with dependencies
 	r := router.SetupRouter(
@@ -86,6 +89,7 @@ func main() {
 		phoneLocationController,
 		productTypeController,
 		platformController,
+		platformAPIParamController,
 	)
 
 	// Swagger

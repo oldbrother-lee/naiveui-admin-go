@@ -37,22 +37,6 @@ type PlatformAccount struct {
 	Platform     *Platform  `json:"platform,omitempty" gorm:"foreignKey:PlatformID"`               // 关联的平台信息
 }
 
-// PlatformAPI 平台接口配置
-type PlatformAPI struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	PlatformID uint      `gorm:"not null;index" json:"platform_id"`
-	ApiName    string    `gorm:"size:50;not null" json:"api_name"`
-	ApiCode    string    `gorm:"size:50;not null" json:"api_code"`
-	ApiPath    string    `gorm:"size:255;not null" json:"api_path"`
-	Method     string    `gorm:"size:10;default:POST" json:"method"`
-	Timeout    int       `gorm:"default:30" json:"timeout"`
-	RetryTimes int       `gorm:"default:3" json:"retry_times"`
-	Status     bool      `gorm:"default:true" json:"status"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-	Platform   Platform  `gorm:"foreignKey:PlatformID" json:"-"`
-}
-
 // PlatformListRequest 平台列表请求
 type PlatformListRequest struct {
 	Page     int    `form:"page" binding:"required,min=1"`
