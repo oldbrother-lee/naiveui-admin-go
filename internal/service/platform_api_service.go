@@ -5,6 +5,8 @@ import (
 	"errors"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
+
+	"gorm.io/gorm"
 )
 
 // PlatformAPIService 平台接口服务接口
@@ -17,6 +19,8 @@ type PlatformAPIService interface {
 	DeleteAPI(ctx context.Context, id int64) error
 	// GetAPI 获取平台接口详情
 	GetAPI(ctx context.Context, id int64) (*model.PlatformAPI, error)
+	// GetAPIByCode 根据代码获取平台接口
+	GetAPIByCode(ctx context.Context, code string) (*model.PlatformAPI, error)
 	// ListAPIs 获取平台接口列表
 	ListAPIs(ctx context.Context, page, pageSize int) ([]*model.PlatformAPI, int64, error)
 }
@@ -32,30 +36,20 @@ func NewPlatformAPIService(repo repository.PlatformAPIRepository) PlatformAPISer
 }
 
 func (s *platformAPIService) CreateAPI(ctx context.Context, api *model.PlatformAPI) error {
-	// 参数验证
-	if api.Name == "" {
-		return errors.New("平台名称不能为空")
+	// 检查接口代码是否已存在
+	existing, err := s.repo.GetByCode(ctx, api.Code)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
-	if api.URL == "" {
-		return errors.New("接口地址不能为空")
-	}
-	if api.Method == "" {
-		return errors.New("请求方法不能为空")
-	}
-	if api.PlatformID == 0 {
-		return errors.New("平台ID不能为空")
+	if existing != nil {
+		return errors.New("接口代码已存在")
 	}
 
-	// 设置默认值
-	api.Status = 1 // 默认启用
-	api.IsDeleted = 0
-	api.Timeout = 30
-	api.RetryTimes = 3
 	return s.repo.Create(ctx, api)
 }
 
 func (s *platformAPIService) UpdateAPI(ctx context.Context, api *model.PlatformAPI) error {
-	// 检查API是否存在
+	// 检查接口是否存在
 	existing, err := s.repo.GetByID(ctx, api.ID)
 	if err != nil {
 		return err
@@ -64,25 +58,22 @@ func (s *platformAPIService) UpdateAPI(ctx context.Context, api *model.PlatformA
 		return errors.New("接口不存在")
 	}
 
-	// 参数验证
-	if api.Name == "" {
-		return errors.New("平台名称不能为空")
-	}
-	if api.URL == "" {
-		return errors.New("接口地址不能为空")
-	}
-	if api.Method == "" {
-		return errors.New("请求方法不能为空")
-	}
-	if api.PlatformID == 0 {
-		return errors.New("平台ID不能为空")
+	// 如果修改了接口代码，检查新代码是否已存在
+	if api.Code != existing.Code {
+		codeExists, err := s.repo.GetByCode(ctx, api.Code)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if codeExists != nil {
+			return errors.New("接口代码已存在")
+		}
 	}
 
 	return s.repo.Update(ctx, api)
 }
 
 func (s *platformAPIService) DeleteAPI(ctx context.Context, id int64) error {
-	// 检查API是否存在
+	// 检查接口是否存在
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
@@ -96,6 +87,10 @@ func (s *platformAPIService) DeleteAPI(ctx context.Context, id int64) error {
 
 func (s *platformAPIService) GetAPI(ctx context.Context, id int64) (*model.PlatformAPI, error) {
 	return s.repo.GetByID(ctx, id)
+}
+
+func (s *platformAPIService) GetAPIByCode(ctx context.Context, code string) (*model.PlatformAPI, error) {
+	return s.repo.GetByCode(ctx, code)
 }
 
 func (s *platformAPIService) ListAPIs(ctx context.Context, page, pageSize int) ([]*model.PlatformAPI, int64, error) {

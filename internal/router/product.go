@@ -16,7 +16,7 @@ func RegisterProductRoutes(r *gin.RouterGroup, productController *controller.Pro
 		product.GET("/list", productController.List)
 		product.GET("/:id", productController.GetByID)
 		product.GET("/categories", productController.ListCategories)
-
+		product.GET("/types", productController.ListTypes)
 		// 需要超级管理员权限的路由
 		adminProduct := product.Group("")
 		adminProduct.Use(middleware.CheckSuperAdmin(userService))
@@ -24,6 +24,9 @@ func RegisterProductRoutes(r *gin.RouterGroup, productController *controller.Pro
 			adminProduct.POST("", productController.Create)
 			adminProduct.PUT("/:id", productController.Update)
 			adminProduct.DELETE("/:id", productController.Delete)
+			adminProduct.POST("/category", productController.CreateCategory)
+			adminProduct.PUT("/category/:id", productController.UpdateCategory)
+			adminProduct.DELETE("/category/:id", productController.DeleteCategory)
 		}
 	}
 }

@@ -182,3 +182,101 @@ func (c *ProductController) ListCategories(ctx *gin.Context) {
 
 	utils.Success(ctx, resp)
 }
+
+// CreateCategory 创建商品分类
+// @Summary 创建商品分类
+// @Description 创建商品分类
+// @Tags 商品管理
+// @Accept json
+// @Produce json
+// @Param category body model.ProductCategoryCreateRequest true "商品分类信息"
+// @Success 200 {object} response.Response{data=model.ProductCategory}
+// @Router /api/v1/product/categories [post]
+func (c *ProductController) CreateCategory(ctx *gin.Context) {
+	var category model.ProductCategory
+	if err := ctx.ShouldBindJSON(&category); err != nil {
+		utils.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := c.productService.CreateCategory(&category); err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Success(ctx, nil)
+}
+
+// UpdateCategory 更新商品分类
+// @Summary 更新商品分类
+// @Description 更新商品分类
+// @Tags 商品管理
+// @Accept json
+// @Produce json
+// @Param id path int true "商品分类ID"
+// @Param category body model.ProductCategory true "商品分类信息"
+// @Success 200 {object} response.Response
+// @Router /api/v1/product/categories/{id} [put]
+func (c *ProductController) UpdateCategory(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(ctx, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	var category model.ProductCategory
+	if err := ctx.ShouldBindJSON(&category); err != nil {
+		utils.Error(ctx, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	category.ID = id
+	if err := c.productService.UpdateCategory(&category); err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Success(ctx, nil)
+}
+
+// DeleteCategory 删除商品分类
+// @Summary 删除商品分类
+// @Description 删除商品分类
+// @Tags 商品管理
+// @Accept json
+// @Produce json
+// @Param id path int true "商品分类ID"
+// @Success 200 {object} response.Response
+// @Router /api/v1/product/categories/{id} [delete]
+func (c *ProductController) DeleteCategory(ctx *gin.Context) {
+	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(ctx, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	if err := c.productService.DeleteCategory(id); err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Success(ctx, nil)
+}
+
+// ListTypes 获取商品类型列表
+// @Summary 获取商品类型列表
+// @Description 获取商品类型列表
+// @Tags 商品管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response{data=[]model.ProductType}
+// @Router /api/v1/product/types [get]
+func (c *ProductController) ListTypes(ctx *gin.Context) {
+	types, err := c.productService.ListTypes()
+	if err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Success(ctx, types)
+}

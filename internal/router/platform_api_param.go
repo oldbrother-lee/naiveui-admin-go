@@ -9,7 +9,7 @@ import (
 
 // RegisterPlatformAPIParamRoutes 注册平台接口参数路由
 func RegisterPlatformAPIParamRoutes(r *gin.RouterGroup, controller *controller.PlatformAPIParamController, userService *service.UserService) {
-	params := r.Group("/params")
+	params := r.Group("/platform/api/params")
 	{
 		params.POST("", controller.CreateParam)
 		params.PUT("/:id", controller.UpdateParam)

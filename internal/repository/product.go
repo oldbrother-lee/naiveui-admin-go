@@ -104,6 +104,28 @@ func (r *ProductRepository) GetCategory(id int64) (*model.ProductCategory, error
 // ListCategories 获取商品分类列表
 func (r *ProductRepository) ListCategories() ([]model.ProductCategory, error) {
 	var categories []model.ProductCategory
-	err := r.db.Where("status = ?", 1).Order("sort asc").Find(&categories).Error
+	err := r.db.Order("sort asc").Find(&categories).Error
 	return categories, err
+}
+
+// CreateCategory 创建商品分类
+func (r *ProductRepository) CreateCategory(category *model.ProductCategory) error {
+	return r.db.Create(category).Error
+}
+
+// UpdateCategory 更新商品分类
+func (r *ProductRepository) UpdateCategory(category *model.ProductCategory) error {
+	return r.db.Save(category).Error
+}
+
+// DeleteCategory 删除商品分类
+func (r *ProductRepository) DeleteCategory(id int64) error {
+	return r.db.Delete(&model.ProductCategory{}, id).Error
+}
+
+// ListTypes 获取商品类型列表
+func (r *ProductRepository) ListTypes() ([]model.ProductType, error) {
+	var types []model.ProductType
+	err := r.db.Order("sort asc").Find(&types).Error
+	return types, err
 }

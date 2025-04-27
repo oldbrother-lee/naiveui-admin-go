@@ -1,7 +1,7 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
 # 项目指南 (Project Guidelines)
 
@@ -37,3 +37,4 @@ alwaysApply: false
 - API 端点必须进行适当的认证和授权
 - 所有用户输入必须进行验证和清理
 - 日志中不得包含敏感信息
+

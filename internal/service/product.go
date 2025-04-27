@@ -85,7 +85,7 @@ func (s *ProductService) Create(req *model.ProductCreateRequest) (*model.Product
 		GradeIDs:        req.GradeIDs,
 		APIID:           req.APIID,
 		APIParamID:      req.APIParamID,
-		IsDecode:        req.IsDecode,
+		IsApi:           req.IsApi,
 	}
 
 	err := s.productRepo.Create(product)
@@ -127,7 +127,7 @@ func (s *ProductService) Update(req *model.ProductUpdateRequest) (*model.Product
 	product.GradeIDs = req.GradeIDs
 	product.APIID = req.APIID
 	product.APIParamID = req.APIParamID
-	product.IsDecode = req.IsDecode
+	product.IsApi = req.IsApi
 
 	err = s.productRepo.Update(product)
 	if err != nil {
@@ -151,6 +151,26 @@ func (s *ProductService) ListCategories() (*model.ProductCategoryListResponse, e
 
 	return &model.ProductCategoryListResponse{
 		Total: int64(len(categories)),
-		Items: categories,
+		List:  categories,
 	}, nil
+}
+
+// CreateCategory 创建商品分类
+func (s *ProductService) CreateCategory(category *model.ProductCategory) error {
+	return s.productRepo.CreateCategory(category)
+}
+
+// UpdateCategory 更新商品分类
+func (s *ProductService) UpdateCategory(category *model.ProductCategory) error {
+	return s.productRepo.UpdateCategory(category)
+}
+
+// DeleteCategory 删除商品分类
+func (s *ProductService) DeleteCategory(id int64) error {
+	return s.productRepo.DeleteCategory(id)
+}
+
+// ListTypes 获取商品类型列表
+func (s *ProductService) ListTypes() ([]model.ProductType, error) {
+	return s.productRepo.ListTypes()
 }

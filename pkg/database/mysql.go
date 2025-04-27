@@ -42,22 +42,6 @@ func InitDB() error {
 		return fmt.Errorf("failed to disable foreign key checks: %v", err)
 	}
 
-	// 删除所有表
-	if err := DB.Migrator().DropTable(
-		&model.User{},
-		&model.Role{},
-		&model.Permission{},
-		&model.UserRole{},
-		&model.RolePermission{},
-		&model.ProductCategory{},
-		&model.Product{},
-		&model.ProductSpec{},
-		&model.MemberGrade{},
-		&model.ProductGradePrice{},
-	); err != nil {
-		return fmt.Errorf("failed to drop tables: %v", err)
-	}
-
 	// 创建所有表
 	if err := DB.AutoMigrate(
 		&model.User{},
@@ -70,6 +54,10 @@ func InitDB() error {
 		&model.ProductSpec{},
 		&model.MemberGrade{},
 		&model.ProductGradePrice{},
+		&model.PlatformAPI{},
+		&model.PlatformAPIParam{},
+		&model.ProductAPIRelation{},
+		&model.APICallLog{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate tables: %v", err)
 	}
