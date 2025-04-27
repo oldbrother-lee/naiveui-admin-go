@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"recharge-go/internal/model"
 
 	"gorm.io/gorm"
@@ -59,15 +60,26 @@ func (r *productAPIRelationRepository) List(ctx context.Context, productID, apiI
 	var relations []*model.ProductAPIRelation
 	var total int64
 
-	query := r.db.WithContext(ctx).Model(&model.ProductAPIRelation{})
+	query := r.db.WithContext(ctx).Table("product_api_relations").
+		Select("product_api_relations.*, platform_apis.name as product_name, platform_api_params.name as api_name").
+		Joins("LEFT JOIN platform_apis ON product_api_relations.api_id = platform_apis.id").
+		Joins("LEFT JOIN platform_api_params ON product_api_relations.param_id = platform_api_params.id").
+		Debug()
+
+	// 打印执行的 sql 语句
+	sql := query.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		return tx
+	})
+	fmt.Println("SQL:", sql)
+
 	if productID > 0 {
-		query = query.Where("product_id = ?", productID)
+		query = query.Where("product_api_relations.product_id = ?", productID)
 	}
 	if apiID > 0 {
-		query = query.Where("api_id = ?", apiID)
+		query = query.Where("product_api_relations.api_id = ?", apiID)
 	}
 	if status >= 0 {
-		query = query.Where("status = ?", status)
+		query = query.Where("product_api_relations.status = ?", status)
 	}
 
 	err := query.Count(&total).Error
@@ -78,6 +90,11 @@ func (r *productAPIRelationRepository) List(ctx context.Context, productID, apiI
 	err = query.Offset((page - 1) * pageSize).Limit(pageSize).Find(&relations).Error
 	if err != nil {
 		return nil, 0, err
+	}
+
+	// 打印调试信息
+	for _, relation := range relations {
+		fmt.Printf("Relation: %+v\n", relation)
 	}
 
 	return relations, total, nil

@@ -41,16 +41,16 @@ func (c *ProductAPIRelationController) Create(ctx *gin.Context) {
 func (c *ProductAPIRelationController) Update(ctx *gin.Context) {
 	var req model.ProductAPIRelationUpdateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := c.svc.Update(ctx, &req); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+	utils.Success(ctx, nil)
 }
 
 // Delete 删除商品接口关联
