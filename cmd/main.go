@@ -60,9 +60,14 @@ func main() {
 	platformAPIRepo := repository.NewPlatformAPIRepository(database.DB)
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
+	userLogRepo := repository.NewUserLogRepository(database.DB)
+	userGradeRepo := repository.NewUserGradeRepository(database.DB)
+	userTagRepo := repository.NewUserTagRepository(database.DB)
+	userTagRelationRepo := repository.NewUserTagRelationRepository(database.DB)
+	userGradeRelationRepo := repository.NewUserGradeRelationRepository(database.DB)
 
 	// Initialize services
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, userGradeRepo, userTagRepo, userTagRelationRepo, userGradeRelationRepo, userLogRepo)
 	permissionService := service.NewPermissionService(permissionRepo)
 	roleService := service.NewRoleService(roleRepo)
 	productService := service.NewProductService(productRepo)
@@ -72,9 +77,12 @@ func main() {
 	platformAPIService := service.NewPlatformAPIService(platformAPIRepo)
 	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
 	productAPIRelationService := service.NewProductAPIRelationService(productAPIRelationRepo)
+	userLogService := service.NewUserLogService(userLogRepo)
+	userGradeService := service.NewUserGradeService(userGradeRepo, userGradeRelationRepo)
+	userTagService := service.NewUserTagService(userTagRepo, userTagRelationRepo)
 
 	// Initialize controllers
-	userController := controller.NewUserController(userService)
+	userController := controller.NewUserController(userService, userGradeService, userTagService)
 	permissionController := controller.NewPermissionController(permissionService)
 	roleController := controller.NewRoleController(roleService)
 	productController := controller.NewProductController(productService)
@@ -84,6 +92,7 @@ func main() {
 	platformAPIController := controller.NewPlatformAPIController(platformAPIService, platformService)
 	platformAPIParamController := controller.NewPlatformAPIParamController(platformAPIParamService)
 	productAPIRelationController := controller.NewProductAPIRelationController(productAPIRelationService)
+	userLogController := controller.NewUserLogController(userLogService)
 
 	// Setup router with dependencies
 	r := router.SetupRouter(
@@ -98,6 +107,7 @@ func main() {
 		platformAPIController,
 		platformAPIParamController,
 		productAPIRelationController,
+		userLogController,
 	)
 
 	// Swagger

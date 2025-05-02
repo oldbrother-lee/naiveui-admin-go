@@ -12,6 +12,8 @@ database:
 jwt:
   secret: recharge-new
   expire: 24 # hours
+  refresh_secret: recharge-new-refresh
+  refresh_expire: 168 # hours (7 days)
 
 log:
   level: debug

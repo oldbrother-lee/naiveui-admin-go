@@ -13,7 +13,7 @@ func CheckSuperAdmin(userService *service.UserService) gin.HandlerFunc {
 		userID := ctx.GetInt64("user_id")
 		fmt.Println(userID, "userID")
 		// 获取用户角色
-		userWithRoles, err := userService.GetUserWithRoles(userID)
+		userWithRoles, err := userService.GetUserWithRoles(ctx, userID)
 		if err != nil {
 			utils.Error(ctx, 500, "Failed to get user roles")
 			ctx.Abort()

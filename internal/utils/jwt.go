@@ -14,30 +14,59 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(userID int64, username string) (string, error) {
+func GenerateJWT(userID int64, username string) (string, string, error) {
 	cfg := config.GetConfig()
-	expirationTime := time.Now().Add(time.Hour * time.Duration(cfg.JWT.Expire))
 
-	claims := &Claims{
+	// Generate access token
+	accessExpirationTime := time.Now().Add(time.Hour * time.Duration(cfg.JWT.Expire))
+	accessClaims := &Claims{
 		UserID:   userID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
+			ExpiresAt: jwt.NewNumericDate(accessExpirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 		},
 	}
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	accessTokenString, err := accessToken.SignedString([]byte(cfg.JWT.Secret))
+	if err != nil {
+		return "", "", err
+	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(cfg.JWT.Secret))
+	// Generate refresh token
+	refreshExpirationTime := time.Now().Add(time.Hour * time.Duration(cfg.JWT.RefreshExpire))
+	refreshClaims := &Claims{
+		UserID:   userID,
+		Username: username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(refreshExpirationTime),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+		},
+	}
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refreshTokenString, err := refreshToken.SignedString([]byte(cfg.JWT.RefreshSecret))
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessTokenString, refreshTokenString, nil
 }
 
-func ValidateJWT(tokenString string) (*Claims, error) {
+func ValidateJWT(tokenString string, isRefresh bool) (*Claims, error) {
 	cfg := config.GetConfig()
 	claims := &Claims{}
 
+	var secret string
+	if isRefresh {
+		secret = cfg.JWT.RefreshSecret
+	} else {
+		secret = cfg.JWT.Secret
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(cfg.JWT.Secret), nil
+		return []byte(secret), nil
 	})
 
 	if err != nil {

@@ -23,7 +23,7 @@ func Auth() gin.HandlerFunc {
 			return
 		}
 
-		claims, err := utils.ValidateJWT(parts[1])
+		claims, err := utils.ValidateJWT(parts[1], false)
 		if err != nil {
 			utils.Error(ctx, 401, "Invalid token")
 			ctx.Abort()

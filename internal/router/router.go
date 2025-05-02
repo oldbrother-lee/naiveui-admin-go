@@ -20,6 +20,7 @@ func SetupRouter(
 	platformAPIController *controller.PlatformAPIController,
 	platformAPIParamController *controller.PlatformAPIParamController,
 	productAPIRelationController *controller.ProductAPIRelationController,
+	userLogController *controller.UserLogController,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -39,7 +40,7 @@ func SetupRouter(
 		auth.Use(middleware.Auth())
 		{
 			// User routes
-			RegisterUserRoutes(auth, userController, userService)
+			RegisterUserRoutes(auth, userController, userService, userLogController)
 
 			// Permission routes
 			RegisterPermissionRoutes(auth, permissionController)

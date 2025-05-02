@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"recharge-go/internal/model"
 
 	"gorm.io/gorm"
@@ -19,68 +20,67 @@ func (r *UserRepository) DB() *gorm.DB {
 	return r.db
 }
 
-func (r *UserRepository) Create(user *model.User) error {
-	return r.db.Create(user).Error
+// Create 创建用户
+func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Create(user).Error
 }
 
-func (r *UserRepository) GetByID(id int64) (*model.User, error) {
+// GetByID 根据ID获取用户
+func (r *UserRepository) GetByID(ctx context.Context, id int64) (*model.User, error) {
 	var user model.User
-	err := r.db.First(&user, id).Error
+	err := r.db.WithContext(ctx).First(&user, id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
 }
 
-func (r *UserRepository) GetByUsername(username string) (*model.User, error) {
+// GetByUsername 根据用户名获取用户
+func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*model.User, error) {
 	var user model.User
-	err := r.db.Where("username = ?", username).First(&user).Error
+	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
 	return &user, nil
 }
 
-func (r *UserRepository) Update(user *model.User) error {
-	return r.db.Save(user).Error
+// Update 更新用户信息
+func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
+	return r.db.WithContext(ctx).Save(user).Error
 }
 
-func (r *UserRepository) Delete(id int64) error {
-	return r.db.Delete(&model.User{}, id).Error
+// Delete 删除用户
+func (r *UserRepository) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.User{}, id).Error
 }
 
-func (r *UserRepository) List(page, pageSize int, userName, phone, email string, status *int) ([]model.User, int64, error) {
+// List 获取用户列表
+func (r *UserRepository) List(ctx context.Context, req *model.UserListRequest) ([]model.User, int64, error) {
 	var users []model.User
 	var total int64
 
-	query := r.db.Model(&model.User{})
+	query := r.db.WithContext(ctx).Model(&model.User{})
 
-	// 添加搜索条件
-	if userName != "" {
-		query = query.Where("username LIKE ?", "%"+userName+"%")
+	if req.Username != "" {
+		query = query.Where("username LIKE ?", "%"+req.Username+"%")
 	}
-	if phone != "" {
-		query = query.Where("phone LIKE ?", "%"+phone+"%")
+	if req.Phone != "" {
+		query = query.Where("phone LIKE ?", "%"+req.Phone+"%")
 	}
-	if email != "" {
-		query = query.Where("email LIKE ?", "%"+email+"%")
+	if req.Email != "" {
+		query = query.Where("email LIKE ?", "%"+req.Email+"%")
 	}
-
-	if status != nil {
-		query = query.Where("status = ?", *status)
+	if req.Status != 0 {
+		query = query.Where("status = ?", req.Status)
 	}
 
-	// 计算总数
 	err := query.Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 分页查询
-	err = query.Order("created_at desc").
-		Offset((page - 1) * pageSize).
-		Limit(pageSize).
-		Find(&users).Error
+	err = query.Offset((req.Current - 1) * req.Size).Limit(req.Size).Find(&users).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -115,8 +115,8 @@ func (r *UserRepository) GetUserRoles(userID int64) ([]model.Role, error) {
 }
 
 // GetUserWithRoles gets a user with their roles
-func (r *UserRepository) GetUserWithRoles(userID int64) (*model.UserWithRoles, error) {
-	user, err := r.GetByID(userID)
+func (r *UserRepository) GetUserWithRoles(ctx context.Context, userID int64) (*model.UserWithRoles, error) {
+	user, err := r.GetByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -135,4 +135,166 @@ func (r *UserRepository) GetUserWithRoles(userID int64) (*model.UserWithRoles, e
 // RemoveAllUserRoles removes all roles from a user
 func (r *UserRepository) RemoveAllUserRoles(userID int64) error {
 	return r.db.Where("user_id = ?", userID).Delete(&model.UserRole{}).Error
+}
+
+// UserGradeRepository 用户等级仓储
+type UserGradeRepository struct {
+	db *gorm.DB
+}
+
+func NewUserGradeRepository(db *gorm.DB) *UserGradeRepository {
+	return &UserGradeRepository{db: db}
+}
+
+// Create 创建用户等级
+func (r *UserGradeRepository) Create(ctx context.Context, grade *model.UserGrade) error {
+	return r.db.WithContext(ctx).Create(grade).Error
+}
+
+// GetByID 根据ID获取用户等级
+func (r *UserGradeRepository) GetByID(ctx context.Context, id int64) (*model.UserGrade, error) {
+	var grade model.UserGrade
+	err := r.db.WithContext(ctx).First(&grade, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &grade, nil
+}
+
+// Update 更新用户等级
+func (r *UserGradeRepository) Update(ctx context.Context, grade *model.UserGrade) error {
+	return r.db.WithContext(ctx).Save(grade).Error
+}
+
+// Delete 删除用户等级
+func (r *UserGradeRepository) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.UserGrade{}, id).Error
+}
+
+// List 获取用户等级列表
+func (r *UserGradeRepository) List(ctx context.Context) ([]model.UserGrade, error) {
+	var grades []model.UserGrade
+	err := r.db.WithContext(ctx).Find(&grades).Error
+	if err != nil {
+		return nil, err
+	}
+	return grades, nil
+}
+
+// UserTagRepository 用户标签仓储
+type UserTagRepository struct {
+	db *gorm.DB
+}
+
+func NewUserTagRepository(db *gorm.DB) *UserTagRepository {
+	return &UserTagRepository{db: db}
+}
+
+// Create 创建用户标签
+func (r *UserTagRepository) Create(ctx context.Context, tag *model.UserTag) error {
+	return r.db.WithContext(ctx).Create(tag).Error
+}
+
+// GetByID 根据ID获取用户标签
+func (r *UserTagRepository) GetByID(ctx context.Context, id int64) (*model.UserTag, error) {
+	var tag model.UserTag
+	err := r.db.WithContext(ctx).First(&tag, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &tag, nil
+}
+
+// Update 更新用户标签
+func (r *UserTagRepository) Update(ctx context.Context, tag *model.UserTag) error {
+	return r.db.WithContext(ctx).Save(tag).Error
+}
+
+// Delete 删除用户标签
+func (r *UserTagRepository) Delete(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&model.UserTag{}, id).Error
+}
+
+// List 获取用户标签列表
+func (r *UserTagRepository) List(ctx context.Context) ([]model.UserTag, error) {
+	var tags []model.UserTag
+	err := r.db.WithContext(ctx).Find(&tags).Error
+	if err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+// UserTagRelationRepository 用户标签关系仓储
+type UserTagRelationRepository struct {
+	db *gorm.DB
+}
+
+func NewUserTagRelationRepository(db *gorm.DB) *UserTagRelationRepository {
+	return &UserTagRelationRepository{db: db}
+}
+
+// Create 创建用户标签关系
+func (r *UserTagRelationRepository) Create(ctx context.Context, relation *model.UserTagRelation) error {
+	return r.db.WithContext(ctx).Create(relation).Error
+}
+
+// Delete 删除用户标签关系
+func (r *UserTagRelationRepository) Delete(ctx context.Context, userID, tagID int64) error {
+	return r.db.WithContext(ctx).Where("user_id = ? AND tag_id = ?", userID, tagID).Delete(&model.UserTagRelation{}).Error
+}
+
+// GetUserTags 获取用户的所有标签
+func (r *UserTagRelationRepository) GetUserTags(ctx context.Context, userID int64) ([]model.UserTag, error) {
+	var tags []model.UserTag
+	err := r.db.WithContext(ctx).Joins("JOIN user_tag_relations ON user_tags.id = user_tag_relations.tag_id").
+		Where("user_tag_relations.user_id = ?", userID).
+		Find(&tags).Error
+	if err != nil {
+		return nil, err
+	}
+	return tags, nil
+}
+
+// Exists 检查用户标签关系是否存在
+func (r *UserTagRelationRepository) Exists(ctx context.Context, userID, tagID int64) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.UserTagRelation{}).
+		Where("user_id = ? AND tag_id = ?", userID, tagID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// UserGradeRelationRepository 用户等级关系仓储
+type UserGradeRelationRepository struct {
+	db *gorm.DB
+}
+
+func NewUserGradeRelationRepository(db *gorm.DB) *UserGradeRelationRepository {
+	return &UserGradeRelationRepository{db: db}
+}
+
+// Create 创建用户等级关系
+func (r *UserGradeRelationRepository) Create(ctx context.Context, relation *model.UserGradeRelation) error {
+	return r.db.WithContext(ctx).Create(relation).Error
+}
+
+// Delete 删除用户等级关系
+func (r *UserGradeRelationRepository) Delete(ctx context.Context, userID, gradeID int64) error {
+	return r.db.WithContext(ctx).Where("user_id = ? AND grade_id = ?", userID, gradeID).Delete(&model.UserGradeRelation{}).Error
+}
+
+// GetUserGrade 获取用户的等级
+func (r *UserGradeRelationRepository) GetUserGrade(ctx context.Context, userID int64) (*model.UserGrade, error) {
+	var grade model.UserGrade
+	err := r.db.WithContext(ctx).Joins("JOIN user_grade_relations ON user_grades.id = user_grade_relations.grade_id").
+		Where("user_grade_relations.user_id = ?", userID).
+		First(&grade).Error
+	if err != nil {
+		return nil, err
+	}
+	return &grade, nil
 }

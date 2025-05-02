@@ -58,6 +58,15 @@ func InitDB() error {
 		&model.PlatformAPIParam{},
 		&model.ProductAPIRelation{},
 		&model.APICallLog{},
+		&model.DistributionGrade{},
+		&model.DistributionRule{},
+		&model.DistributionWithdrawal{},
+		&model.Distributor{},
+		&model.DistributorStatistics{},
+		&model.Admin{},
+		&model.UserLog{},
+		&model.UserTagRelation{},
+		&model.UserGradeRelation{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate tables: %v", err)
 	}
