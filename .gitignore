@@ -48,5 +48,4 @@ dist/
 # Coverage files
 coverage.txt
 coverage.html 
-#web
-web/node_modules/*
+
