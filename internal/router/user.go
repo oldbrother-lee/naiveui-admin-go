@@ -56,13 +56,4 @@ func RegisterUserRoutes(r *gin.RouterGroup, userController *controller.UserContr
 		tags.POST("", userController.AssignUserTag)
 		tags.DELETE("/:tag_id", userController.RemoveUserTag)
 	}
-
-	// User grade routes
-	grades := r.Group("/user-grades")
-	grades.Use(middleware.Auth(), middleware.CheckSuperAdmin(userService))
-	{
-		grades.GET("", userController.GetUserGrade)
-		grades.POST("", userController.AssignUserGrade)
-		grades.DELETE("/:grade_id", userController.RemoveUserGrade)
-	}
 }

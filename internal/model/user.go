@@ -33,8 +33,7 @@ type UserGrade struct {
 	Name        string    `json:"name" gorm:"size:50;not null"`
 	Description string    `json:"description" gorm:"size:255"`
 	Icon        string    `json:"icon" gorm:"size:255"`
-	MinPoints   int64     `json:"min_points" gorm:"type:bigint;default:0"`
-	Discount    float64   `json:"discount" gorm:"type:decimal(10,2);default:1.00"`
+	GradeType   int       `json:"grade_type" gorm:"type:tinyint;default:1;comment:等级类型"`
 	Status      int       `json:"status" gorm:"type:tinyint;default:1"`
 	CreatedAt   time.Time `json:"created_at" gorm:"type:datetime;autoCreateTime"`
 	UpdatedAt   time.Time `json:"updated_at" gorm:"type:datetime;autoUpdateTime"`
@@ -140,12 +139,67 @@ type UserListRequest struct {
 	Status   int    `json:"status" form:"status"`
 }
 
-type UserListResponse struct {
-	List  []UserResponse `json:"list"`
-	Total int64          `json:"total"`
+// OrderUpgrade 付费升级订单模型
+type OrderUpgrade struct {
+	ID           int64     `json:"id" gorm:"primaryKey;type:bigint;not null"`
+	OrderNumber  string    `json:"order_number" gorm:"size:50;not null;unique"`
+	UserID       int64     `json:"user_id" gorm:"type:bigint;not null"`
+	GradeID      int64     `json:"grade_id" gorm:"type:bigint;not null"`
+	TotalPrice   float64   `json:"total_price" gorm:"type:decimal(10,2);default:0.00"`
+	PayWay       int       `json:"pay_way" gorm:"type:tinyint;default:0"`
+	SerialNumber string    `json:"serial_number" gorm:"size:100"`
+	IsPay        int       `json:"is_pay" gorm:"type:tinyint;default:0"`
+	PayTime      time.Time `json:"pay_time" gorm:"type:datetime"`
+	IsRebate     int       `json:"is_rebate" gorm:"type:tinyint;default:0"`
+	RebatePrice  float64   `json:"rebate_price" gorm:"type:decimal(10,2);default:0.00"`
+	RebateID     int64     `json:"rebate_id" gorm:"type:bigint;default:0"`
+	RewardPrice  float64   `json:"reward_price" gorm:"type:decimal(10,2);default:0.00"`
+	Body         string    `json:"body" gorm:"size:255"`
+	CreatedAt    time.Time `json:"created_at" gorm:"type:datetime;autoCreateTime"`
+	UpdatedAt    time.Time `json:"updated_at" gorm:"type:datetime;autoUpdateTime"`
 }
 
-// UserResponse 用户响应结构体
+// TableName 指定表名
+func (OrderUpgrade) TableName() string {
+	return "order_upgrades"
+}
+
+// Rebate 返利模型
+type Rebate struct {
+	ID        int64     `json:"id" gorm:"primaryKey;type:bigint;not null"`
+	UserID    int64     `json:"user_id" gorm:"type:bigint;not null"`
+	OrderID   int64     `json:"order_id" gorm:"type:bigint;not null"`
+	Amount    float64   `json:"amount" gorm:"type:decimal(10,2);default:0.00"`
+	Status    int       `json:"status" gorm:"type:tinyint;default:0;comment:0:待发放 1:已发放 2:已取消"`
+	Remark    string    `json:"remark" gorm:"size:255"`
+	CreatedAt time.Time `json:"created_at" gorm:"type:datetime;autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime;autoUpdateTime"`
+}
+
+// TableName 指定表名
+func (Rebate) TableName() string {
+	return "rebates"
+}
+
+// Reward 奖励模型
+type Reward struct {
+	ID        int64     `json:"id" gorm:"primaryKey;type:bigint;not null"`
+	UserID    int64     `json:"user_id" gorm:"type:bigint;not null"`
+	OrderID   int64     `json:"order_id" gorm:"type:bigint;not null"`
+	Amount    float64   `json:"amount" gorm:"type:decimal(10,2);default:0.00"`
+	Type      int       `json:"type" gorm:"type:tinyint;default:1;comment:1:升级奖励 2:推荐奖励"`
+	Status    int       `json:"status" gorm:"type:tinyint;default:0;comment:0:待发放 1:已发放 2:已取消"`
+	Remark    string    `json:"remark" gorm:"size:255"`
+	CreatedAt time.Time `json:"created_at" gorm:"type:datetime;autoCreateTime"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"type:datetime;autoUpdateTime"`
+}
+
+// TableName 指定表名
+func (Reward) TableName() string {
+	return "rewards"
+}
+
+// UserResponse 用户响应结构
 type UserResponse struct {
 	ID        int64     `json:"id"`
 	Username  string    `json:"username"`
@@ -153,22 +207,17 @@ type UserResponse struct {
 	Phone     string    `json:"phone"`
 	Email     string    `json:"email"`
 	Avatar    string    `json:"avatar"`
+	Type      int       `json:"type"`
+	Gender    int       `json:"gender"`
+	Credit    float64   `json:"credit"`
 	Status    int       `json:"status"`
 	LastLogin time.Time `json:"last_login"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// UserType 用户类型
-const (
-	UserTypeNormal = 1 // 普通用户
-	UserTypeAgent  = 2 // 代理商
-	UserTypeAdmin  = 3 // 管理员
-)
-
-// UserGender 用户性别
-const (
-	UserGenderUnknown = 0 // 未知
-	UserGenderMale    = 1 // 男
-	UserGenderFemale  = 2 // 女
-)
+// UserListResponse 用户列表响应结构
+type UserListResponse struct {
+	List  []UserResponse `json:"list"`
+	Total int64          `json:"total"`
+}

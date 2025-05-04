@@ -67,6 +67,8 @@ func InitDB() error {
 		&model.UserLog{},
 		&model.UserTagRelation{},
 		&model.UserGradeRelation{},
+		&model.UserTag{},
+		&model.UserGrade{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate tables: %v", err)
 	}

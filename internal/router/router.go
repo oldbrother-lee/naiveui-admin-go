@@ -21,6 +21,7 @@ func SetupRouter(
 	platformAPIParamController *controller.PlatformAPIParamController,
 	productAPIRelationController *controller.ProductAPIRelationController,
 	userLogController *controller.UserLogController,
+	userGradeController *controller.UserGradeController,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -68,6 +69,9 @@ func SetupRouter(
 
 			// Product API relation routes
 			RegisterProductAPIRelationRoutes(auth, productAPIRelationController)
+
+			// User grade routes
+			RegisterUserGradeRoutes(auth, userGradeController)
 		}
 	}
 
