@@ -45,7 +45,7 @@ func NewOrderUpgradeService(
 
 func (s *orderUpgradeService) CreateOrder(ctx context.Context, order *model.OrderUpgrade) error {
 	// 生成订单号
-	order.OrderNumber = generateOrderNumber()
+	order.OrderNumber = time.Now().Format("20060102150405") + "-" + utils.RandString(6)
 	order.CreatedAt = time.Now()
 	order.UpdatedAt = time.Now()
 	return s.orderUpgradeRepo.Create(ctx, order)
@@ -139,9 +139,4 @@ func (s *orderUpgradeService) ProcessOrderPayment(ctx context.Context, orderID i
 	}
 
 	return nil
-}
-
-// generateOrderNumber 生成订单号
-func generateOrderNumber() string {
-	return time.Now().Format("20060102150405") + "-" + utils.GenerateRandomString(6)
 }

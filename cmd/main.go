@@ -1,14 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"recharge-go/internal/config"
 	"recharge-go/internal/controller"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/router"
 	"recharge-go/internal/service"
-	"recharge-go/internal/utils"
 	"recharge-go/pkg/database"
+	"recharge-go/pkg/logger"
 )
 
 // @title Recharge Go API
@@ -36,7 +37,11 @@ func main() {
 	}
 
 	// 初始化日志
-	utils.InitLogger()
+	if err := logger.InitLogger(); err != nil {
+		// 如果初始化失败，使用默认的 logger
+		fmt.Printf("初始化日志失败: %v，将使用默认日志配置\n", err)
+	}
+	defer logger.Close()
 
 	// 初始化数据库
 	if err := database.InitDB(); err != nil {

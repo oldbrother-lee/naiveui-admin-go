@@ -31,3 +31,8 @@ func GenerateRandomString(n int) string {
 
 	return string(b)
 }
+
+// RandString 是 GenerateRandomString 的别名
+func RandString(n int) string {
+	return GenerateRandomString(n)
+}

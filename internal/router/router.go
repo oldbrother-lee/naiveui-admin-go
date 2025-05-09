@@ -29,12 +29,19 @@ func SetupRouter(
 	r.Use(middleware.CORS())
 	r.Use(middleware.Logger())
 	r.Use(middleware.Recovery())
+
 	// API routes
 	api := r.Group("/api/v1")
 	{
 		// Public routes
 		api.POST("/user/register", userController.Register)
 		api.POST("/user/login", userController.Login)
+
+		// MF178订单接口
+		RegisterMF178OrderRoutes(api)
+
+		// 外部订单接口 - 不需要认证
+		RegisterExternalOrderRoutes(api)
 
 		// Protected routes
 		auth := api.Group("")
@@ -72,6 +79,9 @@ func SetupRouter(
 
 			// User grade routes
 			RegisterUserGradeRoutes(auth, userGradeController)
+
+			// Order routes
+			RegisterOrderRoutes(auth)
 		}
 	}
 
