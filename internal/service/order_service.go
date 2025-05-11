@@ -2,19 +2,25 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/utils"
 	"time"
 )
 
+// orderService 订单服务
 type orderService struct {
-	orderRepo repository.OrderRepository
+	orderRepo       repository.OrderRepository
+	rechargeService RechargeService
 }
 
 // NewOrderService 创建订单服务
-func NewOrderService(orderRepo repository.OrderRepository) OrderService {
-	return &orderService{orderRepo: orderRepo}
+func NewOrderService(orderRepo repository.OrderRepository, rechargeService RechargeService) *orderService {
+	return &orderService{
+		orderRepo:       orderRepo,
+		rechargeService: rechargeService,
+	}
 }
 
 // CreateOrder 创建订单
@@ -46,6 +52,12 @@ func (s *orderService) GetOrdersByCustomerID(ctx context.Context, customerID int
 
 // UpdateOrderStatus 更新订单状态
 func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status model.OrderStatus) error {
+	if status == model.OrderStatusPendingRecharge {
+		// 如果状态是待充值，创建充值任务
+		if err := s.rechargeService.CreateRechargeTask(ctx, id); err != nil {
+			return fmt.Errorf("create recharge task failed: %v", err)
+		}
+	}
 	return s.orderRepo.UpdateStatus(ctx, id, status)
 }
 

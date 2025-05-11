@@ -26,10 +26,11 @@ func (c *PlatformController) ListPlatforms(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.service.ListPlatforms(&req)
-	if err != nil {
-		utils.Error(ctx, http.StatusInternalServerError, err.Error())
-		return
+	platforms, total := c.service.ListPlatforms(&req)
+
+	resp := gin.H{
+		"list":  platforms,
+		"total": total,
 	}
 
 	utils.Success(ctx, resp)
@@ -43,13 +44,12 @@ func (c *PlatformController) CreatePlatform(ctx *gin.Context) {
 		return
 	}
 
-	platform, err := c.service.CreatePlatform(&req)
-	if err != nil {
+	if err := c.service.CreatePlatform(&req); err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	utils.Success(ctx, platform)
+	utils.Success(ctx, nil)
 }
 
 // UpdatePlatform 更新平台
@@ -134,13 +134,12 @@ func (c *PlatformController) CreatePlatformAccount(ctx *gin.Context) {
 		return
 	}
 
-	account, err := c.service.CreatePlatformAccount(&req)
-	if err != nil {
+	if err := c.service.CreatePlatformAccount(&req); err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	utils.Success(ctx, account)
+	utils.Success(ctx, nil)
 }
 
 // UpdatePlatformAccount 更新平台账号
@@ -157,8 +156,23 @@ func (c *PlatformController) UpdatePlatformAccount(ctx *gin.Context) {
 		return
 	}
 
-	err = c.service.UpdatePlatformAccount(id, &req)
-	if err != nil {
+	account := &model.PlatformAccount{
+		ID:           id,
+		AccountName:  req.AccountName,
+		Type:         req.Type,
+		AppKey:       req.AppKey,
+		AppSecret:    req.AppSecret,
+		Description:  req.Description,
+		DailyLimit:   req.DailyLimit,
+		MonthlyLimit: req.MonthlyLimit,
+		Balance:      req.Balance,
+		Priority:     req.Priority,
+	}
+	if req.Status != nil {
+		account.Status = *req.Status
+	}
+
+	if err := c.service.UpdatePlatformAccount(account); err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -174,8 +188,7 @@ func (c *PlatformController) DeletePlatformAccount(ctx *gin.Context) {
 		return
 	}
 
-	err = c.service.DeletePlatformAccount(id)
-	if err != nil {
+	if err := c.service.DeletePlatformAccount(id); err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

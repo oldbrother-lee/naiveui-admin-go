@@ -2,11 +2,16 @@
 package main
 
 import (
+	"context"
+	"os"
+	"os/signal"
 	"recharge-go/internal/config"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
+	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -22,29 +27,47 @@ func main() {
 	_, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
 		logger.Log.Fatal("加载配置失败", zap.Error(err))
-
 	}
+
 	// 初始化数据库
 	if err := database.InitDB(); err != nil {
 		logger.Log.Fatal("初始化数据库失败", zap.Error(err))
 	}
 
 	// 初始化仓库
-	taskRepo := repository.NewRechargeTaskRepository(database.DB)
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
-
-	// 初始化平台服务
-	platformService := service.NewPlatformService(platformRepo)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 
 	// 初始化充值服务
 	rechargeService := service.NewRechargeService(
-		taskRepo,
 		orderRepo,
-		platformService,
+		platformRepo,
+		productAPIRelationRepo,
 	)
 
-	// 启动 worker
-	worker := service.NewRechargeWorker(rechargeService)
-	worker.Start()
+	// 创建充值工作器
+	worker := service.NewRechargeWorker(
+		rechargeService,
+		5*time.Second, // 每5秒检查一次
+		10,            // 每次处理10个任务
+	)
+
+	// 创建上下文，用于优雅退出
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 启动工作器
+	go worker.Start(ctx)
+
+	// 等待中断信号
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	// 收到信号后，取消上下文
+	cancel()
+
+	// 等待工作器停止
+	time.Sleep(time.Second)
 }

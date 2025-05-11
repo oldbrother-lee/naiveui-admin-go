@@ -13,6 +13,7 @@ type PlatformAPI struct {
 	URL         string    `json:"url" gorm:"size:255;not null;comment:接口地址"`
 	Method      string    `json:"method" gorm:"size:10;not null;comment:请求方法"`
 	MerchantID  string    `json:"merchant_id" gorm:"size:255;comment:商户ID"`
+	AppKey      string    `json:"app_key" gorm:"size:255;comment:密钥"`
 	SecretKey   string    `json:"secret_key" gorm:"size:255;comment:密钥"`
 	CallbackURL string    `json:"callback_url" gorm:"size:255;comment:回调地址"`
 	Timeout     int       `json:"timeout" gorm:"default:30;comment:超时时间(秒)"`
@@ -29,7 +30,7 @@ type PlatformAPIParam struct {
 	ID              int64     `json:"id" gorm:"primaryKey"`
 	APIID           int64     `json:"api_id" gorm:"not null;index" validate:"required"`
 	Name            string    `json:"name" gorm:"size:50;not null;comment:参数名称" validate:"required,max=50"`
-	ProductID       int64     `json:"product_id" gorm:"not null;comment:产品ID" validate:"required"`
+	ProductID       string    `json:"product_id" gorm:"size:128;not null;comment:产品ID" validate:"required"`
 	Description     string    `json:"description" gorm:"size:255;comment:参数描述"`
 	Cost            float64   `json:"cost" gorm:"type:decimal(10,4);default:0.0000;comment:产品成本" validate:"min=0"`
 	ParValue        float64   `json:"par_value" gorm:"type:decimal(10,4);default:0.0000;comment:套餐值" `

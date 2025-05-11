@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"recharge-go/internal/model"
+	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
 	"recharge-go/pkg/database"
@@ -94,11 +95,11 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 
 	// 3. 检查订单是否已存在
 	order, err := c.orderService.GetOrderByOutTradeNum(ctx, strconv.FormatInt(req.UserOrderID, 10))
-	if err != nil {
+	if err != nil && !errors.Is(err, repository.ErrOrderNotFound) {
 		logger.Log.Error("查询订单失败",
 			zap.Error(err),
 			zap.String("order_id", strconv.FormatInt(req.UserOrderID, 10)))
-		utils.Error(ctx, http.StatusInternalServerError, "查询订单失败")
+		utils.Error(ctx, http.StatusInternalServerError, "查询订单失败1")
 		return
 	}
 
@@ -211,7 +212,7 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		OutTradeNum: strconv.FormatInt(req.UserOrderID, 10),
 		TotalPrice:  officialPayment,
 		Price:       officialPayment,
-		Status:      model.OrderStatusPendingPayment,
+		Status:      model.OrderStatusPendingRecharge,
 		IsDel:       0,
 		Client:      3, // 3代表MF178
 		Param1:      req.Datas.OperatorID,
@@ -239,7 +240,7 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		zap.String("request_id", ctx.GetString("request_id")))
 
 	// 9. 创建充值任务
-	if err := c.rechargeService.CreateRechargeTask(ctx, order); err != nil {
+	if err := c.rechargeService.CreateRechargeTask(ctx, order.ID); err != nil {
 		logger.Log.Error("创建充值任务失败",
 			zap.Int64("order_id", order.ID),
 			zap.Error(err))

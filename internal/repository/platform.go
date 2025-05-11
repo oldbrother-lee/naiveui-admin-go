@@ -1,21 +1,46 @@
 package repository
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"recharge-go/internal/model"
 
 	"gorm.io/gorm"
 )
 
-type PlatformRepository struct {
+// PlatformRepository 平台仓库接口
+type PlatformRepository interface {
+	// 平台相关方法
+	ListPlatforms(req *model.PlatformListRequest) ([]model.Platform, int64, error)
+	GetPlatformByID(id int64) (*model.Platform, error)
+	CreatePlatform(platform *model.Platform) error
+	UpdatePlatform(platform *model.Platform) error
+	Delete(id int64) error
+
+	// 平台账号相关方法
+	GetAccountByID(ctx context.Context, id int64) (*model.PlatformAccount, error)
+	GetAccountsByPlatformID(ctx context.Context, platformID int64) ([]*model.PlatformAccount, error)
+	CreateAccount(ctx context.Context, account *model.PlatformAccount) error
+	UpdateAccount(ctx context.Context, account *model.PlatformAccount) error
+	DeleteAccount(ctx context.Context, id int64) error
+	ListPlatformAccounts(req *model.PlatformAccountListRequest) (*model.PlatformAccountListResponse, error)
+	GetPlatformAccountByID(id int64) (*model.PlatformAccount, error)
+	CreatePlatformAccount(account *model.PlatformAccount) error
+	UpdatePlatformAccount(account *model.PlatformAccount) error
+	GetAPIByID(ctx context.Context, apiID int64) (*model.PlatformAPI, error)
+}
+
+type PlatformRepositoryImpl struct {
 	db *gorm.DB
 }
 
-func NewPlatformRepository(db *gorm.DB) *PlatformRepository {
-	return &PlatformRepository{db: db}
+func NewPlatformRepository(db *gorm.DB) *PlatformRepositoryImpl {
+	return &PlatformRepositoryImpl{db: db}
 }
 
 // List 获取平台列表
-func (r *PlatformRepository) List(req *model.PlatformListRequest) (*model.PlatformListResponse, error) {
+func (r *PlatformRepositoryImpl) List(req *model.PlatformListRequest) (*model.PlatformListResponse, error) {
 	var total int64
 	var items []model.Platform
 
@@ -47,7 +72,7 @@ func (r *PlatformRepository) List(req *model.PlatformListRequest) (*model.Platfo
 }
 
 // GetByID 根据ID获取平台
-func (r *PlatformRepository) GetByID(id int64) (*model.Platform, error) {
+func (r *PlatformRepositoryImpl) GetByID(id int64) (*model.Platform, error) {
 	var platform model.Platform
 	if err := r.db.First(&platform, id).Error; err != nil {
 		return nil, err
@@ -56,22 +81,22 @@ func (r *PlatformRepository) GetByID(id int64) (*model.Platform, error) {
 }
 
 // Create 创建平台
-func (r *PlatformRepository) Create(platform *model.Platform) error {
+func (r *PlatformRepositoryImpl) Create(platform *model.Platform) error {
 	return r.db.Create(platform).Error
 }
 
 // Update 更新平台
-func (r *PlatformRepository) Update(platform *model.Platform) error {
+func (r *PlatformRepositoryImpl) Update(platform *model.Platform) error {
 	return r.db.Save(platform).Error
 }
 
 // Delete 删除平台
-func (r *PlatformRepository) Delete(id int64) error {
+func (r *PlatformRepositoryImpl) Delete(id int64) error {
 	return r.db.Delete(&model.Platform{}, id).Error
 }
 
 // ListAccounts 获取平台账号列表
-func (r *PlatformRepository) ListAccounts(req *model.PlatformAccountListRequest) (*model.PlatformAccountListResponse, error) {
+func (r *PlatformRepositoryImpl) ListAccounts(req *model.PlatformAccountListRequest) (*model.PlatformAccountListResponse, error) {
 	var total int64
 	var items []model.PlatformAccount
 
@@ -100,7 +125,7 @@ func (r *PlatformRepository) ListAccounts(req *model.PlatformAccountListRequest)
 }
 
 // GetAccountByID 根据ID获取平台账号
-func (r *PlatformRepository) GetAccountByID(id int64) (*model.PlatformAccount, error) {
+func (r *PlatformRepositoryImpl) GetAccountByID(ctx context.Context, id int64) (*model.PlatformAccount, error) {
 	var account model.PlatformAccount
 	if err := r.db.Preload("Platform").First(&account, id).Error; err != nil {
 		return nil, err
@@ -109,32 +134,32 @@ func (r *PlatformRepository) GetAccountByID(id int64) (*model.PlatformAccount, e
 }
 
 // CreateAccount 创建平台账号
-func (r *PlatformRepository) CreateAccount(account *model.PlatformAccount) error {
+func (r *PlatformRepositoryImpl) CreateAccount(ctx context.Context, account *model.PlatformAccount) error {
 	return r.db.Create(account).Error
 }
 
 // UpdateAccount 更新平台账号
-func (r *PlatformRepository) UpdateAccount(account *model.PlatformAccount) error {
+func (r *PlatformRepositoryImpl) UpdateAccount(ctx context.Context, account *model.PlatformAccount) error {
 	return r.db.Save(account).Error
 }
 
 // DeleteAccount 删除平台账号
-func (r *PlatformRepository) DeleteAccount(id int64) error {
+func (r *PlatformRepositoryImpl) DeleteAccount(ctx context.Context, id int64) error {
 	return r.db.Delete(&model.PlatformAccount{}, id).Error
 }
 
 // CreatePlatform 创建平台
-func (r *PlatformRepository) CreatePlatform(platform *model.Platform) error {
+func (r *PlatformRepositoryImpl) CreatePlatform(platform *model.Platform) error {
 	return r.db.Create(platform).Error
 }
 
 // UpdatePlatform 更新平台
-func (r *PlatformRepository) UpdatePlatform(platform *model.Platform) error {
+func (r *PlatformRepositoryImpl) UpdatePlatform(platform *model.Platform) error {
 	return r.db.Save(platform).Error
 }
 
 // GetPlatformByID 根据ID获取平台
-func (r *PlatformRepository) GetPlatformByID(id int64) (*model.Platform, error) {
+func (r *PlatformRepositoryImpl) GetPlatformByID(id int64) (*model.Platform, error) {
 	var platform model.Platform
 	err := r.db.First(&platform, id).Error
 	if err != nil {
@@ -144,7 +169,7 @@ func (r *PlatformRepository) GetPlatformByID(id int64) (*model.Platform, error) 
 }
 
 // ListPlatforms 获取平台列表
-func (r *PlatformRepository) ListPlatforms(req *model.PlatformListRequest) ([]model.Platform, int64, error) {
+func (r *PlatformRepositoryImpl) ListPlatforms(req *model.PlatformListRequest) ([]model.Platform, int64, error) {
 	var platforms []model.Platform
 	var total int64
 
@@ -175,17 +200,17 @@ func (r *PlatformRepository) ListPlatforms(req *model.PlatformListRequest) ([]mo
 }
 
 // CreatePlatformAccount 创建平台账号
-func (r *PlatformRepository) CreatePlatformAccount(account *model.PlatformAccount) error {
+func (r *PlatformRepositoryImpl) CreatePlatformAccount(account *model.PlatformAccount) error {
 	return r.db.Create(account).Error
 }
 
 // UpdatePlatformAccount 更新平台账号
-func (r *PlatformRepository) UpdatePlatformAccount(account *model.PlatformAccount) error {
+func (r *PlatformRepositoryImpl) UpdatePlatformAccount(account *model.PlatformAccount) error {
 	return r.db.Save(account).Error
 }
 
 // GetPlatformAccountByID 根据ID获取平台账号
-func (r *PlatformRepository) GetPlatformAccountByID(id int64) (*model.PlatformAccount, error) {
+func (r *PlatformRepositoryImpl) GetPlatformAccountByID(id int64) (*model.PlatformAccount, error) {
 	var account model.PlatformAccount
 	err := r.db.Preload("Platform").First(&account, id).Error
 	if err != nil {
@@ -195,7 +220,7 @@ func (r *PlatformRepository) GetPlatformAccountByID(id int64) (*model.PlatformAc
 }
 
 // ListPlatformAccounts 获取平台账号列表
-func (r *PlatformRepository) ListPlatformAccounts(req *model.PlatformAccountListRequest) (*model.PlatformAccountListResponse, error) {
+func (r *PlatformRepositoryImpl) ListPlatformAccounts(req *model.PlatformAccountListRequest) (*model.PlatformAccountListResponse, error) {
 	var accounts []model.PlatformAccount
 	var total int64
 
@@ -222,4 +247,27 @@ func (r *PlatformRepository) ListPlatformAccounts(req *model.PlatformAccountList
 		Total: total,
 		Items: accounts,
 	}, nil
+}
+
+// GetAccountsByPlatformID 根据平台ID获取账号列表
+func (r *PlatformRepositoryImpl) GetAccountsByPlatformID(ctx context.Context, platformID int64) ([]*model.PlatformAccount, error) {
+	var accounts []*model.PlatformAccount
+	if err := r.db.Where("platform_id = ?", platformID).Find(&accounts).Error; err != nil {
+		return nil, err
+	}
+	return accounts, nil
+}
+
+// GetAPIByID 根据API ID获取平台 API 信息
+func (r *PlatformRepositoryImpl) GetAPIByID(ctx context.Context, apiID int64) (*model.PlatformAPI, error) {
+	var api model.PlatformAPI
+	if err := r.db.WithContext(ctx).
+		Where("id = ? AND status = 1", apiID).
+		First(&api).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("no active API found for ID %d", apiID)
+		}
+		return nil, err
+	}
+	return &api, nil
 }

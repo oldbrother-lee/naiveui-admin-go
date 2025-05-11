@@ -12,36 +12,33 @@ import (
 
 func init() {
 	// 初始化仓库
-	taskRepo := repository.NewRechargeTaskRepository(database.DB)
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 
-	// 初始化平台服务
-	platformService := service.NewPlatformService(platformRepo)
-
-	// 初始化充值服务 - 移除未使用的变量
+	// 初始化充值服务
 	_ = service.NewRechargeService(
-		taskRepo,
 		orderRepo,
-		platformService,
+		platformRepo,
+		productAPIRelationRepo,
 	)
 }
 
 func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 	// 初始化仓库
 	orderRepo := repository.NewOrderRepository(database.DB)
-	taskRepo := repository.NewRechargeTaskRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 
 	// 初始化服务
-	orderService := service.NewOrderService(orderRepo)
-	platformService := service.NewPlatformService(platformRepo)
 	rechargeService := service.NewRechargeService(
-		taskRepo,
 		orderRepo,
-		platformService,
+		platformRepo,
+		productAPIRelationRepo,
 	)
+	orderService := service.NewOrderService(orderRepo, rechargeService)
 
+	// 初始化控制器
 	mf178OrderController := controller.NewMF178OrderController(
 		orderService,
 		rechargeService,

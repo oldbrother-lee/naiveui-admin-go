@@ -10,13 +10,25 @@ import (
 )
 
 func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
+	// 初始化仓库
 	orderRepo := repository.NewOrderRepository(database.DB)
-	orderService := service.NewOrderService(orderRepo)
+	platformRepo := repository.NewPlatformRepository(database.DB)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
+
+	// 初始化服务
+	rechargeService := service.NewRechargeService(
+		orderRepo,
+		platformRepo,
+		productAPIRelationRepo,
+	)
+	orderService := service.NewOrderService(orderRepo, rechargeService)
+
+	// 初始化控制器
 	externalOrderController := controller.NewExternalOrderController(orderService)
 
-	externalOrderGroup := r.Group("/external/order")
+	externalGroup := r.Group("/external")
 	{
-		externalOrderGroup.POST("/create", externalOrderController.CreateOrder)
+		externalGroup.POST("/order", externalOrderController.CreateOrder)
 		// 可扩展：externalOrderGroup.GET("/:out_trade_num", externalOrderController.GetOrder)
 		// 可扩展：externalOrderGroup.POST("/notify", externalOrderController.Notify)
 	}

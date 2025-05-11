@@ -14,30 +14,26 @@ import (
 	"time"
 )
 
+// PlatformService 平台服务
 type PlatformService struct {
-	platformRepo *repository.PlatformRepository
+	platformRepo repository.PlatformRepository
 }
 
-func NewPlatformService(platformRepo *repository.PlatformRepository) *PlatformService {
+// NewPlatformService 创建平台服务
+func NewPlatformService(platformRepo repository.PlatformRepository) *PlatformService {
 	return &PlatformService{
 		platformRepo: platformRepo,
 	}
 }
 
 // ListPlatforms 获取平台列表
-func (s *PlatformService) ListPlatforms(req *model.PlatformListRequest) (*model.PlatformListResponse, error) {
-	platforms, total, err := s.platformRepo.ListPlatforms(req)
-	if err != nil {
-		return nil, err
-	}
-	return &model.PlatformListResponse{
-		Total: total,
-		Items: platforms,
-	}, nil
+func (s *PlatformService) ListPlatforms(req *model.PlatformListRequest) ([]model.Platform, int64) {
+	platforms, total, _ := s.platformRepo.ListPlatforms(req)
+	return platforms, total
 }
 
 // CreatePlatform 创建平台
-func (s *PlatformService) CreatePlatform(req *model.PlatformCreateRequest) (*model.Platform, error) {
+func (s *PlatformService) CreatePlatform(req *model.PlatformCreateRequest) error {
 	platform := &model.Platform{
 		Name:        req.Name,
 		Code:        req.Code,
@@ -45,27 +41,25 @@ func (s *PlatformService) CreatePlatform(req *model.PlatformCreateRequest) (*mod
 		Description: req.Description,
 		Status:      1, // 默认启用
 	}
-	err := s.platformRepo.CreatePlatform(platform)
-	if err != nil {
-		return nil, err
-	}
-	return platform, nil
+	return s.platformRepo.CreatePlatform(platform)
+}
+
+// GetPlatformByID 根据ID获取平台
+func (s *PlatformService) GetPlatformByID(id int64) (*model.Platform, error) {
+	return s.platformRepo.GetPlatformByID(id)
 }
 
 // UpdatePlatform 更新平台
 func (s *PlatformService) UpdatePlatform(id int64, req *model.PlatformUpdateRequest) error {
-	platform, err := s.platformRepo.GetPlatformByID(id)
-	if err != nil {
-		return err
+	platform := &model.Platform{
+		ID:          id,
+		Name:        req.Name,
+		ApiURL:      req.ApiURL,
+		Description: req.Description,
 	}
-
-	platform.Name = req.Name
-	platform.ApiURL = req.ApiURL
-	platform.Description = req.Description
 	if req.Status != nil {
 		platform.Status = *req.Status
 	}
-
 	return s.platformRepo.UpdatePlatform(platform)
 }
 
@@ -74,7 +68,7 @@ func (s *PlatformService) DeletePlatform(id int64) error {
 	return s.platformRepo.Delete(id)
 }
 
-// GetPlatform 获取平台详情
+// GetPlatform 获取平台
 func (s *PlatformService) GetPlatform(id int64) (*model.Platform, error) {
 	return s.platformRepo.GetPlatformByID(id)
 }
@@ -85,64 +79,39 @@ func (s *PlatformService) ListPlatformAccounts(req *model.PlatformAccountListReq
 }
 
 // CreatePlatformAccount 创建平台账号
-func (s *PlatformService) CreatePlatformAccount(req *model.PlatformAccountCreateRequest) (*model.PlatformAccount, error) {
+func (s *PlatformService) CreatePlatformAccount(req *model.PlatformAccountCreateRequest) error {
 	account := &model.PlatformAccount{
 		PlatformID:   req.PlatformID,
+		AccountName:  req.AccountName,
+		Type:         req.Type,
 		AppKey:       req.AppKey,
 		AppSecret:    req.AppSecret,
-		AccountName:  req.AccountName,
+		Description:  req.Description,
 		DailyLimit:   req.DailyLimit,
 		MonthlyLimit: req.MonthlyLimit,
 		Priority:     req.Priority,
-		Status:       1, // 默认启用
-	}
-	err := s.platformRepo.CreatePlatformAccount(account)
-	if err != nil {
-		return nil, err
-	}
-	return account, nil
-}
-
-// UpdatePlatformAccount 更新平台账号
-func (s *PlatformService) UpdatePlatformAccount(id int64, req *model.PlatformAccountUpdateRequest) error {
-	account, err := s.platformRepo.GetPlatformAccountByID(id)
-	if err != nil {
-		return err
-	}
-
-	if req.AppSecret != "" {
-		account.AppSecret = req.AppSecret
-	}
-	if req.AccountName != "" {
-		account.AccountName = req.AccountName
-	}
-	if req.DailyLimit > 0 {
-		account.DailyLimit = req.DailyLimit
-	}
-	if req.MonthlyLimit > 0 {
-		account.MonthlyLimit = req.MonthlyLimit
-	}
-	if req.Balance > 0 {
-		account.Balance = req.Balance
-	}
-	if req.Priority > 0 {
-		account.Priority = req.Priority
 	}
 	if req.Status != nil {
 		account.Status = *req.Status
+	} else {
+		account.Status = 1 // 默认启用
 	}
+	return s.platformRepo.CreatePlatformAccount(account)
+}
 
+// GetPlatformAccount 获取平台账号
+func (s *PlatformService) GetPlatformAccount(id int64) (*model.PlatformAccount, error) {
+	return s.platformRepo.GetPlatformAccountByID(id)
+}
+
+// UpdatePlatformAccount 更新平台账号
+func (s *PlatformService) UpdatePlatformAccount(account *model.PlatformAccount) error {
 	return s.platformRepo.UpdatePlatformAccount(account)
 }
 
 // DeletePlatformAccount 删除平台账号
 func (s *PlatformService) DeletePlatformAccount(id int64) error {
-	return s.platformRepo.DeleteAccount(id)
-}
-
-// GetPlatformAccount 获取平台账号详情
-func (s *PlatformService) GetPlatformAccount(id int64) (*model.PlatformAccount, error) {
-	return s.platformRepo.GetPlatformAccountByID(id)
+	return s.platformRepo.DeleteAccount(context.Background(), id)
 }
 
 // SendNotification 发送订单状态通知

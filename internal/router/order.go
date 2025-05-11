@@ -11,13 +11,20 @@ import (
 
 // RegisterOrderRoutes 注册订单相关路由
 func RegisterOrderRoutes(r *gin.RouterGroup) {
-	// 创建订单仓库
+	// 初始化仓库
 	orderRepo := repository.NewOrderRepository(database.DB)
+	platformRepo := repository.NewPlatformRepository(database.DB)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 
-	// 创建订单服务
-	orderService := service.NewOrderService(orderRepo)
+	// 初始化服务
+	rechargeService := service.NewRechargeService(
+		orderRepo,
+		platformRepo,
+		productAPIRelationRepo,
+	)
+	orderService := service.NewOrderService(orderRepo, rechargeService)
 
-	// 创建订单控制器
+	// 初始化控制器
 	orderController := controller.NewOrderController(orderService)
 
 	// 订单路由组

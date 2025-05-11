@@ -43,6 +43,9 @@ func SetupRouter(
 		// 外部订单接口 - 不需要认证
 		RegisterExternalOrderRoutes(api)
 
+		// 回调路由 - 不需要认证
+		RegisterCallbackRoutes(api)
+
 		// Protected routes
 		auth := api.Group("")
 		auth.Use(middleware.Auth())

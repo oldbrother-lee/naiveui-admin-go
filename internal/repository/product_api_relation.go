@@ -16,6 +16,7 @@ type ProductAPIRelationRepository interface {
 	Delete(ctx context.Context, id int64) error
 	GetByID(ctx context.Context, id int64) (*model.ProductAPIRelation, error)
 	List(ctx context.Context, productID, apiID int64, status int, page, pageSize int) ([]*model.ProductAPIRelation, int64, error)
+	GetByProductID(ctx context.Context, productID int64) (*model.ProductAPIRelation, error)
 }
 
 type productAPIRelationRepository struct {
@@ -98,4 +99,15 @@ func (r *productAPIRelationRepository) List(ctx context.Context, productID, apiI
 	}
 
 	return relations, total, nil
+}
+
+func (r *productAPIRelationRepository) GetByProductID(ctx context.Context, productID int64) (*model.ProductAPIRelation, error) {
+	var relation model.ProductAPIRelation
+	if err := r.db.Where("product_id = ?", productID).First(&relation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("product %d has no API relation", productID)
+		}
+		return nil, err
+	}
+	return &relation, nil
 }
