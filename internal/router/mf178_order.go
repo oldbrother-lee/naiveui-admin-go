@@ -5,6 +5,7 @@ import (
 	"recharge-go/internal/middleware"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
+	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,7 @@ func init() {
 		orderRepo,
 		platformRepo,
 		productAPIRelationRepo,
+		recharge.NewManager(),
 	)
 }
 
@@ -35,6 +37,7 @@ func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 		orderRepo,
 		platformRepo,
 		productAPIRelationRepo,
+		recharge.NewManager(),
 	)
 	orderService := service.NewOrderService(orderRepo, rechargeService)
 

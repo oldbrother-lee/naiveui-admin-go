@@ -20,4 +20,10 @@ log:
   filename: logs/app.log
   max_size: 100
   max_backups: 10
-  max_age: 30 
+  max_age: 30
+
+redis:
+  host: localhost
+  port: 6380
+  password: ""
+  db: 0 

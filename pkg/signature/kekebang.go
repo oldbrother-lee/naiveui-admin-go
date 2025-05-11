@@ -20,21 +20,19 @@ func GenerateKekebangSign(params map[string]interface{}, secretKey string) strin
 	if !ok {
 		timeStr = fmt.Sprintf("%d", time.Now().Unix())
 	} else {
-		// 尝试将字符串转换为时间戳
+		// 将字符串转换为时间戳
 		if _, err := strconv.ParseInt(timeStr, 10, 64); err != nil {
 			// 如果不是时间戳，则转换为时间戳
 			timeStr = fmt.Sprintf("%d", time.Now().Unix())
 		}
 	}
-	fmt.Println("time:xxxxxx", timeStr)
 	params["timestamp"] = timeStr
 	for k, v := range params {
-		if k == "data" {
+		if k == "data" || k == "time" {
 			continue // 跳过data字段
 		}
 		//过滤空值
 		if v == nil || v == "" || k == "sign" {
-			fmt.Printf("k%s v%s:xxxxxx\n", k, v)
 			continue
 		}
 		// 类型转换

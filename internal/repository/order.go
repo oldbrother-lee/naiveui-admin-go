@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"recharge-go/internal/model"
+	"recharge-go/pkg/logger"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -44,6 +46,8 @@ type OrderRepository interface {
 	GetByStatus(ctx context.Context, status model.OrderStatus) ([]*model.Order, error)
 	// GetByOrderID 根据订单号获取订单
 	GetByOrderID(ctx context.Context, orderID string) (*model.Order, error)
+	// UpdatePlatformID 更新订单支付平台ID和API ID
+	UpdatePlatformID(ctx context.Context, orderID int64, platformID int64, ParamID int64) error
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -163,7 +167,45 @@ func (r *OrderRepositoryImpl) GetOrders(ctx context.Context, params map[string]i
 
 	// 添加查询条件
 	for key, value := range params {
-		query = query.Where(key+" = ?", value)
+		// 将 interface{} 转换为 string
+		strValue, ok := value.(string)
+		if !ok || strValue == "" {
+			continue
+		}
+
+		switch key {
+		case "client":
+			// 将字符串转换为整数
+			clientID, err := strconv.ParseInt(strValue, 10, 64)
+			if err != nil {
+				logger.Error("解析client参数失败: %v", err)
+				continue
+			}
+			if clientID > 0 {
+				query = query.Where("client = ?", clientID)
+			}
+		case "status":
+			// 将字符串转换为整数
+			status, err := strconv.ParseInt(strValue, 10, 64)
+			if err != nil {
+				logger.Error("解析status参数失败: %v", err)
+				continue
+			}
+			if status >= 0 {
+				query = query.Where("status = ?", status)
+			}
+		case "order_number":
+			query = query.Where("order_number LIKE ?", "%"+strValue+"%")
+		case "mobile":
+			query = query.Where("mobile LIKE ?", "%"+strValue+"%")
+		case "start_time":
+			query = query.Where("create_time >= ?", strValue)
+		case "end_time":
+			query = query.Where("create_time <= ?", strValue)
+		default:
+			// 对于其他字段，使用精确匹配
+			query = query.Where(key+" = ?", strValue)
+		}
 	}
 
 	if err := query.Count(&total).Error; err != nil {
@@ -171,7 +213,7 @@ func (r *OrderRepositoryImpl) GetOrders(ctx context.Context, params map[string]i
 	}
 
 	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).Find(&orders).Error; err != nil {
+	if err := query.Order("create_time DESC").Offset(offset).Limit(pageSize).Find(&orders).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -185,4 +227,16 @@ func (r *OrderRepositoryImpl) GetByOrderID(ctx context.Context, orderID string) 
 		return nil, err
 	}
 	return &order, nil
+}
+
+// UpdatePlatformID 更新订单支付平台ID和API ID
+func (r *OrderRepositoryImpl) UpdatePlatformID(ctx context.Context, orderID int64, platformID int64, ParamID int64) error {
+	return r.db.WithContext(ctx).
+		Model(&model.Order{}).
+		Where("id = ?", orderID).
+		Updates(map[string]interface{}{
+			"platform_id":      platformID,
+			"api_cur_id":       platformID, // 使用相同的platformID作为api_id
+			"api_cur_param_id": ParamID,
+		}).Error
 }

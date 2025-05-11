@@ -92,3 +92,15 @@ func InitDB() error {
 
 	return nil
 }
+
+// Close 关闭数据库连接
+func Close() error {
+	if DB != nil {
+		sqlDB, err := DB.DB()
+		if err != nil {
+			return fmt.Errorf("failed to get database instance: %v", err)
+		}
+		return sqlDB.Close()
+	}
+	return nil
+}

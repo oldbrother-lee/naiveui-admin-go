@@ -6,6 +6,7 @@ import (
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/utils"
+	"recharge-go/pkg/logger"
 	"time"
 )
 
@@ -32,7 +33,17 @@ func (s *orderService) CreateOrder(ctx context.Context, order *model.Order) erro
 	order.Status = model.OrderStatusPendingPayment
 	order.IsDel = 0
 
-	return s.orderRepo.Create(ctx, order)
+	if err := s.orderRepo.Create(ctx, order); err != nil {
+		return err
+	}
+
+	// 创建成功后，将订单推送到充值队列
+	if err := s.rechargeService.PushToRechargeQueue(ctx, order.ID); err != nil {
+		logger.Error("推送订单到充值队列失败: %v", err)
+		// 这里可以选择是否返回错误，因为订单已经创建成功
+	}
+
+	return nil
 }
 
 // GetOrderByID 根据ID获取订单

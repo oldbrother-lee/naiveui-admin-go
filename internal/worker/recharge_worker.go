@@ -2,60 +2,72 @@ package worker
 
 import (
 	"context"
-	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/pkg/logger"
 	"time"
-
-	"go.uber.org/zap"
 )
 
+// RechargeWorker 充值工作器
 type RechargeWorker struct {
-	rechargeSvc service.RechargeService
-	taskRepo    repository.RechargeTaskRepository
+	rechargeService service.RechargeService
+	stopChan        chan struct{}
 }
 
-func NewRechargeWorker(rechargeSvc service.RechargeService, taskRepo repository.RechargeTaskRepository) *RechargeWorker {
+// NewRechargeWorker 创建充值工作器
+func NewRechargeWorker(rechargeService service.RechargeService) *RechargeWorker {
 	return &RechargeWorker{
-		rechargeSvc: rechargeSvc,
-		taskRepo:    taskRepo,
+		rechargeService: rechargeService,
+		stopChan:        make(chan struct{}),
 	}
 }
 
-func (w *RechargeWorker) Start(ctx context.Context) {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
+// Start 启动工作器
+func (w *RechargeWorker) Start() {
+	logger.Info("充值工作器启动")
+	go w.processQueue()
+}
 
+// Stop 停止工作器
+func (w *RechargeWorker) Stop() {
+	logger.Info("充值工作器停止")
+	close(w.stopChan)
+}
+
+// processQueue 处理队列
+func (w *RechargeWorker) processQueue() {
+	ctx := context.Background()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-w.stopChan:
 			return
-		case <-ticker.C:
-			w.processTasks(ctx)
-		}
-	}
-}
+		default:
+			// 从队列中获取订单ID
+			orderID, err := w.rechargeService.PopFromRechargeQueue(ctx)
+			if err != nil {
+				logger.Error("从队列获取订单失败: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
 
-func (w *RechargeWorker) processTasks(ctx context.Context) {
-	// 获取待处理的任务
-	tasks, err := w.taskRepo.GetPendingTasks(ctx, 10)
-	if err != nil {
-		logger.Log.Error("获取待处理任务失败", zap.Error(err))
-		return
-	}
+			// 获取订单信息
+			order, err := w.rechargeService.GetOrderByID(ctx, orderID)
+			if err != nil {
+				logger.Error("获取订单信息失败, order_id: %d, error: %v", orderID, err)
+				continue
+			}
 
-	for _, task := range tasks {
-		// 检查是否到达重试时间
-		if task.NextRetryAt.After(time.Now()) {
-			continue
-		}
+			// 处理充值任务
+			if err := w.rechargeService.ProcessRechargeTask(ctx, order); err != nil {
+				logger.Error("处理充值任务失败, order_id: %d, error: %v", orderID, err)
+				// 如果处理失败，将订单重新放入队列
+				if err := w.rechargeService.PushToRechargeQueue(ctx, orderID); err != nil {
+					logger.Error("重新放入队列失败, order_id: %d, error: %v", orderID, err)
+				}
+				time.Sleep(time.Second)
+				continue
+			}
 
-		// 处理任务
-		if err := w.rechargeSvc.ProcessRechargeTask(ctx, task); err != nil {
-			logger.Log.Error("处理充值任务失败",
-				zap.Int64("task_id", task.ID),
-				zap.Int64("order_id", task.OrderID),
-				zap.Error(err))
+			logger.Info("充值任务处理完成, order_id: %d", orderID)
 		}
 	}
 }

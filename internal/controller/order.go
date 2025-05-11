@@ -336,8 +336,7 @@ func (c *OrderController) GetOrders(ctx *gin.Context) {
 		Mobile      string `form:"mobile"`
 		Status      string `form:"status"`
 		Client      int    `form:"client"`
-		StartTime   string `form:"start_time"`
-		EndTime     string `form:"end_time"`
+		CreateTime  string `form:"create_time"`
 		Page        int    `form:"page,default=1"`
 		PageSize    int    `form:"page_size,default=10"`
 	}
@@ -355,8 +354,7 @@ func (c *OrderController) GetOrders(ctx *gin.Context) {
 		"mobile":        req.Mobile,
 		"status":        req.Status,
 		"client":        req.Client,
-		"start_time":    req.StartTime,
-		"end_time":      req.EndTime,
+		"create_time":   req.CreateTime,
 	}
 
 	// 获取订单列表

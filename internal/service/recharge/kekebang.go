@@ -69,7 +69,7 @@ func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, 
 	code := fmt.Sprintf("%v", resp.Code)
 
 	switch code {
-	case "0000":
+	case "00000":
 		logger.Info("【下单成功】order_id: %d", order.ID)
 	case "10006":
 		logger.Info("【订单重复提交】order_id: %d", order.ID)
@@ -111,7 +111,7 @@ func (p *KekebangPlatform) HandleCallback(ctx context.Context, data []byte) erro
 	// 验证签名
 	if !signature.VerifyKekebangSign(callbackMap, callback.Sign, "") {
 		logger.Error("【签名验证失败】order_id: %s", callback.OrderID)
-		return fmt.Errorf("invalid sign")
+		return fmt.Errorf("invalid sign failed")
 	}
 
 	// 处理订单状态

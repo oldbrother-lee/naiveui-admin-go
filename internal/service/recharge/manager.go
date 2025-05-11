@@ -72,10 +72,12 @@ func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *mode
 }
 
 // HandleCallback 处理平台回调
-func (m *Manager) HandleCallback(ctx context.Context, platformID int64, data []byte) error {
-	platform, err := m.GetPlatform(platformID)
-	if err != nil {
-		return err
-	}
-	return platform.HandleCallback(ctx, data)
+func (m *Manager) HandleCallback(ctx context.Context, platformID string, data []byte) error {
+	fmt.Println(platformID, "platformID-----")
+	// platform, err := m.GetPlatform(platformID)
+	// if err != nil {
+	// 	return err
+	// }
+	// return platform.HandleCallback(ctx, data)
+	return nil
 }

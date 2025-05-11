@@ -2,6 +2,7 @@ package router
 
 import (
 	"recharge-go/internal/controller"
+	"recharge-go/internal/handler"
 	"recharge-go/internal/middleware"
 	"recharge-go/internal/service"
 
@@ -22,6 +23,7 @@ func SetupRouter(
 	productAPIRelationController *controller.ProductAPIRelationController,
 	userLogController *controller.UserLogController,
 	userGradeController *controller.UserGradeController,
+	rechargeHandler *handler.RechargeHandler,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -85,6 +87,12 @@ func SetupRouter(
 
 			// Order routes
 			RegisterOrderRoutes(auth)
+
+			// Recharge routes
+			recharge := auth.Group("/recharge")
+			{
+				recharge.POST("/callback/:platform", rechargeHandler.HandleCallback)
+			}
 		}
 	}
 

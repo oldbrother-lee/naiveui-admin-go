@@ -2,14 +2,21 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
+	"os/signal"
 	"recharge-go/internal/config"
 	"recharge-go/internal/controller"
+	"recharge-go/internal/handler"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/router"
 	"recharge-go/internal/service"
+	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/redis"
+	"syscall"
+
+	"go.uber.org/zap"
 )
 
 // @title Recharge Go API
@@ -31,58 +38,77 @@ import (
 // @name Authorization
 func main() {
 	// 加载配置
-	_, err := config.LoadConfig("configs/config.yaml")
+	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		logger.Log.Fatal("加载配置失败", zap.Error(err))
 	}
 
-	// 初始化日志
-	if err := logger.InitLogger(); err != nil {
-		// 如果初始化失败，使用默认的 logger
-		fmt.Printf("初始化日志失败: %v，将使用默认日志配置\n", err)
-	}
-	defer logger.Close()
-
-	// 初始化数据库
+	// 初始化数据库连接
 	if err := database.InitDB(); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		logger.Log.Fatal("初始化数据库失败", zap.Error(err))
 	}
 
-	// 初始化仓库
+	// 初始化Redis连接
+	if err := redis.InitRedis(
+		cfg.Redis.Host,
+		cfg.Redis.Port,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+	); err != nil {
+		logger.Log.Fatal("初始化Redis失败", zap.Error(err))
+	}
+
+	// 创建仓储实例
+	orderRepo := repository.NewOrderRepository(database.DB)
+	platformRepo := repository.NewPlatformRepository(database.DB)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 	userRepo := repository.NewUserRepository(database.DB)
+	userGradeRepo := repository.NewUserGradeRepository(database.DB)
+	userTagRepo := repository.NewUserTagRepository(database.DB)
+	userTagRelationRepo := repository.NewUserTagRelationRepository(database.DB)
+	userGradeRelationRepo := repository.NewUserGradeRelationRepository(database.DB)
+	userLogRepo := repository.NewUserLogRepository(database.DB)
 	permissionRepo := repository.NewPermissionRepository(database.DB)
 	roleRepo := repository.NewRoleRepository(database.DB)
 	productRepo := repository.NewProductRepository(database.DB)
 	phoneLocationRepo := repository.NewPhoneLocationRepository(database.DB)
 	productTypeRepo := repository.NewProductTypeRepository(database.DB)
-	productTypeCateRepo := repository.NewProductTypeCategoryRepository(database.DB)
-	platformRepo := repository.NewPlatformRepository(database.DB)
+	productTypeCategoryRepo := repository.NewProductTypeCategoryRepository(database.DB)
 	platformAPIRepo := repository.NewPlatformAPIRepository(database.DB)
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
-	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
-	userLogRepo := repository.NewUserLogRepository(database.DB)
-	userGradeRepo := repository.NewUserGradeRepository(database.DB)
-	userGradeRelationRepo := repository.NewUserGradeRelationRepository(database.DB)
-	userTagRepo := repository.NewUserTagRepository(database.DB)
-	userTagRelationRepo := repository.NewUserTagRelationRepository(database.DB)
 
-	// 初始化服务
-	userService := service.NewUserService(userRepo, userGradeRepo, userTagRepo, userTagRelationRepo, userGradeRelationRepo, userLogRepo)
+	// 创建服务实例
+	rechargeService := service.NewRechargeService(
+		orderRepo,
+		platformRepo,
+		productAPIRelationRepo,
+		recharge.NewManager(),
+	)
+	userService := service.NewUserService(
+		userRepo,
+		userGradeRepo,
+		userTagRepo,
+		userTagRelationRepo,
+		userGradeRelationRepo,
+		userLogRepo,
+	)
+	userGradeService := service.NewUserGradeService(userGradeRepo, userGradeRelationRepo)
+	userTagService := service.NewUserTagService(userTagRepo, userTagRelationRepo)
+	userLogService := service.NewUserLogService(userLogRepo)
 	permissionService := service.NewPermissionService(permissionRepo)
 	roleService := service.NewRoleService(roleRepo)
 	productService := service.NewProductService(productRepo)
 	phoneLocationService := service.NewPhoneLocationService(phoneLocationRepo)
-	productTypeService := service.NewProductTypeService(productTypeRepo, productTypeCateRepo)
+	productTypeService := service.NewProductTypeService(productTypeRepo, productTypeCategoryRepo)
 	platformService := service.NewPlatformService(platformRepo)
 	platformAPIService := service.NewPlatformAPIService(platformAPIRepo)
 	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
 	productAPIRelationService := service.NewProductAPIRelationService(productAPIRelationRepo)
-	userLogService := service.NewUserLogService(userLogRepo)
-	userGradeService := service.NewUserGradeService(userGradeRepo, userGradeRelationRepo)
-	userTagService := service.NewUserTagService(userTagRepo, userTagRelationRepo)
 
-	// 初始化控制器
+	// 创建处理器实例
+	rechargeHandler := handler.NewRechargeHandler(rechargeService)
 	userController := controller.NewUserController(userService, userGradeService, userTagService)
+	userLogController := controller.NewUserLogController(userLogService)
 	permissionController := controller.NewPermissionController(permissionService)
 	roleController := controller.NewRoleController(roleService)
 	productController := controller.NewProductController(productService)
@@ -92,28 +118,44 @@ func main() {
 	platformAPIController := controller.NewPlatformAPIController(platformAPIService, platformService)
 	platformAPIParamController := controller.NewPlatformAPIParamController(platformAPIParamService)
 	productAPIRelationController := controller.NewProductAPIRelationController(productAPIRelationService)
-	userLogController := controller.NewUserLogController(userLogService)
 	userGradeController := controller.NewUserGradeController(userGradeService)
 
-	// 设置路由
-	r := router.SetupRouter(
-		userController,
-		permissionController,
-		roleController,
-		productController,
-		userService,
-		phoneLocationController,
-		productTypeController,
-		platformController,
-		platformAPIController,
-		platformAPIParamController,
-		productAPIRelationController,
-		userLogController,
-		userGradeController,
+	// 注册路由
+	engine := router.SetupRouter(
+		userController,               // userController
+		permissionController,         // permissionController
+		roleController,               // roleController
+		productController,            // productController
+		userService,                  // userService
+		phoneLocationController,      // phoneLocationController
+		productTypeController,        // productTypeController
+		platformController,           // platformController
+		platformAPIController,        // platformAPIController
+		platformAPIParamController,   // platformAPIParamController
+		productAPIRelationController, // productAPIRelationController
+		userLogController,            // userLogController
+		userGradeController,          // userGradeController
+		rechargeHandler,
 	)
 
-	// 启动服务器
-	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// 启动HTTP服务器
+	go func() {
+		addr := fmt.Sprintf(":%d", cfg.Server.Port)
+		logger.Log.Info("HTTP服务器启动", zap.String("addr", addr))
+		if err := engine.Run(addr); err != nil {
+			logger.Log.Error("HTTP服务器启动失败", zap.Error(err))
+		}
+	}()
+
+	// 等待中断信号
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	// 关闭Redis连接
+	if err := redis.Close(); err != nil {
+		logger.Log.Error("关闭Redis连接失败", zap.Error(err))
 	}
+
+	logger.Log.Info("服务已关闭")
 }

@@ -2,72 +2,75 @@
 package main
 
 import (
-	"context"
 	"os"
 	"os/signal"
 	"recharge-go/internal/config"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
+	"recharge-go/internal/service/recharge"
+	"recharge-go/internal/worker"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/redis"
 	"syscall"
-	"time"
 
 	"go.uber.org/zap"
 )
 
 func main() {
-	// 初始化日志
-	if err := logger.InitLogger(); err != nil {
-		panic(err)
-	}
-	defer logger.Close()
-
-	// 初始化配置
-	_, err := config.LoadConfig("configs/config.yaml")
+	// 加载配置
+	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
 		logger.Log.Fatal("加载配置失败", zap.Error(err))
 	}
 
-	// 初始化数据库
+	// 初始化数据库连接
 	if err := database.InitDB(); err != nil {
 		logger.Log.Fatal("初始化数据库失败", zap.Error(err))
 	}
 
-	// 初始化仓库
+	// 初始化Redis连接
+	if err := redis.InitRedis(
+		cfg.Redis.Host,
+		cfg.Redis.Port,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+	); err != nil {
+		logger.Log.Fatal("初始化Redis失败", zap.Error(err))
+	}
+
+	// 创建仓储实例
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
 	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 
-	// 初始化充值服务
+	// 创建充值管理器
+	manager := recharge.NewManager()
+	// 注册平台
+	manager.RegisterPlatform("kekebang", recharge.NewKekebangPlatform())
+
+	// 创建服务实例
 	rechargeService := service.NewRechargeService(
 		orderRepo,
 		platformRepo,
 		productAPIRelationRepo,
+		manager,
 	)
 
-	// 创建充值工作器
-	worker := service.NewRechargeWorker(
-		rechargeService,
-		5*time.Second, // 每5秒检查一次
-		10,            // 每次处理10个任务
-	)
-
-	// 创建上下文，用于优雅退出
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// 启动工作器
-	go worker.Start(ctx)
+	// 初始化充值工作器
+	rechargeWorker := worker.NewRechargeWorker(rechargeService)
+	rechargeWorker.Start()
+	defer rechargeWorker.Stop()
 
 	// 等待中断信号
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
 
-	// 收到信号后，取消上下文
-	cancel()
+	// 关闭Redis连接
+	if err := redis.Close(); err != nil {
+		logger.Log.Error("关闭Redis连接失败", zap.Error(err))
+	}
 
-	// 等待工作器停止
-	time.Sleep(time.Second)
+	logger.Log.Info("工作器已关闭")
 }

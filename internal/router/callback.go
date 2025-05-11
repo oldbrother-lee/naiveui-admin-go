@@ -6,6 +6,7 @@ import (
 	"recharge-go/internal/controller"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
+	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
 
@@ -24,6 +25,7 @@ func RegisterCallbackRoutes(r *gin.RouterGroup) {
 		orderRepo,
 		platformRepo,
 		productAPIRelationRepo,
+		recharge.NewManager(),
 	)
 
 	// 初始化控制器
