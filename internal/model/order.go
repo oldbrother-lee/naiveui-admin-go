@@ -91,6 +91,7 @@ type Order struct {
 	PlatformAccountID int64       `json:"platform_account_id" gorm:"comment:平台账号ID"`
 	UserOrderId       string      `json:"user_order_id" gorm:"size:64;comment:用户订单ID"`
 	PlatformName      string      `json:"platform_name" gorm:"size:255;comment:平台名称"`
+	PlatformCode      string      `json:"platform_code" gorm:"size:50;comment:平台代码"`
 }
 
 // TableName 表名

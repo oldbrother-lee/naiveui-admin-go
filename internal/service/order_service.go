@@ -4,23 +4,31 @@ import (
 	"context"
 	"fmt"
 	"recharge-go/internal/model"
+	notificationModel "recharge-go/internal/model/notification"
 	"recharge-go/internal/repository"
+	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/utils"
 	"recharge-go/pkg/logger"
 	"time"
 )
 
-// orderService 订单服务
+// orderService 订单服务实现
 type orderService struct {
-	orderRepo       repository.OrderRepository
-	rechargeService RechargeService
+	orderRepo        repository.OrderRepository
+	rechargeService  RechargeService
+	notificationRepo notificationRepo.Repository
 }
 
-// NewOrderService 创建订单服务
-func NewOrderService(orderRepo repository.OrderRepository, rechargeService RechargeService) *orderService {
+// NewOrderService 创建订单服务实例
+func NewOrderService(
+	orderRepo repository.OrderRepository,
+	rechargeService RechargeService,
+	notificationRepo notificationRepo.Repository,
+) OrderService {
 	return &orderService{
-		orderRepo:       orderRepo,
-		rechargeService: rechargeService,
+		orderRepo:        orderRepo,
+		rechargeService:  rechargeService,
+		notificationRepo: notificationRepo,
 	}
 }
 
@@ -62,14 +70,39 @@ func (s *orderService) GetOrdersByCustomerID(ctx context.Context, customerID int
 }
 
 // UpdateOrderStatus 更新订单状态
-func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status model.OrderStatus) error {
-	if status == model.OrderStatusPendingRecharge {
-		// 如果状态是待充值，创建充值任务
-		if err := s.rechargeService.CreateRechargeTask(ctx, id); err != nil {
-			return fmt.Errorf("create recharge task failed: %v", err)
-		}
+func (s *orderService) UpdateOrderStatus(ctx context.Context, orderID int64, status model.OrderStatus) error {
+	// 获取订单信息
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("get order failed: %v", err)
 	}
-	return s.orderRepo.UpdateStatus(ctx, id, status)
+
+	// 如果状态没有变化，直接返回
+	if order.Status == status {
+		return nil
+	}
+
+	// 更新订单状态
+	if err := s.orderRepo.UpdateStatus(ctx, orderID, status); err != nil {
+		return fmt.Errorf("update order status failed: %v", err)
+	}
+
+	// 创建通知记录
+	notification := &notificationModel.NotificationRecord{
+		OrderID:          orderID,
+		PlatformCode:     order.PlatformCode,
+		NotificationType: "order_status_changed",
+		Content:          fmt.Sprintf("订单状态已更新为: %d", status),
+		Status:           1, // 待处理
+	}
+
+	// 保存通知记录
+	if err := s.notificationRepo.Create(ctx, notification); err != nil {
+		logger.Error("create notification failed", "error", err, "order_id", orderID)
+		// 通知失败不影响订单状态更新
+	}
+
+	return nil
 }
 
 // ProcessOrderPayment 处理订单支付
@@ -81,7 +114,7 @@ func (s *orderService) ProcessOrderPayment(ctx context.Context, orderID int64, p
 	}
 
 	// 更新订单状态为待充值
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusPendingRecharge)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusPendingRecharge)
 }
 
 // ProcessOrderRecharge 处理订单充值
@@ -93,7 +126,7 @@ func (s *orderService) ProcessOrderRecharge(ctx context.Context, orderID int64, 
 	}
 
 	// 更新订单状态为充值中
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusRecharging)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusRecharging)
 }
 
 // ProcessOrderSuccess 处理订单成功
@@ -105,7 +138,7 @@ func (s *orderService) ProcessOrderSuccess(ctx context.Context, orderID int64) e
 	}
 
 	// 更新订单状态为成功
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusSuccess)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusSuccess)
 }
 
 // ProcessOrderFail 处理订单失败
@@ -117,7 +150,7 @@ func (s *orderService) ProcessOrderFail(ctx context.Context, orderID int64, rema
 	}
 
 	// 更新订单状态为失败
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusFailed)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusFailed)
 }
 
 // ProcessOrderRefund 处理订单退款
@@ -129,7 +162,7 @@ func (s *orderService) ProcessOrderRefund(ctx context.Context, orderID int64, re
 	}
 
 	// 更新订单状态为已退款
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusRefunded)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusRefunded)
 }
 
 // ProcessOrderCancel 处理订单取消
@@ -141,7 +174,7 @@ func (s *orderService) ProcessOrderCancel(ctx context.Context, orderID int64, re
 	}
 
 	// 更新订单状态为已取消
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusCancelled)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusCancelled)
 }
 
 // ProcessOrderSplit 处理订单拆单
@@ -153,7 +186,7 @@ func (s *orderService) ProcessOrderSplit(ctx context.Context, orderID int64, rem
 	}
 
 	// 更新订单状态为已拆单
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusSplit)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusSplit)
 }
 
 // ProcessOrderPartial 处理订单部分充值
@@ -165,12 +198,7 @@ func (s *orderService) ProcessOrderPartial(ctx context.Context, orderID int64, r
 	}
 
 	// 更新订单状态为部分充值
-	return s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusPartial)
-}
-
-// generateOrderNumber 生成订单号
-func generateOrderNumber() string {
-	return "P" + time.Now().Format("20060102150405") + utils.RandString(6)
+	return s.UpdateOrderStatus(ctx, orderID, model.OrderStatusPartial)
 }
 
 // GetOrderByOutTradeNum 根据外部交易号获取订单
@@ -181,4 +209,9 @@ func (s *orderService) GetOrderByOutTradeNum(ctx context.Context, outTradeNum st
 // GetOrders 获取订单列表
 func (s *orderService) GetOrders(ctx context.Context, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error) {
 	return s.orderRepo.GetOrders(ctx, params, page, pageSize)
+}
+
+// generateOrderNumber 生成订单号
+func generateOrderNumber() string {
+	return "P" + time.Now().Format("20060102150405") + utils.RandString(6)
 }

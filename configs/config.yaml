@@ -26,4 +26,8 @@ redis:
   host: localhost
   port: 6380
   password: ""
-  db: 0 
+  db: 0
+
+notification:
+  max_retries: 3
+  batch_size: 10 

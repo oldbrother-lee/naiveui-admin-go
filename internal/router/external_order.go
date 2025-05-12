@@ -3,6 +3,7 @@ package router
 import (
 	"recharge-go/internal/controller"
 	"recharge-go/internal/repository"
+	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
@@ -18,15 +19,19 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
 	manager := recharge.NewManager(database.DB)
 	rechargeService := service.NewRechargeService(orderRepo, platformRepo, manager, callbackLogRepo, database.DB)
-	orderService := service.NewOrderService(orderRepo, rechargeService)
+
+	// 创建通知仓库
+	notificationRepo := notificationRepo.NewRepository(database.DB)
+
+	orderService := service.NewOrderService(orderRepo, rechargeService, notificationRepo)
 
 	// 创建控制器
-	orderController := controller.NewExternalOrderController(orderService)
+	externalOrderController := controller.NewExternalOrderController(orderService)
 
 	// 注册路由
-	external := r.Group("/external")
+	externalOrder := r.Group("/external/order")
 	{
-		external.POST("/order", orderController.CreateOrder)
-		external.GET("/order/:id", orderController.GetOrder)
+		externalOrder.POST("", externalOrderController.CreateOrder)
+		externalOrder.GET("/:id", externalOrderController.GetOrder)
 	}
 }

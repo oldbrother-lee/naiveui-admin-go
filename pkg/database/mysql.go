@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"recharge-go/configs"
 	"recharge-go/internal/model"
+	"recharge-go/internal/model/notification"
 	"recharge-go/pkg/database/migrations"
 
 	"gorm.io/driver/mysql"
@@ -72,6 +73,8 @@ func InitDB() error {
 		&model.Order{},
 		&model.RechargeTask{},
 		&model.CallbackLog{},
+		&notification.NotificationRecord{},
+		&notification.Template{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate tables: %v", err)
 	}

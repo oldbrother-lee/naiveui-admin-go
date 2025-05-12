@@ -12,11 +12,12 @@ var (
 )
 
 type Config struct {
-	Server   ServerConfig   `mapstructure:"server"`
-	Database DatabaseConfig `mapstructure:"database"`
-	JWT      JWTConfig      `mapstructure:"jwt"`
-	Log      LogConfig      `mapstructure:"log"`
-	Redis    RedisConfig    `mapstructure:"redis"`
+	Server       ServerConfig       `mapstructure:"server"`
+	Database     DatabaseConfig     `mapstructure:"database"`
+	JWT          JWTConfig          `mapstructure:"jwt"`
+	Log          LogConfig          `mapstructure:"log"`
+	Redis        RedisConfig        `mapstructure:"redis"`
+	Notification NotificationConfig `mapstructure:"notification"`
 }
 
 type ServerConfig struct {
@@ -52,6 +53,11 @@ type RedisConfig struct {
 	Port     int    `mapstructure:"port"`
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
+}
+
+type NotificationConfig struct {
+	MaxRetries int `mapstructure:"max_retries"`
+	BatchSize  int `mapstructure:"batch_size"`
 }
 
 func LoadConfig(path string) (*Config, error) {
