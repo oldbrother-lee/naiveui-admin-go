@@ -2,16 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/logger"
-	redisPkg "recharge-go/pkg/redis"
+	"recharge-go/pkg/redis"
 	"strconv"
 	"time"
 
 	redisV8 "github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
 )
 
 // RechargeService 充值服务接口
@@ -45,21 +47,25 @@ type rechargeService struct {
 	productAPIRelationRepo repository.ProductAPIRelationRepository
 	manager                *recharge.Manager
 	redisClient            *redisV8.Client
+	callbackLogRepo        repository.CallbackLogRepository
+	db                     *gorm.DB
 }
 
-// NewRechargeService 创建充值服务实例
+// NewRechargeService 创建充值服务
 func NewRechargeService(
 	orderRepo repository.OrderRepository,
 	platformRepo repository.PlatformRepository,
-	productAPIRelationRepo repository.ProductAPIRelationRepository,
 	manager *recharge.Manager,
-) RechargeService {
+	callbackLogRepo repository.CallbackLogRepository,
+	db *gorm.DB,
+) *rechargeService {
 	return &rechargeService{
-		orderRepo:              orderRepo,
-		platformRepo:           platformRepo,
-		productAPIRelationRepo: productAPIRelationRepo,
-		manager:                manager,
-		redisClient:            redisPkg.GetClient(),
+		orderRepo:       orderRepo,
+		platformRepo:    platformRepo,
+		manager:         manager,
+		callbackLogRepo: callbackLogRepo,
+		db:              db,
+		redisClient:     redis.GetClient(),
 	}
 }
 
@@ -123,9 +129,85 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 
 // HandleCallback 处理平台回调
 func (s *rechargeService) HandleCallback(ctx context.Context, platformName string, data []byte) error {
-	// 处理回调
+	// 1. 解析回调数据
+	fmt.Println(platformName, "platformName++++++++")
+	callbackData, err := s.manager.ParseCallbackData(data)
+	if err != nil {
+		logger.Error("解析回调数据失败: %v", err)
+		return fmt.Errorf("parse callback data failed: %v", err)
+	}
+
+	// 2. 检查是否已处理过该回调
+	exists, err := s.callbackLogRepo.GetByOrderIDAndType(ctx, callbackData.OrderID, callbackData.CallbackType)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.Error("检查回调记录失败: %v", err)
+		return fmt.Errorf("check callback record failed: %v", err)
+	}
+	if exists != nil {
+		logger.Info("回调已处理过: order_id: %s, callback_type: %s", callbackData.OrderID, callbackData.CallbackType)
+		return nil
+	}
+
+	// 3. 开启事务
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 4. 处理回调
 	if err := s.manager.HandleCallback(ctx, platformName, data); err != nil {
+		tx.Rollback()
+		logger.Error("处理回调失败: %v", err)
 		return fmt.Errorf("handle callback failed: %v", err)
+	}
+
+	// 4.1 更新订单状态
+	fmt.Println(callbackData, "callbackData++++++++")
+	orderState, err := strconv.Atoi(callbackData.Status)
+	fmt.Println(orderState, "orderState++++++++")
+	if err != nil {
+		tx.Rollback()
+		logger.Error("解析订单状态失败: %v", err)
+		return fmt.Errorf("parse order status failed: %v", err)
+	}
+
+	// 获取订单信息
+	order, err := s.orderRepo.GetByOrderID(ctx, callbackData.OrderNumber)
+	if err != nil {
+		tx.Rollback()
+		logger.Error("获取订单信息失败: %v", err)
+		return fmt.Errorf("get order failed: %v", err)
+	}
+
+	// 更新订单状态
+	if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatus(orderState)); err != nil {
+		tx.Rollback()
+		logger.Error("更新订单状态失败: %v", err)
+		return fmt.Errorf("update order status failed: %v", err)
+	}
+
+	// 5. 记录回调日志
+	log := &model.CallbackLog{
+		OrderID:      callbackData.OrderID,
+		PlatformID:   platformName,
+		CallbackType: callbackData.CallbackType,
+		Status:       1, // 成功
+		RequestData:  string(data),
+		CreateTime:   time.Now(),
+		UpdateTime:   time.Now(),
+	}
+	if err := s.callbackLogRepo.Create(ctx, log); err != nil {
+		tx.Rollback()
+		logger.Error("记录回调日志失败: %v", err)
+		return fmt.Errorf("create callback log failed: %v", err)
+	}
+
+	// 6. 提交事务
+	if err := tx.Commit().Error; err != nil {
+		logger.Error("提交事务失败: %v", err)
+		return fmt.Errorf("commit transaction failed: %v", err)
 	}
 
 	return nil
@@ -201,20 +283,28 @@ func (s *rechargeService) GetPlatformAPIByOrderID(ctx context.Context, orderID s
 	// 获取订单信息
 	order, err := s.orderRepo.GetByOrderID(ctx, orderID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("获取订单信息失败%d: %v", orderID, err)
+		return nil, nil, fmt.Errorf("获取订单信息失败: %v", err)
 	}
+	fmt.Println("order++++++++", order.ProductID)
+	//product_api_relations
+	// r, err := s.productAPIRelationRepo.GetByProductID(ctx, order.ProductID)
+	// fmt.Println("r++++++++", r)
+	// if err != nil {
+	// 	fmt.Println("err++++++++", err)
+	// 	return nil, nil, fmt.Errorf("获取商品接口关联信息失败: %v", err)
+	// }
 
-	// 获取产品API关系
-	relation, err := s.productAPIRelationRepo.GetByProductID(ctx, order.ProductID)
-	if err != nil {
-		return nil, nil, fmt.Errorf("获取产品API关系失败: %v", err)
-	}
-
-	// 获取平台API信息
-	api, err := s.platformRepo.GetAPIByID(ctx, relation.APIID)
+	// 获取平台API信息 PlatformAPI
+	api, err := s.platformRepo.GetAPIByID(ctx, 3)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取平台API信息失败: %v", err)
 	}
+
+	// 创建一个空的 ProductAPIRelation 对象
+	relation := &model.ProductAPIRelation{
+		APIID: api.ID,
+	}
+	fmt.Println(api, "api++++++++")
 
 	return api, relation, nil
 }

@@ -4,80 +4,153 @@ import (
 	"context"
 	"fmt"
 	"recharge-go/internal/model"
+	"recharge-go/internal/repository"
+	"recharge-go/pkg/logger"
+	"sync"
+
+	"gorm.io/gorm"
 )
 
-// Manager 充值服务管理器
+// Manager 平台管理器
 type Manager struct {
-	platforms map[string]Platform
-	accounts  map[int64]*model.PlatformAccount
+	platformRepo    repository.PlatformRepository
+	platformAPIRepo repository.PlatformAPIRepository
+	platforms       map[string]Platform
+	mu              sync.RWMutex
 }
 
-// NewManager 创建充值服务管理器
-func NewManager() *Manager {
+// NewManager 创建平台管理器
+func NewManager(db *gorm.DB) *Manager {
 	return &Manager{
-		platforms: make(map[string]Platform),
-		accounts:  make(map[int64]*model.PlatformAccount),
+		platformRepo:    repository.NewPlatformRepository(db),
+		platformAPIRepo: repository.NewPlatformAPIRepository(db),
+		platforms:       make(map[string]Platform),
 	}
-}
-
-// RegisterPlatform 注册平台
-func (m *Manager) RegisterPlatform(name string, platform Platform) {
-	m.platforms[name] = platform
-}
-
-// RegisterAccount 注册平台账号
-func (m *Manager) RegisterAccount(account *model.PlatformAccount) {
-	m.accounts[account.ID] = account
 }
 
 // GetPlatform 获取平台实例
-func (m *Manager) GetPlatform(platformID int64) (Platform, error) {
-	// 根据平台ID获取平台名称
-	platformName := getPlatformNameByID(platformID)
-	platform, ok := m.platforms[platformName]
-	if !ok {
-		return nil, fmt.Errorf("platform with ID %d not found", platformID)
+func (m *Manager) GetPlatform(platformCode string) (Platform, error) {
+	// 直接从数据库加载平台API配置
+	api, err := m.platformAPIRepo.GetByCode(context.Background(), platformCode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get platform API: %v", err)
 	}
+
+	// 创建平台实例
+	platform := m.createPlatform(api)
+	if platform == nil {
+		return nil, fmt.Errorf("failed to create platform instance for %s", platformCode)
+	}
+
 	return platform, nil
 }
 
-// getPlatformNameByID 根据平台ID获取平台名称
-func getPlatformNameByID(platformID int64) string {
-	// 这里可以根据实际需求实现平台ID到平台名称的映射
-	// 例如：1 -> "kekebang", 2 -> "other_platform" 等
-	switch platformID {
-	case 2:
-		return "kekebang"
+// createPlatform 创建平台实例
+func (m *Manager) createPlatform(api *model.PlatformAPI) Platform {
+	switch api.Code {
+	case "kekebang":
+		return NewKekebangPlatform(api)
 	default:
-		return "unknown"
+		return nil
 	}
 }
 
-// GetAccount 获取平台账号
-func (m *Manager) GetAccount(id int64) (*model.PlatformAccount, error) {
-	account, ok := m.accounts[id]
-	if !ok {
-		return nil, fmt.Errorf("platform account %d not found", id)
-	}
-	return account, nil
-}
-
-// SubmitOrder 提交充值订单
-func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error {
-	platform, err := m.GetPlatform(api.PlatformID)
+// LoadPlatforms 从数据库加载所有平台配置
+func (m *Manager) LoadPlatforms() error {
+	// 获取所有启用的平台
+	platforms, _, err := m.platformRepo.ListPlatforms(&model.PlatformListRequest{
+		Page:     1,
+		PageSize: 100,
+		Status:   &[]int{1}[0],
+	})
 	if err != nil {
-		return fmt.Errorf("get platform failed: %v", err)
+		return fmt.Errorf("failed to list platforms: %v", err)
 	}
+
+	// 为每个平台创建实例
+	for _, platform := range platforms {
+		// 获取平台API配置
+		api, err := m.platformAPIRepo.GetByCode(context.Background(), platform.Code)
+		if err != nil {
+			logger.Error("Failed to get platform API for %s: %v", platform.Code, err)
+			continue
+		}
+
+		// 创建平台实例
+		platformInstance := m.createPlatform(api)
+		if platformInstance == nil {
+			logger.Error("Failed to create platform instance for %s", platform.Code)
+			continue
+		}
+
+		// 缓存平台实例
+		m.mu.Lock()
+		m.platforms[platform.Code] = platformInstance
+		m.mu.Unlock()
+	}
+
+	return nil
+}
+
+// SubmitOrder 提交订单到平台
+func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error {
+	// 获取平台实例
+	platform, err := m.GetPlatform("kekebang")
+	if err != nil {
+		return fmt.Errorf("failed to get platform: %v", err)
+	}
+	fmt.Println("提交订单到平台,获取平台实例", platform)
+
+	// 提交订单
 	return platform.SubmitOrder(ctx, order, api)
 }
 
-// HandleCallback 处理平台回调
-func (m *Manager) HandleCallback(ctx context.Context, platformID string, data []byte) error {
-	fmt.Println(platformID, "platformID-----")
-	// platform, err := m.GetPlatform(platformID)
-	// if err != nil {
-	// 	return err
-	// }
-	// return platform.HandleCallback(ctx, data)
+// QueryOrderStatus 查询订单状态
+func (m *Manager) QueryOrderStatus(ctx context.Context, order *model.Order) error {
+	// 获取平台实例
+	platform, err := m.GetPlatform(order.PlatformName)
+	if err != nil {
+		return fmt.Errorf("failed to get platform: %v", err)
+	}
+
+	// 查询订单状态
+	status, err := platform.QueryOrderStatus(order)
+	if err != nil {
+		return err
+	}
+
+	// 更新订单状态
+	order.Status = model.OrderStatus(status)
 	return nil
+}
+
+// HandleCallback 处理平台回调
+func (m *Manager) HandleCallback(ctx context.Context, platformCode string, data []byte) error {
+	// 获取平台实例
+	platform, err := m.GetPlatform(platformCode)
+	if err != nil {
+		return fmt.Errorf("failed to get platform: %v", err)
+	}
+
+	// 解析回调数据
+	callbackData, err := platform.ParseCallbackData(data)
+	if err != nil {
+		return fmt.Errorf("failed to parse callback data: %v", err)
+	}
+
+	// TODO: 处理回调数据
+	_ = callbackData
+	return nil
+}
+
+// ParseCallbackData 解析回调数据
+func (m *Manager) ParseCallbackData(data []byte) (*model.CallbackData, error) {
+	// 获取平台实例
+	platform, err := m.GetPlatform("kekebang") // 这里需要根据实际情况获取正确的平台
+	if err != nil {
+		return nil, fmt.Errorf("get platform failed: %v", err)
+	}
+
+	// 调用平台的 ParseCallbackData 方法
+	return platform.ParseCallbackData(data)
 }

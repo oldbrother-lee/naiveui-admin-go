@@ -5,16 +5,16 @@ import (
 	"recharge-go/internal/model"
 )
 
-// Platform 充值平台接口
+// Platform 平台接口
 type Platform interface {
-	// GetPlatformName 获取平台名称
-	GetPlatformName() string
-
-	// SubmitOrder 提交充值订单
+	// GetName 获取平台名称
+	GetName() string
+	// SubmitOrder 提交订单
 	SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error
-
-	// HandleCallback 处理平台回调
-	HandleCallback(ctx context.Context, data []byte) error
+	// QueryOrderStatus 查询订单状态
+	QueryOrderStatus(order *model.Order) (int, error)
+	// ParseCallbackData 解析回调数据
+	ParseCallbackData(data []byte) (*model.CallbackData, error)
 }
 
 // PlatformConfig 平台配置

@@ -103,6 +103,7 @@ func (r *productAPIRelationRepository) List(ctx context.Context, productID, apiI
 
 func (r *productAPIRelationRepository) GetByProductID(ctx context.Context, productID int64) (*model.ProductAPIRelation, error) {
 	var relation model.ProductAPIRelation
+	fmt.Println("productID++++++++", productID)
 	if err := r.db.Where("product_id = ?", productID).First(&relation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("product %d has no API relation", productID)

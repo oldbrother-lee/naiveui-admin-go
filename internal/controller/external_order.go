@@ -5,6 +5,7 @@ import (
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -69,4 +70,22 @@ func (c *ExternalOrderController) CreateOrder(ctx *gin.Context) {
 		"status":       order.Status,
 		"create_time":  order.CreateTime,
 	})
+}
+
+// GetOrder 获取订单
+func (c *ExternalOrderController) GetOrder(ctx *gin.Context) {
+	id := ctx.Param("id")
+	orderID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		utils.Error(ctx, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	order, err := c.orderService.GetOrderByID(ctx, orderID)
+	if err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.Success(ctx, order)
 }

@@ -10,28 +10,23 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// RegisterExternalOrderRoutes 注册外部订单相关路由
 func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
-	// 初始化仓库
+	// 创建服务实例
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
-	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
-
-	// 初始化服务
-	rechargeService := service.NewRechargeService(
-		orderRepo,
-		platformRepo,
-		productAPIRelationRepo,
-		recharge.NewManager(),
-	)
+	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
+	manager := recharge.NewManager(database.DB)
+	rechargeService := service.NewRechargeService(orderRepo, platformRepo, manager, callbackLogRepo, database.DB)
 	orderService := service.NewOrderService(orderRepo, rechargeService)
 
-	// 初始化控制器
-	externalOrderController := controller.NewExternalOrderController(orderService)
+	// 创建控制器
+	orderController := controller.NewExternalOrderController(orderService)
 
-	externalGroup := r.Group("/external")
+	// 注册路由
+	external := r.Group("/external")
 	{
-		externalGroup.POST("/order", externalOrderController.CreateOrder)
-		// 可扩展：externalOrderGroup.GET("/:out_trade_num", externalOrderController.GetOrder)
-		// 可扩展：externalOrderGroup.POST("/notify", externalOrderController.Notify)
+		external.POST("/order", orderController.CreateOrder)
+		external.GET("/order/:id", orderController.GetOrder)
 	}
 }

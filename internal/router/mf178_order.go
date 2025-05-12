@@ -2,7 +2,6 @@ package router
 
 import (
 	"recharge-go/internal/controller"
-	"recharge-go/internal/middleware"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/recharge"
@@ -15,43 +14,33 @@ func init() {
 	// 初始化仓库
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
-	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 
 	// 初始化充值服务
 	_ = service.NewRechargeService(
 		orderRepo,
 		platformRepo,
-		productAPIRelationRepo,
-		recharge.NewManager(),
+		recharge.NewManager(database.DB),
+		repository.NewCallbackLogRepository(database.DB),
+		database.DB,
 	)
 }
 
 func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
-	// 初始化仓库
+	// 创建服务实例
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
-	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
-
-	// 初始化服务
-	rechargeService := service.NewRechargeService(
-		orderRepo,
-		platformRepo,
-		productAPIRelationRepo,
-		recharge.NewManager(),
-	)
+	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
+	manager := recharge.NewManager(database.DB)
+	rechargeService := service.NewRechargeService(orderRepo, platformRepo, manager, callbackLogRepo, database.DB)
 	orderService := service.NewOrderService(orderRepo, rechargeService)
 
-	// 初始化控制器
-	mf178OrderController := controller.NewMF178OrderController(
-		orderService,
-		rechargeService,
-	)
+	// 创建控制器
+	orderController := controller.NewMF178OrderController(orderService, rechargeService)
 
-	mf178Group := r.Group("/mf178")
+	// 注册路由
+	mf178 := r.Group("/mf178")
 	{
-		// 使用MF178特定的认证中间件
-		mf178Group.Use(middleware.MF178Auth())
-		mf178Group.POST("/order", mf178OrderController.CreateOrder)
-		mf178Group.POST("/query", mf178OrderController.QueryOrder) // 查询订单
+		mf178.POST("/order", orderController.CreateOrder)
+		mf178.POST("/query", orderController.QueryOrder)
 	}
 }

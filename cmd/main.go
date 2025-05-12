@@ -37,6 +37,11 @@ import (
 // @in header
 // @name Authorization
 func main() {
+	// 初始化日志
+	if err := logger.InitLogger(); err != nil {
+		panic(fmt.Sprintf("初始化日志失败: %v", err))
+	}
+
 	// 加载配置
 	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
@@ -76,13 +81,24 @@ func main() {
 	productTypeCategoryRepo := repository.NewProductTypeCategoryRepository(database.DB)
 	platformAPIRepo := repository.NewPlatformAPIRepository(database.DB)
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
+	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
 
-	// 创建服务实例
+	// 创建平台管理器
+	manager := recharge.NewManager(database.DB)
+
+	// 从数据库加载平台配置
+	if err := manager.LoadPlatforms(); err != nil {
+		logger.Error("load platforms failed: %v", err)
+		os.Exit(1)
+	}
+
+	// 创建充值服务
 	rechargeService := service.NewRechargeService(
 		orderRepo,
 		platformRepo,
-		productAPIRelationRepo,
-		recharge.NewManager(),
+		manager,
+		callbackLogRepo,
+		database.DB,
 	)
 	userService := service.NewUserService(
 		userRepo,

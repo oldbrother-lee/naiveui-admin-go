@@ -15,32 +15,32 @@ import (
 	"recharge-go/pkg/signature"
 )
 
-// KekebangPlatform 科科帮平台实现
+// KekebangPlatform 可客帮平台
 type KekebangPlatform struct {
-	*BasePlatform
+	api *model.PlatformAPI
 }
 
-// NewKekebangPlatform 创建科科帮平台实例
-func NewKekebangPlatform() *KekebangPlatform {
+// NewKekebangPlatform 创建可客帮平台实例
+func NewKekebangPlatform(api *model.PlatformAPI) *KekebangPlatform {
 	return &KekebangPlatform{
-		BasePlatform: NewBasePlatform("kekebang"),
+		api: api,
 	}
 }
 
-// GetPlatformName 获取平台名称
-func (p *KekebangPlatform) GetPlatformName() string {
+// GetName 获取平台名称
+func (p *KekebangPlatform) GetName() string {
 	return "kekebang"
 }
 
-// SubmitOrder 提交充值订单
+// SubmitOrder 提交订单
 func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error {
-	logger.Info("【开始执行可客帮充值】order_id: %d", order.ID)
+	logger.Info("【开始提交可客帮订单】order_id: %d", order.ID)
 
 	// 构建请求参数
 	params := map[string]interface{}{
 		"app_key":    api.AppKey,
 		"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
-		"biz_code":   "1",
+		"biz_code":   "1", // 充值业务
 		"order_id":   order.OrderNumber,
 		"sku_code":   "SKU00000007",
 		"notify_url": api.CallbackURL,
@@ -48,98 +48,127 @@ func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, 
 			"account": order.Mobile,
 		},
 	}
-	logger.Info("【充值请求参数】order_id: %d, params: %+v", order.ID, params)
 
 	// 使用客帮帮平台的签名方法
 	sign := signature.GenerateKekebangSign(params, api.SecretKey)
 	params["sign"] = sign
 
 	// 发送请求
+	fmt.Println("提交订单到平台,发送请求", params)
 	resp, err := p.sendRequest(ctx, api.URL, params)
 	if err != nil {
-		logger.Error("【发送请求失败】order_id: %d, error: %v", order.ID, err)
-		return fmt.Errorf("send request failed: %v", err)
+		logger.Error("【提交订单失败】order_id: %d, error: %v", order.ID, err)
+		return fmt.Errorf("submit order failed: %v", err)
 	}
-	logger.Info("【发送请求成功】order_id: %d, response: %+v", order.ID, resp)
-
-	// 先打印一下 resp.Code 的值和类型
-	logger.Info("【平台返回码】order_id: %d, code: %v, code type: %T", order.ID, resp.Code, resp.Code)
 
 	// 确保 Code 是字符串类型
 	code := fmt.Sprintf("%v", resp.Code)
-
-	switch code {
-	case "00000":
-		logger.Info("【下单成功】order_id: %d", order.ID)
-	case "10006":
-		logger.Info("【订单重复提交】order_id: %d", order.ID)
-	default:
-		logger.Error("【平台返回错误】order_id: %d, code: %s, message: %s",
+	if code != "00000" {
+		logger.Error("【提交订单失败】order_id: %d, code: %s, message: %s",
 			order.ID, code, resp.Message)
 		return fmt.Errorf("submit order failed: %s", resp.Message)
 	}
 
-	logger.Info("【可客帮充值完成】order_id: %d", order.ID)
+	logger.Info("【提交订单成功】order_id: %d", order.ID)
 	return nil
 }
 
-// HandleCallback 处理平台回调
-func (p *KekebangPlatform) HandleCallback(ctx context.Context, data []byte) error {
-	logger.Info("【开始处理客帮帮回调】data: %s", string(data))
+// QueryOrderStatus 查询订单状态
+func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
+	logger.Info("【开始查询可客帮订单状态】order_id: %d", order.ID)
 
-	// 解析回调数据
-	var callback KekebangCallbackResponse
-	if err := json.Unmarshal(data, &callback); err != nil {
-		logger.Error("【解析回调数据失败】error: %v", err)
-		return fmt.Errorf("unmarshal callback data failed: %v", err)
+	// 构建请求参数
+	params := map[string]interface{}{
+		"app_key":   p.api.AppKey,
+		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+		"biz_code":  "2", // 查询订单状态
+		"order_id":  order.OrderNumber,
 	}
 
-	// 将结构体转换为map用于签名验证
-	callbackMap := map[string]interface{}{
-		"order_id":    callback.OrderID,
-		"terrace_id":  callback.TerraceID,
-		"account":     callback.Account,
-		"time":        callback.Time,
-		"return_msg":  callback.ReturnMsg,
-		"amount":      callback.Amount,
-		"proof":       callback.Proof,
-		"card_no":     callback.CardNo,
-		"order_state": callback.OrderState,
-		"error_code":  callback.ErrorCode,
+	// 使用客帮帮平台的签名方法
+	sign := signature.GenerateKekebangSign(params, p.api.SecretKey)
+	params["sign"] = sign
+
+	// 发送请求
+	resp, err := p.sendRequest(context.Background(), p.api.URL, params)
+	if err != nil {
+		logger.Error("【查询订单状态失败】order_id: %d, error: %v", order.ID, err)
+		return 0, fmt.Errorf("query order status failed: %v", err)
 	}
 
-	// 验证签名
-	if !signature.VerifyKekebangSign(callbackMap, callback.Sign, "") {
-		logger.Error("【签名验证失败】order_id: %s", callback.OrderID)
-		return fmt.Errorf("invalid sign failed")
+	// 确保 Code 是字符串类型
+	code := fmt.Sprintf("%v", resp.Code)
+	if code != "00000" {
+		logger.Error("【查询订单状态失败】order_id: %d, code: %s, message: %s",
+			order.ID, code, resp.Message)
+		return 0, fmt.Errorf("query order status failed: %s", resp.Message)
 	}
 
-	// 处理订单状态
-	switch callback.OrderState {
-	case 2: // 充值成功
-		logger.Info("【充值成功】order_id: %s, terrace_id: %s",
-			callback.OrderID, callback.TerraceID)
-		// TODO: 更新订单状态为充值成功
+	// 根据状态码返回订单状态
+	// 这里需要根据实际平台返回的状态码进行映射
+	// 假设 2 表示成功，其他表示失败
+	status := 0 // 默认失败
+	if resp.Status == "2" {
+		status = 2 // 成功
+	}
+
+	logger.Info("【查询订单状态完成】order_id: %d, status: %d", order.ID, status)
+	return status, nil
+}
+
+// ParseCallbackData 解析回调数据
+func (p *KekebangPlatform) ParseCallbackData(data []byte) (*model.CallbackData, error) {
+	// 解析平台返回的数据
+	resp := &KekebangCallbackResponse{}
+	if err := json.Unmarshal(data, resp); err != nil {
+		return nil, fmt.Errorf("parse callback data failed: %v", err)
+	}
+
+	// 转换订单状态
+	// kekebang状态码：
+	// 1：处理中
+	// 2：成功
+	// 3：失败
+	// 4：异常（需人工核实）
+	var status string
+	switch resp.OrderState {
+	case 1:
+		status = strconv.Itoa(int(model.OrderStatusRecharging)) // 充值中
+	case 2:
+		status = strconv.Itoa(int(model.OrderStatusSuccess)) // 成功
+	case 3:
+		status = strconv.Itoa(int(model.OrderStatusFailed)) // 失败
+	case 4:
+		status = strconv.Itoa(int(model.OrderStatusProcessing)) // 处理中（异常状态）
 	default:
-		logger.Error("【充值失败】order_id: %s, order_state: %d, error_code: %v",
-			callback.OrderID, callback.OrderState, callback.ErrorCode)
-		// TODO: 更新订单状态为充值失败
+		status = strconv.Itoa(int(model.OrderStatusFailed)) // 默认失败
 	}
 
-	logger.Info("【客帮帮回调处理完成】order_id: %s", callback.OrderID)
-	return nil
+	// 直接返回解析后的数据，不验证平台返回码
+
+	return &model.CallbackData{
+		OrderID:       resp.TerraceID,
+		OrderNumber:   resp.OrderID,
+		Status:        status, //订单状态
+		Message:       resp.ReturnMsg,
+		CallbackType:  "order_status",
+		Amount:        strconv.FormatFloat(resp.Amount, 'f', 2, 64),
+		Sign:          resp.Sign,
+		Timestamp:     resp.Time,
+		TransactionID: resp.Proof,
+	}, nil
 }
 
-// sendRequest 发送HTTP请求
-func (p *KekebangPlatform) sendRequest(ctx context.Context, url string, params map[string]interface{}) (*Response, error) {
-	// 将参数转换为JSON
-	jsonParams, err := json.Marshal(params)
+// sendRequest 发送请求
+func (p *KekebangPlatform) sendRequest(ctx context.Context, url string, params map[string]interface{}) (*KekebangResponse, error) {
+	// 将参数转换为 JSON
+	jsonData, err := json.Marshal(params)
 	if err != nil {
 		return nil, fmt.Errorf("marshal params failed: %v", err)
 	}
 
 	// 创建请求
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonParams))
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("create request failed: %v", err)
 	}
@@ -151,7 +180,7 @@ func (p *KekebangPlatform) sendRequest(ctx context.Context, url string, params m
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do request failed: %v", err)
+		return nil, fmt.Errorf("send request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -162,7 +191,7 @@ func (p *KekebangPlatform) sendRequest(ctx context.Context, url string, params m
 	}
 
 	// 解析响应
-	var result Response
+	var result KekebangResponse
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal response failed: %v", err)
 	}
@@ -170,25 +199,25 @@ func (p *KekebangPlatform) sendRequest(ctx context.Context, url string, params m
 	return &result, nil
 }
 
-// Response 响应结构
-type Response struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	OrderNo string `json:"order_no"`
-	Status  string `json:"status"`
+// KekebangResponse 可客帮响应
+type KekebangResponse struct {
+	Code    interface{} `json:"code"`
+	Message string      `json:"message"`
+	OrderID string      `json:"order_id"`
+	Status  string      `json:"status"`
 }
 
-// KekebangCallbackResponse 客帮帮回调响应结构
+// KekebangCallbackResponse 可客帮回调响应
 type KekebangCallbackResponse struct {
-	OrderID    string  `json:"order_id"`    // 订单号
-	TerraceID  string  `json:"terrace_id"`  // 平台订单号
-	Account    string  `json:"account"`     // 充值账号
-	Time       string  `json:"time"`        // 回调时间
-	ReturnMsg  string  `json:"return_msg"`  // 返回信息
-	Amount     float64 `json:"amount"`      // 充值金额
-	Proof      string  `json:"proof"`       // 凭证
-	CardNo     string  `json:"card_no"`     // 卡号
-	OrderState int     `json:"order_state"` // 订单状态：2-充值成功
-	ErrorCode  *string `json:"error_code"`  // 错误码
-	Sign       string  `json:"sign"`        // 签名
+	OrderID    string  `json:"order_id"`
+	TerraceID  string  `json:"terrace_id"`
+	Account    string  `json:"account"`
+	Time       string  `json:"time"`
+	ReturnMsg  string  `json:"return_msg"`
+	Amount     float64 `json:"amount"`
+	Proof      string  `json:"proof"`
+	CardNo     string  `json:"card_no"`
+	OrderState int     `json:"order_state"`
+	ErrorCode  *string `json:"error_code"`
+	Sign       string  `json:"sign"`
 }

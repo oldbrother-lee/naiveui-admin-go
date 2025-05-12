@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"recharge-go/internal/config"
@@ -18,6 +19,9 @@ import (
 )
 
 func main() {
+	if err := logger.InitLogger(); err != nil {
+		panic(fmt.Sprintf("初始化日志失败: %v", err))
+	}
 	// 加载配置
 	cfg, err := config.LoadConfig("configs/config.yaml")
 	if err != nil {
@@ -42,19 +46,18 @@ func main() {
 	// 创建仓储实例
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
-	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
+	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
 
 	// 创建充值管理器
-	manager := recharge.NewManager()
-	// 注册平台
-	manager.RegisterPlatform("kekebang", recharge.NewKekebangPlatform())
+	mgr := recharge.NewManager(database.DB)
 
 	// 创建服务实例
 	rechargeService := service.NewRechargeService(
 		orderRepo,
 		platformRepo,
-		productAPIRelationRepo,
-		manager,
+		mgr,
+		callbackLogRepo,
+		database.DB,
 	)
 
 	// 初始化充值工作器

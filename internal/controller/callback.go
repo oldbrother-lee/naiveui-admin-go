@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"recharge-go/internal/service"
 	"recharge-go/pkg/logger"
 
@@ -22,7 +23,7 @@ func NewCallbackController(rechargeService service.RechargeService) *CallbackCon
 // KekebangCallbackRequest 客帮帮回调请求结构
 type KekebangCallbackRequest struct {
 	OrderID    string `json:"order_id"`    // 平台订单号
-	TerraceID  string `json:"terrace_id"`  // 商户订单号
+	TerraceID  string `json:"terrace_id"`  // 没用
 	Account    string `json:"account"`     // 充值账号
 	Time       string `json:"time"`        // 回调时间
 	Amount     string `json:"amount"`      // 充值金额
@@ -55,7 +56,7 @@ func (c *CallbackController) HandleKekebangCallback(ctx *gin.Context) {
 	}
 
 	// 获取平台API信息
-	orderId, ok := params["order_id"].(string)
+	orderID, ok := params["order_id"].(string)
 	if !ok {
 		logger.Error("order_id 类型错误")
 		ctx.JSON(400, gin.H{
@@ -65,12 +66,12 @@ func (c *CallbackController) HandleKekebangCallback(ctx *gin.Context) {
 		return
 	}
 
-	api, err := c.rechargeService.GetPlatformAPIByOrderID(ctx.Request.Context(), orderId)
+	api, _, err := c.rechargeService.GetPlatformAPIByOrderID(ctx.Request.Context(), orderID)
 	if err != nil {
 		logger.Error("获取平台API信息失败: %v", err)
-		ctx.JSON(400, gin.H{
-			"code": "1003",
-			"msg":  "invalid platform api",
+		ctx.JSON(http.StatusOK, gin.H{
+			"code": "1002",
+			"msg":  "get platform api failed",
 		})
 		return
 	}
@@ -90,7 +91,7 @@ func (c *CallbackController) HandleKekebangCallback(ctx *gin.Context) {
 	// 使用客帮帮的签名验证方法
 	// kekebangSign := signature.GenerateKekebangSign(params, api.SecretKey)
 	// if kekebangSign != sign {
-	// 	logger.Error("签名验证失败: order_id=%s", orderId)
+	// 	logger.Error("签名验证失败: order_id=%s", orderID)
 	// 	ctx.JSON(400, gin.H{
 	// 		"code": "1001",
 	// 		"msg":  "invalid sign",
@@ -100,7 +101,7 @@ func (c *CallbackController) HandleKekebangCallback(ctx *gin.Context) {
 
 	// 处理回调
 	if err := c.rechargeService.HandleCallback(ctx.Request.Context(), "kekebang", data); err != nil {
-		logger.Error("处理客帮帮回调失败: %v", err)
+		logger.Error("处理客帮帮回调失败1: %v", err)
 		ctx.JSON(200, gin.H{
 			"code": "1002",
 			"msg":  "handle callback failed",

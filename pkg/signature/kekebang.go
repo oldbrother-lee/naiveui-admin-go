@@ -5,9 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
-	"time"
 )
 
 // GenerateKekebangSign 生成客帮帮平台签名
@@ -16,19 +14,19 @@ func GenerateKekebangSign(params map[string]interface{}, secretKey string) strin
 	signParams := make(map[string]string)
 
 	// 验证params下的time字段是否为时间戳，不是时间戳则转换成时间戳
-	timeStr, ok := params["time"].(string)
-	if !ok {
-		timeStr = fmt.Sprintf("%d", time.Now().Unix())
-	} else {
-		// 将字符串转换为时间戳
-		if _, err := strconv.ParseInt(timeStr, 10, 64); err != nil {
-			// 如果不是时间戳，则转换为时间戳
-			timeStr = fmt.Sprintf("%d", time.Now().Unix())
-		}
-	}
-	params["timestamp"] = timeStr
+	// timeStr, ok := params["time"].(string)
+	// if !ok {
+	// 	timeStr = fmt.Sprintf("%d", time.Now().Unix())
+	// } else {
+	// 	// 将字符串转换为时间戳
+	// 	if _, err := strconv.ParseInt(timeStr, 10, 64); err != nil {
+	// 		// 如果不是时间戳，则转换为时间戳
+	// 		timeStr = fmt.Sprintf("%d", time.Now().Unix())
+	// 	}
+	// }
+	// params["timestamp"] = timeStr
 	for k, v := range params {
-		if k == "data" || k == "time" {
+		if k == "data" {
 			continue // 跳过data字段
 		}
 		//过滤空值

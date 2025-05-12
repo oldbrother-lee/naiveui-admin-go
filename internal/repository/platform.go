@@ -14,6 +14,7 @@ type PlatformRepository interface {
 	// 平台相关方法
 	ListPlatforms(req *model.PlatformListRequest) ([]model.Platform, int64, error)
 	GetPlatformByID(id int64) (*model.Platform, error)
+	GetPlatformByCode(ctx context.Context, code string) (*model.PlatformAPI, error)
 	CreatePlatform(platform *model.Platform) error
 	UpdatePlatform(platform *model.Platform) error
 	Delete(id int64) error
@@ -270,4 +271,13 @@ func (r *PlatformRepositoryImpl) GetAPIByID(ctx context.Context, apiID int64) (*
 		return nil, err
 	}
 	return &api, nil
+}
+
+// GetPlatformByCode 根据平台代码获取平台信息
+func (r *PlatformRepositoryImpl) GetPlatformByCode(ctx context.Context, code string) (*model.PlatformAPI, error) {
+	var platform model.PlatformAPI
+	if err := r.db.WithContext(ctx).Where("code = ? AND status = 1", code).First(&platform).Error; err != nil {
+		return nil, err
+	}
+	return &platform, nil
 }
