@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"recharge-go/internal/model"
 	notificationModel "recharge-go/internal/model/notification"
@@ -9,14 +10,50 @@ import (
 	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/utils"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/queue"
 	"time"
 )
+
+// OrderService 订单服务接口
+type OrderService interface {
+	// CreateOrder 创建订单
+	CreateOrder(ctx context.Context, order *model.Order) error
+	// GetOrderByID 根据ID获取订单
+	GetOrderByID(ctx context.Context, id int64) (*model.Order, error)
+	// GetOrderByOrderNumber 根据订单号获取订单
+	GetOrderByOrderNumber(ctx context.Context, orderNumber string) (*model.Order, error)
+	// GetOrdersByCustomerID 根据客户ID获取订单列表
+	GetOrdersByCustomerID(ctx context.Context, customerID int64, page, pageSize int) ([]*model.Order, int64, error)
+	// UpdateOrderStatus 更新订单状态
+	UpdateOrderStatus(ctx context.Context, id int64, status model.OrderStatus) error
+	// ProcessOrderPayment 处理订单支付
+	ProcessOrderPayment(ctx context.Context, orderID int64, payWay int, serialNumber string) error
+	// ProcessOrderRecharge 处理订单充值
+	ProcessOrderRecharge(ctx context.Context, orderID int64, apiID int64, apiOrderNumber string, apiTradeNum string) error
+	// ProcessOrderSuccess 处理订单成功
+	ProcessOrderSuccess(ctx context.Context, orderID int64) error
+	// ProcessOrderFail 处理订单失败
+	ProcessOrderFail(ctx context.Context, orderID int64, remark string) error
+	// ProcessOrderRefund 处理订单退款
+	ProcessOrderRefund(ctx context.Context, orderID int64, remark string) error
+	// ProcessOrderCancel 处理订单取消
+	ProcessOrderCancel(ctx context.Context, orderID int64, remark string) error
+	// ProcessOrderSplit 处理订单拆单
+	ProcessOrderSplit(ctx context.Context, orderID int64, remark string) error
+	// ProcessOrderPartial 处理订单部分充值
+	ProcessOrderPartial(ctx context.Context, orderID int64, remark string) error
+	// GetOrderByOutTradeNum 根据外部交易号获取订单
+	GetOrderByOutTradeNum(ctx context.Context, outTradeNum string) (*model.Order, error)
+	// GetOrders 获取订单列表
+	GetOrders(ctx context.Context, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error)
+}
 
 // orderService 订单服务实现
 type orderService struct {
 	orderRepo        repository.OrderRepository
 	rechargeService  RechargeService
 	notificationRepo notificationRepo.Repository
+	queue            queue.Queue
 }
 
 // NewOrderService 创建订单服务实例
@@ -24,11 +61,13 @@ func NewOrderService(
 	orderRepo repository.OrderRepository,
 	rechargeService RechargeService,
 	notificationRepo notificationRepo.Repository,
+	queue queue.Queue,
 ) OrderService {
 	return &orderService{
 		orderRepo:        orderRepo,
 		rechargeService:  rechargeService,
 		notificationRepo: notificationRepo,
+		queue:            queue,
 	}
 }
 
@@ -71,21 +110,53 @@ func (s *orderService) GetOrdersByCustomerID(ctx context.Context, customerID int
 
 // UpdateOrderStatus 更新订单状态
 func (s *orderService) UpdateOrderStatus(ctx context.Context, orderID int64, status model.OrderStatus) error {
+	fmt.Println(orderID, "开始更新订单状态orderID++++++++")
+	logger.Info("开始更新订单状态",
+		"order_id", orderID,
+		"new_status", status,
+	)
+
 	// 获取订单信息
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
+		logger.Error("获取订单信息失败",
+			"error", err,
+			"order_id", orderID,
+		)
 		return fmt.Errorf("get order failed: %v", err)
 	}
 
+	logger.Info("获取到订单信息",
+		"order_id", orderID,
+		"current_status", order.Status,
+		"new_status", status,
+	)
+
 	// 如果状态没有变化，直接返回
 	if order.Status == status {
+		logger.Info("订单状态未发生变化，无需更新",
+			"order_id", orderID,
+			"status", status,
+		)
 		return nil
 	}
 
 	// 更新订单状态
 	if err := s.orderRepo.UpdateStatus(ctx, orderID, status); err != nil {
+		logger.Error("更新订单状态失败",
+			"error", err,
+			"order_id", orderID,
+			"old_status", order.Status,
+			"new_status", status,
+		)
 		return fmt.Errorf("update order status failed: %v", err)
 	}
+
+	logger.Info("订单状态更新成功",
+		"order_id", orderID,
+		"old_status", order.Status,
+		"new_status", status,
+	)
 
 	// 创建通知记录
 	notification := &notificationModel.NotificationRecord{
@@ -96,10 +167,48 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, orderID int64, sta
 		Status:           1, // 待处理
 	}
 
-	// 保存通知记录
+	// 保存通知记录到数据库
 	if err := s.notificationRepo.Create(ctx, notification); err != nil {
-		logger.Error("create notification failed", "error", err, "order_id", orderID)
+		logger.Error("创建通知记录失败",
+			"error", err,
+			"order_id", orderID,
+			"platform_code", order.PlatformCode,
+			"notification_type", notification.NotificationType,
+		)
 		// 通知失败不影响订单状态更新
+	} else {
+		logger.Info("通知记录创建成功",
+			"order_id", orderID,
+			"notification_id", notification.ID,
+			"platform_code", order.PlatformCode,
+		)
+	}
+
+	// 将通知记录序列化并添加到队列
+	notificationJSON, err := json.Marshal(notification)
+	if err != nil {
+		logger.Error("序列化通知记录失败",
+			"error", err,
+			"order_id", orderID,
+			"notification_id", notification.ID,
+		)
+		return nil
+	}
+
+	if err := s.queue.Push(ctx, "notification_queue", string(notificationJSON)); err != nil {
+		logger.Error("推送通知到队列失败",
+			"error", err,
+			"order_id", orderID,
+			"notification_id", notification.ID,
+			"queue_name", "notification_queue",
+		)
+		// 队列推送失败不影响订单状态更新
+	} else {
+		logger.Info("通知已推送到队列",
+			"order_id", orderID,
+			"notification_id", notification.ID,
+			"queue_name", "notification_queue",
+		)
 	}
 
 	return nil

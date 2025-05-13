@@ -7,6 +7,7 @@ import (
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
+	"recharge-go/pkg/queue"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,7 +24,10 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 	// 创建通知仓库
 	notificationRepo := notificationRepo.NewRepository(database.DB)
 
-	orderService := service.NewOrderService(orderRepo, rechargeService, notificationRepo)
+	// 创建队列实例
+	queueInstance := queue.NewRedisQueue()
+
+	orderService := service.NewOrderService(orderRepo, rechargeService, notificationRepo, queueInstance)
 
 	// 创建控制器
 	orderController := controller.NewOrderController(orderService)

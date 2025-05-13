@@ -49,6 +49,7 @@ type rechargeService struct {
 	redisClient            *redisV8.Client
 	callbackLogRepo        repository.CallbackLogRepository
 	db                     *gorm.DB
+	orderService           OrderService
 }
 
 // NewRechargeService 创建充值服务
@@ -164,9 +165,7 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 	}
 
 	// 4.1 更新订单状态
-	fmt.Println(callbackData, "callbackData++++++++")
 	orderState, err := strconv.Atoi(callbackData.Status)
-	fmt.Println(orderState, "orderState++++++++")
 	if err != nil {
 		tx.Rollback()
 		logger.Error("解析订单状态失败: %v", err)
@@ -182,12 +181,14 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 	}
 
 	// 更新订单状态
-	if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatus(orderState)); err != nil {
+	fmt.Println(order.ID, "新订单状态order.ID++++++++")
+	if err := s.orderService.UpdateOrderStatus(ctx, order.ID, model.OrderStatus(orderState)); err != nil {
+		fmt.Println(err, "更新订单状态失败err++++++++")
 		tx.Rollback()
 		logger.Error("更新订单状态失败: %v", err)
 		return fmt.Errorf("update order status failed: %v", err)
 	}
-
+	fmt.Println("记录回调日志&&&&&&&&&")
 	// 5. 记录回调日志
 	log := &model.CallbackLog{
 		OrderID:      callbackData.OrderID,

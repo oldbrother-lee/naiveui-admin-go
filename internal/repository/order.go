@@ -111,7 +111,7 @@ func (r *OrderRepositoryImpl) GetByCustomerID(ctx context.Context, customerID in
 
 // UpdateStatus 更新订单状态
 func (r *OrderRepositoryImpl) UpdateStatus(ctx context.Context, id int64, status model.OrderStatus) error {
-	fmt.Println(id, "id++++++++", status)
+	fmt.Println(id, "更新订单状态id++++++++", status)
 	return r.db.Model(&model.Order{}).Where("id = ?", id).Update("status", status).Error
 }
 
