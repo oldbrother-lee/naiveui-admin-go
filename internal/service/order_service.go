@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"recharge-go/internal/model"
 	notificationModel "recharge-go/internal/model/notification"
@@ -46,6 +45,8 @@ type OrderService interface {
 	GetOrderByOutTradeNum(ctx context.Context, outTradeNum string) (*model.Order, error)
 	// GetOrders 获取订单列表
 	GetOrders(ctx context.Context, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error)
+	// SetRechargeService 设置充值服务
+	SetRechargeService(rechargeService RechargeService)
 }
 
 // orderService 订单服务实现
@@ -109,25 +110,25 @@ func (s *orderService) GetOrdersByCustomerID(ctx context.Context, customerID int
 }
 
 // UpdateOrderStatus 更新订单状态
-func (s *orderService) UpdateOrderStatus(ctx context.Context, orderID int64, status model.OrderStatus) error {
-	fmt.Println(orderID, "开始更新订单状态orderID++++++++")
+func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status model.OrderStatus) error {
+	fmt.Println(id, "开始更新订单状态orderID++++++++")
 	logger.Info("开始更新订单状态",
-		"order_id", orderID,
+		"order_id", id,
 		"new_status", status,
 	)
 
 	// 获取订单信息
-	order, err := s.orderRepo.GetByID(ctx, orderID)
+	order, err := s.orderRepo.GetByID(ctx, id)
 	if err != nil {
 		logger.Error("获取订单信息失败",
 			"error", err,
-			"order_id", orderID,
+			"order_id", id,
 		)
 		return fmt.Errorf("get order failed: %v", err)
 	}
 
 	logger.Info("获取到订单信息",
-		"order_id", orderID,
+		"order_id", id,
 		"current_status", order.Status,
 		"new_status", status,
 	)
@@ -135,17 +136,17 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, orderID int64, sta
 	// 如果状态没有变化，直接返回
 	if order.Status == status {
 		logger.Info("订单状态未发生变化，无需更新",
-			"order_id", orderID,
+			"order_id", id,
 			"status", status,
 		)
 		return nil
 	}
 
 	// 更新订单状态
-	if err := s.orderRepo.UpdateStatus(ctx, orderID, status); err != nil {
+	if err := s.orderRepo.UpdateStatus(ctx, id, status); err != nil {
 		logger.Error("更新订单状态失败",
 			"error", err,
-			"order_id", orderID,
+			"order_id", id,
 			"old_status", order.Status,
 			"new_status", status,
 		)
@@ -153,14 +154,14 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, orderID int64, sta
 	}
 
 	logger.Info("订单状态更新成功",
-		"order_id", orderID,
+		"order_id", id,
 		"old_status", order.Status,
 		"new_status", status,
 	)
 
 	// 创建通知记录
 	notification := &notificationModel.NotificationRecord{
-		OrderID:          orderID,
+		OrderID:          id,
 		PlatformCode:     order.PlatformCode,
 		NotificationType: "order_status_changed",
 		Content:          fmt.Sprintf("订单状态已更新为: %d", status),
@@ -171,41 +172,31 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, orderID int64, sta
 	if err := s.notificationRepo.Create(ctx, notification); err != nil {
 		logger.Error("创建通知记录失败",
 			"error", err,
-			"order_id", orderID,
+			"order_id", id,
 			"platform_code", order.PlatformCode,
 			"notification_type", notification.NotificationType,
 		)
 		// 通知失败不影响订单状态更新
 	} else {
 		logger.Info("通知记录创建成功",
-			"order_id", orderID,
+			"order_id", id,
 			"notification_id", notification.ID,
 			"platform_code", order.PlatformCode,
 		)
 	}
 
-	// 将通知记录序列化并添加到队列
-	notificationJSON, err := json.Marshal(notification)
-	if err != nil {
-		logger.Error("序列化通知记录失败",
-			"error", err,
-			"order_id", orderID,
-			"notification_id", notification.ID,
-		)
-		return nil
-	}
-
-	if err := s.queue.Push(ctx, "notification_queue", string(notificationJSON)); err != nil {
+	// 将通知记录添加到队列
+	if err := s.queue.Push(ctx, "notification_queue", notification); err != nil {
 		logger.Error("推送通知到队列失败",
 			"error", err,
-			"order_id", orderID,
+			"order_id", id,
 			"notification_id", notification.ID,
 			"queue_name", "notification_queue",
 		)
 		// 队列推送失败不影响订单状态更新
 	} else {
 		logger.Info("通知已推送到队列",
-			"order_id", orderID,
+			"order_id", id,
 			"notification_id", notification.ID,
 			"queue_name", "notification_queue",
 		)
@@ -323,4 +314,9 @@ func (s *orderService) GetOrders(ctx context.Context, params map[string]interfac
 // generateOrderNumber 生成订单号
 func generateOrderNumber() string {
 	return "P" + time.Now().Format("20060102150405") + utils.RandString(6)
+}
+
+// SetRechargeService 设置充值服务
+func (s *orderService) SetRechargeService(rechargeService RechargeService) {
+	s.rechargeService = rechargeService
 }

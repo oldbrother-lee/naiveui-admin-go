@@ -17,12 +17,14 @@ import (
 // PlatformService 平台服务
 type PlatformService struct {
 	platformRepo repository.PlatformRepository
+	orderRepo    repository.OrderRepository
 }
 
 // NewPlatformService 创建平台服务
-func NewPlatformService(platformRepo repository.PlatformRepository) *PlatformService {
+func NewPlatformService(platformRepo repository.PlatformRepository, orderRepo repository.OrderRepository) *PlatformService {
 	return &PlatformService{
 		platformRepo: platformRepo,
+		orderRepo:    orderRepo,
 	}
 }
 
@@ -216,4 +218,9 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 	}
 
 	return &result, nil
+}
+
+// GetOrder 获取订单信息
+func (s *PlatformService) GetOrder(ctx context.Context, orderID int64) (*model.Order, error) {
+	return s.orderRepo.GetByID(ctx, orderID)
 }

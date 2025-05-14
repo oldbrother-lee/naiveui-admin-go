@@ -37,6 +37,7 @@ func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, 
 	logger.Info("【开始提交可客帮订单】order_id: %d", order.ID)
 
 	// 构建请求参数
+	fmt.Println("提交订单到平台,构建请求参数!!!!!", api)
 	params := map[string]interface{}{
 		"app_key":    api.AppKey,
 		"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),

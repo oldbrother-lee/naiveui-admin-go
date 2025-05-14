@@ -7,6 +7,8 @@ import (
 	"recharge-go/pkg/redis"
 	"time"
 
+	"recharge-go/pkg/logger"
+
 	redisV8 "github.com/go-redis/redis/v8"
 )
 
@@ -24,11 +26,43 @@ func NewRedisQueue() *RedisQueue {
 
 // Push 入队
 func (q *RedisQueue) Push(ctx context.Context, key string, value interface{}) error {
+	// 打印原始值
+	logger.Info("Push 原始值",
+		"value_type", fmt.Sprintf("%T", value),
+		"value", value,
+	)
+
 	data, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("marshal value failed: %v", err)
 	}
+
+	// 打印序列化后的数据
+	logger.Info("Push 序列化后的数据",
+		"data_type", fmt.Sprintf("%T", data),
+		"data", string(data),
+	)
+
 	return q.client.LPush(ctx, key, data).Err()
+}
+
+// Peek 查看队列头部的元素而不移除它
+func (q *RedisQueue) Peek(ctx context.Context, key string) (interface{}, error) {
+	result, err := q.client.LRange(ctx, key, -1, -1).Result()
+	if err != nil {
+		return nil, fmt.Errorf("peek from queue failed: %v", err)
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+
+	// 打印从 Redis 获取的原始数据
+	logger.Info("Peek 从 Redis 获取的原始数据",
+		"data_type", fmt.Sprintf("%T", result[0]),
+		"data", result[0],
+	)
+
+	return result[0], nil
 }
 
 // Pop 出队
@@ -40,7 +74,14 @@ func (q *RedisQueue) Pop(ctx context.Context, key string) (interface{}, error) {
 	if len(result) < 2 {
 		return nil, fmt.Errorf("invalid queue result")
 	}
-	return result[1], nil
+
+	// 打印从 Redis 获取的原始数据
+	logger.Info("Pop 从 Redis 获取的原始数据",
+		"data_type", fmt.Sprintf("%T", result[1]),
+		"data", string(result[1]),
+	)
+
+	return string(result[1]), nil
 }
 
 // PushWithDelay 延迟入队

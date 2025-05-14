@@ -6,7 +6,9 @@ import (
 	"os"
 	"os/signal"
 	"recharge-go/internal/config"
+	"recharge-go/internal/repository"
 	notificationRepo "recharge-go/internal/repository/notification"
+	"recharge-go/internal/service"
 	notificationService "recharge-go/internal/service/notification"
 	"recharge-go/internal/task"
 	"recharge-go/pkg/database"
@@ -47,16 +49,20 @@ func main() {
 
 	// 创建仓储实例
 	recordRepo := notificationRepo.NewRepository(database.DB)
+	platformRepo := repository.NewPlatformRepository(database.DB)
+	orderRepo := repository.NewOrderRepository(database.DB)
 
 	// 创建队列实例
 	queueInstance := queue.NewRedisQueue()
 
-	// 创建通知服务
+	// 创建服务实例
 	notificationService := notificationService.NewNotificationService(recordRepo)
+	platformService := service.NewPlatformService(platformRepo, orderRepo)
 
 	// 创建通知任务处理器
 	notificationTask := task.NewNotificationTask(
 		notificationService,
+		platformService,
 		queueInstance,
 		cfg.Notification.MaxRetries,
 	)

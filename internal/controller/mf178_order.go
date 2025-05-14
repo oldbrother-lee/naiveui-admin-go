@@ -211,7 +211,7 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		ProductID:   productID,
 		OutTradeNum: strconv.FormatInt(req.UserOrderID, 10),
 		TotalPrice:  officialPayment,
-		Price:       officialPayment,
+		Price:       userPayment,
 		Status:      model.OrderStatusPendingRecharge,
 		IsDel:       0,
 		Client:      3, // 3代表MF178

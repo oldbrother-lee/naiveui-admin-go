@@ -16,14 +16,31 @@ func init() {
 	// 初始化仓库
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
+	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
+	manager := recharge.NewManager(database.DB)
+
+	// 创建通知仓库
+	notificationRepo := notificationRepo.NewRepository(database.DB)
+
+	// 创建队列实例
+	queueInstance := queue.NewRedisQueue()
+
+	// 创建订单服务
+	orderService := service.NewOrderService(
+		orderRepo,
+		nil, // 先传入 nil，后面再设置
+		notificationRepo,
+		queueInstance,
+	)
 
 	// 初始化充值服务
 	_ = service.NewRechargeService(
 		orderRepo,
 		platformRepo,
-		recharge.NewManager(database.DB),
-		repository.NewCallbackLogRepository(database.DB),
+		manager,
+		callbackLogRepo,
 		database.DB,
+		orderService,
 	)
 }
 
@@ -34,7 +51,6 @@ func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 	platformRepo := repository.NewPlatformRepository(database.DB)
 	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
 	manager := recharge.NewManager(database.DB)
-	rechargeService := service.NewRechargeService(orderRepo, platformRepo, manager, callbackLogRepo, database.DB)
 
 	// 创建通知仓库
 	notificationRepo := notificationRepo.NewRepository(database.DB)
@@ -42,7 +58,26 @@ func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 	// 创建队列实例
 	queueInstance := queue.NewRedisQueue()
 
-	orderService := service.NewOrderService(orderRepo, rechargeService, notificationRepo, queueInstance)
+	// 创建订单服务
+	orderService := service.NewOrderService(
+		orderRepo,
+		nil, // 先传入 nil，后面再设置
+		notificationRepo,
+		queueInstance,
+	)
+
+	// 创建充值服务
+	rechargeService := service.NewRechargeService(
+		orderRepo,
+		platformRepo,
+		manager,
+		callbackLogRepo,
+		database.DB,
+		orderService,
+	)
+
+	// 设置 orderService 的 rechargeService
+	orderService.SetRechargeService(rechargeService)
 
 	// 创建控制器
 	mf178OrderController := controller.NewMF178OrderController(orderService, rechargeService)

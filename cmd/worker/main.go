@@ -7,11 +7,13 @@ import (
 	"os/signal"
 	"recharge-go/internal/config"
 	"recharge-go/internal/repository"
+	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/recharge"
 	"recharge-go/internal/worker"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/queue"
 	"recharge-go/pkg/redis"
 	"syscall"
 
@@ -51,6 +53,20 @@ func main() {
 	// 创建充值管理器
 	mgr := recharge.NewManager(database.DB)
 
+	// 创建队列实例
+	queueInstance := queue.NewRedisQueue()
+
+	// 创建通知仓库
+	notificationRepo := notificationRepo.NewRepository(database.DB)
+
+	// 创建订单服务
+	orderService := service.NewOrderService(
+		orderRepo,
+		nil, // 先传入 nil，后面再设置
+		notificationRepo,
+		queueInstance,
+	)
+
 	// 创建服务实例
 	rechargeService := service.NewRechargeService(
 		orderRepo,
@@ -58,7 +74,11 @@ func main() {
 		mgr,
 		callbackLogRepo,
 		database.DB,
+		orderService,
 	)
+
+	// 设置 orderService 的 rechargeService
+	orderService.SetRechargeService(rechargeService)
 
 	// 初始化充值工作器
 	rechargeWorker := worker.NewRechargeWorker(rechargeService)

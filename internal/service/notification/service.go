@@ -17,6 +17,10 @@ type NotificationService interface {
 	ListNotifications(ctx context.Context, params map[string]interface{}, page, pageSize int) ([]*notification.NotificationRecord, int64, error)
 	// RetryFailedNotification 重试失败的通知
 	RetryFailedNotification(ctx context.Context, id int64) error
+	// UpdateNotificationStatus 更新通知状态
+	UpdateNotificationStatus(ctx context.Context, id int64, status int) error
+	// GetNotification 获取通知记录
+	GetNotification(ctx context.Context, id int64) (*notification.NotificationRecord, error)
 }
 
 // notificationService 通知服务实现
@@ -59,4 +63,14 @@ func (s *notificationService) RetryFailedNotification(ctx context.Context, id in
 	record.Status = 1                                      // 重置为待处理状态
 
 	return s.recordRepo.Update(ctx, record)
+}
+
+// UpdateNotificationStatus 更新通知状态
+func (s *notificationService) UpdateNotificationStatus(ctx context.Context, id int64, status int) error {
+	return s.recordRepo.UpdateStatus(ctx, id, status)
+}
+
+// GetNotification 获取通知记录
+func (s *notificationService) GetNotification(ctx context.Context, id int64) (*notification.NotificationRecord, error) {
+	return s.recordRepo.GetByID(ctx, id)
 }

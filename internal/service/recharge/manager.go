@@ -95,6 +95,8 @@ func (m *Manager) LoadPlatforms() error {
 // SubmitOrder 提交订单到平台
 func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error {
 	// 获取平台实例
+	fmt.Println("提交订单到平台,获取平台实例", order.OrderNumber, api)
+	fmt.Println("提交订单到平台,获取平台实例api", api)
 	platform, err := m.GetPlatform("kekebang")
 	if err != nil {
 		return fmt.Errorf("failed to get platform: %v", err)

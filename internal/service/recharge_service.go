@@ -59,6 +59,7 @@ func NewRechargeService(
 	manager *recharge.Manager,
 	callbackLogRepo repository.CallbackLogRepository,
 	db *gorm.DB,
+	orderService OrderService,
 ) *rechargeService {
 	return &rechargeService{
 		orderRepo:       orderRepo,
@@ -67,6 +68,7 @@ func NewRechargeService(
 		callbackLogRepo: callbackLogRepo,
 		db:              db,
 		redisClient:     redis.GetClient(),
+		orderService:    orderService,
 	}
 }
 
@@ -76,7 +78,6 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
 		logger.Error("【获取订单信息失败】order_id: %d, error: %v", orderID, err)
-
 		return fmt.Errorf("get order failed: %v", err)
 	}
 
@@ -92,33 +93,30 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 	api, relation, err := s.GetPlatformAPIByOrderID(ctx, order.OrderNumber)
 	if err != nil {
 		logger.Error("【获取平台API信息失败】order_id: %d, error: %v", orderID, err)
-
 		return fmt.Errorf("get platform api failed: %v", err)
 	}
-	fmt.Println(api, "api******")
+	fmt.Println("提交订单到平台,上层", api)
+	fmt.Println("提交订单到平台,上层", relation)
 	// 3. 提交订单到平台
 	logger.Info("【开始提交订单到平台】order_id: %d", orderID)
 	if err := s.manager.SubmitOrder(ctx, order, api); err != nil {
 		logger.Error("【提交订单到平台失败】order_id: %d, error: %v", orderID, err)
-
 		return fmt.Errorf("submit order failed: %v", err)
 	}
 
 	// 4. 更新订单状态为充值中
-	if err := s.orderRepo.UpdateStatus(ctx, orderID, model.OrderStatusRecharging); err != nil {
+	if err := s.orderService.UpdateOrderStatus(ctx, orderID, model.OrderStatusRecharging); err != nil {
 		logger.Error("【更新订单状态失败】order_id: %d, error: %v", orderID, err)
-
 		return fmt.Errorf("update order status failed: %v", err)
 	}
-	//更新订单支付平台 id 和 api id
-	fmt.Println(relation, "relation******")
+
+	// 5. 更新订单支付平台 id 和 api id
 	if err := s.orderRepo.UpdatePlatformID(ctx, orderID, api.ID, relation.ParamID); err != nil {
 		logger.Error("【更新订单支付平台ID失败】order_id: %d, error: %v", orderID, err)
-
 		return fmt.Errorf("update order platform id failed: %v", err)
 	}
 
-	// 5. 从处理中队列移除
+	// 6. 从处理中队列移除
 	logger.Info("【从处理中队列移除】order_id: %d", orderID)
 	if err := s.RemoveFromProcessingQueue(ctx, orderID); err != nil {
 		logger.Error("【从处理中队列移除失败】order_id: %d, error: %v", orderID, err)

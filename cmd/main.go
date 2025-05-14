@@ -13,6 +13,7 @@ import (
 	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/queue"
 	"recharge-go/pkg/redis"
 	"syscall"
 
@@ -64,8 +65,8 @@ func main() {
 	}
 
 	// 创建仓储实例
-	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
+	orderRepo := repository.NewOrderRepository(database.DB)
 	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 	userRepo := repository.NewUserRepository(database.DB)
 	userGradeRepo := repository.NewUserGradeRepository(database.DB)
@@ -92,6 +93,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 创建队列实例
+	queueInstance := queue.NewRedisQueue()
+
+	// 创建通知仓储
+	notificationRepo := repository.NewNotificationRepository(database.DB)
+
+	// 创建订单服务
+	orderService := service.NewOrderService(
+		orderRepo,
+		nil, // 先传入 nil，后面再设置
+		notificationRepo,
+		queueInstance,
+	)
+
 	// 创建充值服务
 	rechargeService := service.NewRechargeService(
 		orderRepo,
@@ -99,7 +114,13 @@ func main() {
 		manager,
 		callbackLogRepo,
 		database.DB,
+		orderService,
 	)
+
+	// 设置 orderService 的 rechargeService
+	orderService.SetRechargeService(rechargeService)
+
+	// 创建用户服务
 	userService := service.NewUserService(
 		userRepo,
 		userGradeRepo,
@@ -116,7 +137,7 @@ func main() {
 	productService := service.NewProductService(productRepo)
 	phoneLocationService := service.NewPhoneLocationService(phoneLocationRepo)
 	productTypeService := service.NewProductTypeService(productTypeRepo, productTypeCategoryRepo)
-	platformService := service.NewPlatformService(platformRepo)
+	platformService := service.NewPlatformService(platformRepo, orderRepo)
 	platformAPIService := service.NewPlatformAPIService(platformAPIRepo)
 	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
 	productAPIRelationService := service.NewProductAPIRelationService(productAPIRelationRepo)

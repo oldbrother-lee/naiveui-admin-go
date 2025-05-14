@@ -19,7 +19,6 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 	platformRepo := repository.NewPlatformRepository(database.DB)
 	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
 	manager := recharge.NewManager(database.DB)
-	rechargeService := service.NewRechargeService(orderRepo, platformRepo, manager, callbackLogRepo, database.DB)
 
 	// 创建通知仓库
 	notificationRepo := notificationRepo.NewRepository(database.DB)
@@ -27,7 +26,26 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 	// 创建队列实例
 	queueInstance := queue.NewRedisQueue()
 
-	orderService := service.NewOrderService(orderRepo, rechargeService, notificationRepo, queueInstance)
+	// 创建订单服务
+	orderService := service.NewOrderService(
+		orderRepo,
+		nil, // 先传入 nil，后面再设置
+		notificationRepo,
+		queueInstance,
+	)
+
+	// 创建充值服务
+	rechargeService := service.NewRechargeService(
+		orderRepo,
+		platformRepo,
+		manager,
+		callbackLogRepo,
+		database.DB,
+		orderService,
+	)
+
+	// 设置 orderService 的 rechargeService
+	orderService.SetRechargeService(rechargeService)
 
 	// 创建控制器
 	externalOrderController := controller.NewExternalOrderController(orderService)
