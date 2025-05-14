@@ -49,7 +49,8 @@ func main() {
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
 	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
-
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
+	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 	// 创建充值管理器
 	mgr := recharge.NewManager(database.DB)
 
@@ -58,6 +59,9 @@ func main() {
 
 	// 创建通知仓库
 	notificationRepo := notificationRepo.NewRepository(database.DB)
+
+	// 创建平台API参数服务
+	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
 
 	// 创建订单服务
 	orderService := service.NewOrderService(
@@ -75,6 +79,8 @@ func main() {
 		callbackLogRepo,
 		database.DB,
 		orderService,
+		productAPIRelationRepo,
+		platformAPIParamService,
 	)
 
 	// 设置 orderService 的 rechargeService

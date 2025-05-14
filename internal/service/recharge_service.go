@@ -29,7 +29,7 @@ type RechargeService interface {
 	// CreateRechargeTask 创建充值任务
 	CreateRechargeTask(ctx context.Context, orderID int64) error
 	// GetPlatformAPIByOrderID 根据订单ID获取平台API信息
-	GetPlatformAPIByOrderID(ctx context.Context, orderID string) (*model.PlatformAPI, *model.ProductAPIRelation, error)
+	GetPlatformAPIByOrderID(ctx context.Context, orderID string) (*model.PlatformAPI, *model.PlatformAPIParam, error)
 	// PushToRechargeQueue 将订单推送到充值队列
 	PushToRechargeQueue(ctx context.Context, orderID int64) error
 	// PopFromRechargeQueue 从充值队列获取订单
@@ -42,14 +42,15 @@ type RechargeService interface {
 
 // rechargeService 充值服务实现
 type rechargeService struct {
-	orderRepo              repository.OrderRepository
-	platformRepo           repository.PlatformRepository
-	productAPIRelationRepo repository.ProductAPIRelationRepository
-	manager                *recharge.Manager
-	redisClient            *redisV8.Client
-	callbackLogRepo        repository.CallbackLogRepository
-	db                     *gorm.DB
-	orderService           OrderService
+	orderRepo               repository.OrderRepository
+	platformRepo            repository.PlatformRepository
+	productAPIRelationRepo  repository.ProductAPIRelationRepository
+	manager                 *recharge.Manager
+	redisClient             *redisV8.Client
+	callbackLogRepo         repository.CallbackLogRepository
+	db                      *gorm.DB
+	orderService            OrderService
+	platformAPIParamService PlatformAPIParamService
 }
 
 // NewRechargeService 创建充值服务
@@ -60,15 +61,19 @@ func NewRechargeService(
 	callbackLogRepo repository.CallbackLogRepository,
 	db *gorm.DB,
 	orderService OrderService,
+	productAPIRelationRepo repository.ProductAPIRelationRepository,
+	platformAPIParamService PlatformAPIParamService,
 ) *rechargeService {
 	return &rechargeService{
-		orderRepo:       orderRepo,
-		platformRepo:    platformRepo,
-		manager:         manager,
-		callbackLogRepo: callbackLogRepo,
-		db:              db,
-		redisClient:     redis.GetClient(),
-		orderService:    orderService,
+		orderRepo:               orderRepo,
+		platformRepo:            platformRepo,
+		manager:                 manager,
+		callbackLogRepo:         callbackLogRepo,
+		db:                      db,
+		redisClient:             redis.GetClient(),
+		orderService:            orderService,
+		productAPIRelationRepo:  productAPIRelationRepo,
+		platformAPIParamService: platformAPIParamService,
 	}
 }
 
@@ -90,16 +95,16 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 	}
 
 	// 2. 获取平台API信息
-	api, relation, err := s.GetPlatformAPIByOrderID(ctx, order.OrderNumber)
+	api, apiParam, err := s.GetPlatformAPIByOrderID(ctx, order.OrderNumber)
 	if err != nil {
 		logger.Error("【获取平台API信息失败】order_id: %d, error: %v", orderID, err)
 		return fmt.Errorf("get platform api failed: %v", err)
 	}
-	fmt.Println("提交订单到平台,上层", api)
-	fmt.Println("提交订单到平台,上层", relation)
+	fmt.Println("提交订单到平台,上层api", api)
+	fmt.Println("提交订单到平台,上层apiParam", apiParam)
 	// 3. 提交订单到平台
 	logger.Info("【开始提交订单到平台】order_id: %d", orderID)
-	if err := s.manager.SubmitOrder(ctx, order, api); err != nil {
+	if err := s.manager.SubmitOrder(ctx, order, api, apiParam); err != nil {
 		logger.Error("【提交订单到平台失败】order_id: %d, error: %v", orderID, err)
 		return fmt.Errorf("submit order failed: %v", err)
 	}
@@ -111,7 +116,7 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 	}
 
 	// 5. 更新订单支付平台 id 和 api id
-	if err := s.orderRepo.UpdatePlatformID(ctx, orderID, api.ID, relation.ParamID); err != nil {
+	if err := s.orderRepo.UpdatePlatformID(ctx, orderID, api.ID, apiParam.APIID); err != nil {
 		logger.Error("【更新订单支付平台ID失败】order_id: %d, error: %v", orderID, err)
 		return fmt.Errorf("update order platform id failed: %v", err)
 	}
@@ -278,7 +283,7 @@ func (s *rechargeService) CreateRechargeTask(ctx context.Context, orderID int64)
 }
 
 // GetPlatformAPIByOrderID 根据订单ID获取平台API信息
-func (s *rechargeService) GetPlatformAPIByOrderID(ctx context.Context, orderID string) (*model.PlatformAPI, *model.ProductAPIRelation, error) {
+func (s *rechargeService) GetPlatformAPIByOrderID(ctx context.Context, orderID string) (*model.PlatformAPI, *model.PlatformAPIParam, error) {
 	// 获取订单信息
 	order, err := s.orderRepo.GetByOrderID(ctx, orderID)
 	if err != nil {
@@ -286,26 +291,36 @@ func (s *rechargeService) GetPlatformAPIByOrderID(ctx context.Context, orderID s
 	}
 	fmt.Println("order++++++++", order.ProductID)
 	//product_api_relations
-	// r, err := s.productAPIRelationRepo.GetByProductID(ctx, order.ProductID)
-	// fmt.Println("r++++++++", r)
-	// if err != nil {
-	// 	fmt.Println("err++++++++", err)
-	// 	return nil, nil, fmt.Errorf("获取商品接口关联信息失败: %v", err)
-	// }
+	r, err := s.productAPIRelationRepo.GetByProductID(ctx, order.ProductID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("获取商品接口关联信息失败: %v", err)
+	}
+
+	//获取api套餐 platform_api_params
+	apiParam, err := s.platformAPIParamService.GetParam(ctx, r.ParamID)
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("获取平台API信息失败: %v", err)
+	}
+
+	if err != nil {
+		fmt.Println("err++++++++", err)
+		return nil, nil, fmt.Errorf("获取商品接口关联信息失败: %v", err)
+	}
 
 	// 获取平台API信息 PlatformAPI
-	api, err := s.platformRepo.GetAPIByID(ctx, 3)
+	api, err := s.platformRepo.GetAPIByID(ctx, r.APIID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取平台API信息失败: %v", err)
 	}
 
 	// 创建一个空的 ProductAPIRelation 对象
-	relation := &model.ProductAPIRelation{
-		APIID: api.ID,
-	}
-	fmt.Println(api, "api++++++++")
+	// relation := &model.ProductAPIRelation{
+	// 	APIID: api.ID,
+	// }
+	// fmt.Println(api, "api++++++++")
 
-	return api, relation, nil
+	return api, apiParam, nil
 }
 
 // PushToRechargeQueue 将订单推送到充值队列

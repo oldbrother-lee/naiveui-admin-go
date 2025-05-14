@@ -10,7 +10,7 @@ type Platform interface {
 	// GetName 获取平台名称
 	GetName() string
 	// SubmitOrder 提交订单
-	SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error
+	SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error
 	// QueryOrderStatus 查询订单状态
 	QueryOrderStatus(order *model.Order) (int, error)
 	// ParseCallbackData 解析回调数据

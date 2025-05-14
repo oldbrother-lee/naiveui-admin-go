@@ -93,10 +93,11 @@ func (m *Manager) LoadPlatforms() error {
 }
 
 // SubmitOrder 提交订单到平台
-func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error {
+func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
 	// 获取平台实例
 	fmt.Println("提交订单到平台,获取平台实例", order.OrderNumber, api)
 	fmt.Println("提交订单到平台,获取平台实例api", api)
+	//提交订单的 sku_code 参数在 platform_api_params 这个表里
 	platform, err := m.GetPlatform("kekebang")
 	if err != nil {
 		return fmt.Errorf("failed to get platform: %v", err)
@@ -104,7 +105,7 @@ func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *mode
 	fmt.Println("提交订单到平台,获取平台实例", platform)
 
 	// 提交订单
-	return platform.SubmitOrder(ctx, order, api)
+	return platform.SubmitOrder(ctx, order, api, apiParam)
 }
 
 // QueryOrderStatus 查询订单状态

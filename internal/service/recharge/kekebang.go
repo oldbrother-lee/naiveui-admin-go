@@ -33,17 +33,18 @@ func (p *KekebangPlatform) GetName() string {
 }
 
 // SubmitOrder 提交订单
-func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI) error {
+func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
 	logger.Info("【开始提交可客帮订单】order_id: %d", order.ID)
 
 	// 构建请求参数
+
 	fmt.Println("提交订单到平台,构建请求参数!!!!!", api)
 	params := map[string]interface{}{
 		"app_key":    api.AppKey,
 		"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
 		"biz_code":   "1", // 充值业务
 		"order_id":   order.OrderNumber,
-		"sku_code":   "SKU00000007",
+		"sku_code":   apiParam.ProductID,
 		"notify_url": api.CallbackURL,
 		"data": map[string]string{
 			"account": order.Mobile,
@@ -82,7 +83,7 @@ func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
 	params := map[string]interface{}{
 		"app_key":   p.api.AppKey,
 		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-		"biz_code":  "2", // 查询订单状态
+		"biz_code":  "1", // 查询订单状态
 		"order_id":  order.OrderNumber,
 	}
 
