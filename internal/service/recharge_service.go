@@ -298,6 +298,7 @@ func (s *rechargeService) GetPlatformAPIByOrderID(ctx context.Context, orderID s
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取商品接口关联信息失败: %v", err)
 	}
+	fmt.Println("r+++++++++++@@@@", r)
 
 	//获取api套餐 platform_api_params
 	apiParam, err := s.platformAPIParamService.GetParam(ctx, r.ParamID)

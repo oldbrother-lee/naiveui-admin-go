@@ -34,7 +34,7 @@ func (c *PlatformAPIParamController) CreateParam(ctx *gin.Context) {
 	var param model.PlatformAPIParam
 	if err := ctx.ShouldBindJSON(&param); err != nil {
 		logger.Log.Error("参数绑定失败", zap.Error(err))
-		utils.Error(ctx, 400, "参数格式错误")
+		utils.Error(ctx, 400, "参数格式错误1")
 		return
 	}
 
