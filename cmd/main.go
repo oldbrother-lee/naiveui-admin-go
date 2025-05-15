@@ -107,6 +107,9 @@ func main() {
 		queueInstance,
 	)
 
+	// 创建平台API参数服务
+	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
+
 	// 创建充值服务
 	rechargeService := service.NewRechargeService(
 		orderRepo,
@@ -115,6 +118,8 @@ func main() {
 		callbackLogRepo,
 		database.DB,
 		orderService,
+		productAPIRelationRepo,
+		platformAPIParamService,
 	)
 
 	// 设置 orderService 的 rechargeService
@@ -139,7 +144,6 @@ func main() {
 	productTypeService := service.NewProductTypeService(productTypeRepo, productTypeCategoryRepo)
 	platformService := service.NewPlatformService(platformRepo, orderRepo)
 	platformAPIService := service.NewPlatformAPIService(platformAPIRepo)
-	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
 	productAPIRelationService := service.NewProductAPIRelationService(productAPIRelationRepo)
 
 	// 创建处理器实例

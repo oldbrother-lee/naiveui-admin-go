@@ -25,6 +25,7 @@ func NewRechargeWorker(rechargeService service.RechargeService) *RechargeWorker 
 func (w *RechargeWorker) Start() {
 	logger.Info("充值工作器启动")
 	go w.processQueue()
+	go w.checkRechargingOrders()
 }
 
 // Stop 停止工作器
@@ -68,6 +69,26 @@ func (w *RechargeWorker) processQueue() {
 			}
 
 			logger.Info("充值任务处理完成, order_id: %d", orderID)
+		}
+	}
+}
+
+// checkRechargingOrders 定期检查充值中订单
+func (w *RechargeWorker) checkRechargingOrders() {
+	logger.Info("【充值中订单检查器】启动定时检查任务，间隔时间：3分钟")
+	ticker := time.NewTicker(3 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-w.stopChan:
+			logger.Info("【充值中订单检查器】收到停止信号，检查任务停止")
+			return
+		case <-ticker.C:
+			logger.Info("【充值中订单检查器】定时器触发，开始新一轮检查")
+			if err := w.rechargeService.CheckRechargingOrders(context.Background()); err != nil {
+				logger.Error("【充值中订单检查器】检查失败: %v", err)
+			}
 		}
 	}
 }

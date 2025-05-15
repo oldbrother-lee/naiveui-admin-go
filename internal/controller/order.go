@@ -1,11 +1,11 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
+	"recharge-go/pkg/logger"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -325,49 +325,39 @@ func (c *OrderController) ProcessOrderPartial(ctx *gin.Context) {
 	utils.Success(ctx, nil)
 }
 
-// GetOrders 获取订单列表
+// GetOrders 获取订单列表（管理员接口）
 func (c *OrderController) GetOrders(ctx *gin.Context) {
-	fmt.Printf("[Order] 开始获取订单列表\n")
-
-	// 获取查询参数
-	var req struct {
-		OrderNumber string `form:"order_number"`
-		OutTradeNum string `form:"out_trade_num"`
-		Mobile      string `form:"mobile"`
-		Status      string `form:"status"`
-		Client      int    `form:"client"`
-		CreateTime  string `form:"create_time"`
-		Page        int    `form:"page,default=1"`
-		PageSize    int    `form:"page_size,default=10"`
+	// 获取分页参数
+	page := ctx.DefaultQuery("page", "1")
+	pageSize := ctx.DefaultQuery("page_size", "10")
+	pageInt, err := strconv.Atoi(page)
+	if err != nil {
+		utils.Error(ctx, http.StatusBadRequest, "invalid page")
+		return
 	}
-
-	if err := ctx.ShouldBindQuery(&req); err != nil {
-		fmt.Printf("[Order] 参数绑定失败: %v\n", err)
-		utils.Error(ctx, http.StatusBadRequest, err.Error())
+	pageSizeInt, err := strconv.Atoi(pageSize)
+	if err != nil {
+		utils.Error(ctx, http.StatusBadRequest, "invalid page size")
 		return
 	}
 
-	// 构建查询参数
-	params := map[string]interface{}{
-		"order_number":  req.OrderNumber,
-		"out_trade_num": req.OutTradeNum,
-		"mobile":        req.Mobile,
-		"status":        req.Status,
-		"client":        req.Client,
-		"create_time":   req.CreateTime,
+	// 获取查询参数
+	params := make(map[string]interface{})
+	queryParams := []string{"order_number", "mobile", "status", "client", "start_time", "end_time"}
+	for _, param := range queryParams {
+		if value := ctx.Query(param); value != "" {
+			params[param] = value
+		}
 	}
 
 	// 获取订单列表
-	orders, total, err := c.orderService.GetOrders(ctx, params, req.Page, req.PageSize)
+	orders, total, err := c.orderService.GetOrders(ctx, params, pageInt, pageSizeInt)
 	if err != nil {
-		fmt.Printf("[Order] 获取订单列表失败: %v\n", err)
-		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		logger.Error("获取订单列表失败: %v", err)
+		utils.Error(ctx, http.StatusInternalServerError, "获取订单列表失败")
 		return
 	}
 
-	fmt.Printf("[Order] 获取订单列表成功，总数: %d\n", total)
-
-	// 返回响应
 	utils.Success(ctx, gin.H{
 		"list":  orders,
 		"total": total,

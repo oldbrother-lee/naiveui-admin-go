@@ -42,6 +42,8 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 		callbackLogRepo,
 		database.DB,
 		orderService,
+		repository.NewProductAPIRelationRepository(database.DB),
+		service.NewPlatformAPIParamService(repository.NewPlatformAPIParamRepository(database.DB)),
 	)
 
 	// 设置 orderService 的 rechargeService
@@ -53,10 +55,11 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 	// 注册路由
 	order := r.Group("/order")
 	{
-		order.POST("", orderController.CreateOrder)
-		order.GET("/:id", orderController.GetOrderByID)
-		order.GET("", orderController.GetOrders)
-		order.PUT("/:id/status", orderController.UpdateOrderStatus)
+		order.GET("/list", orderController.GetOrders)                              // 获取订单列表（管理员接口）
+		order.GET("/:id", orderController.GetOrderByID)                            // 获取订单详情
+		order.POST("", orderController.CreateOrder)                                // 创建订单
+		order.PUT("/:id/status", orderController.UpdateOrderStatus)                // 更新订单状态
+		order.GET("/customer/:customer_id", orderController.GetOrdersByCustomerID) // 获取客户订单列表
 		order.POST("/:id/payment", orderController.ProcessOrderPayment)
 		order.POST("/:id/recharge", orderController.ProcessOrderRecharge)
 		order.POST("/:id/success", orderController.ProcessOrderSuccess)

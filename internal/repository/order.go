@@ -47,7 +47,7 @@ type OrderRepository interface {
 	// GetByOrderID 根据订单号获取订单
 	GetByOrderID(ctx context.Context, orderID string) (*model.Order, error)
 	// UpdatePlatformID 更新订单支付平台ID和API ID
-	UpdatePlatformID(ctx context.Context, orderID int64, platformID int64, ParamID int64) error
+	UpdatePlatformID(ctx context.Context, orderID int64, platformID *model.PlatformAPI, ParamID int64) error
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -231,13 +231,15 @@ func (r *OrderRepositoryImpl) GetByOrderID(ctx context.Context, orderID string) 
 }
 
 // UpdatePlatformID 更新订单支付平台ID和API ID
-func (r *OrderRepositoryImpl) UpdatePlatformID(ctx context.Context, orderID int64, platformID int64, ParamID int64) error {
+func (r *OrderRepositoryImpl) UpdatePlatformID(ctx context.Context, orderID int64, platformID *model.PlatformAPI, ParamID int64) error {
 	return r.db.WithContext(ctx).
 		Model(&model.Order{}).
 		Where("id = ?", orderID).
 		Updates(map[string]interface{}{
-			"platform_id":      platformID,
-			"api_cur_id":       platformID, // 使用相同的platformID作为api_id
+			"platform_id":      platformID.ID,
+			"api_cur_id":       platformID.ID, // 使用相同的platformID作为api_id
 			"api_cur_param_id": ParamID,
+			"platform_name":    platformID.Name,
+			"platform_code":    platformID.Code,
 		}).Error
 }

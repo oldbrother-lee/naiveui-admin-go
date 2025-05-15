@@ -75,9 +75,46 @@ func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, 
 	return nil
 }
 
+// mapOrderState 映射订单状态
+// kekebang状态码：
+// 1：处理中
+// 2：成功
+// 3：失败
+// 4：异常（需人工核实）
+func (p *KekebangPlatform) mapOrderState(orderState int, orderID int64, orderNumber string) (int, string) {
+	var status int
+	var statusStr string
+
+	switch orderState {
+	case 1:
+		status = int(model.OrderStatusRecharging) // 充值中
+		statusStr = strconv.Itoa(status)
+		logger.Info("【订单状态】充值中, order_id: %d, order_number: %s", orderID, orderNumber)
+	case 2:
+		status = int(model.OrderStatusSuccess) // 成功
+		statusStr = strconv.Itoa(status)
+		logger.Info("【订单状态】充值成功, order_id: %d, order_number: %s", orderID, orderNumber)
+	case 3:
+		status = int(model.OrderStatusFailed) // 失败
+		statusStr = strconv.Itoa(status)
+		logger.Info("【订单状态】充值失败, order_id: %d, order_number: %s", orderID, orderNumber)
+	case 4:
+		status = int(model.OrderStatusProcessing) // 处理中（异常状态）
+		statusStr = strconv.Itoa(status)
+		logger.Info("【订单状态】处理中, order_id: %d, order_number: %s", orderID, orderNumber)
+	default:
+		status = int(model.OrderStatusFailed) // 默认失败
+		statusStr = strconv.Itoa(status)
+		logger.Error("【订单状态】未知状态, order_id: %d, order_number: %s, order_state: %d",
+			orderID, orderNumber, orderState)
+	}
+
+	return status, statusStr
+}
+
 // QueryOrderStatus 查询订单状态
 func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
-	logger.Info("【开始查询可客帮订单状态】order_id: %d", order.ID)
+	logger.Info("【开始查询可客帮订单状态】order_id: %d, order_number: %s", order.ID, order.OrderNumber)
 
 	// 构建请求参数
 	params := map[string]interface{}{
@@ -92,29 +129,33 @@ func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
 	params["sign"] = sign
 
 	// 发送请求
-	resp, err := p.sendRequest(context.Background(), p.api.URL, params)
+	resp, err := p.sendRequest(context.Background(), "http://test.70mail.cn:30289/openapi/purchase/v1/query-order", params)
 	if err != nil {
-		logger.Error("【查询订单状态失败】order_id: %d, error: %v", order.ID, err)
+		logger.Error("【查询订单状态失败】order_id: %d, order_number: %s, error: %v",
+			order.ID, order.OrderNumber, err)
 		return 0, fmt.Errorf("query order status failed: %v", err)
 	}
 
 	// 确保 Code 是字符串类型
 	code := fmt.Sprintf("%v", resp.Code)
 	if code != "00000" {
-		logger.Error("【查询订单状态失败】order_id: %d, code: %s, message: %s",
-			order.ID, code, resp.Message)
+		logger.Error("【查询订单状态失败】order_id: %d, order_number: %s, code: %s, message: %s",
+			order.ID, order.OrderNumber, code, resp.Message)
 		return 0, fmt.Errorf("query order status failed: %s", resp.Message)
 	}
 
-	// 根据状态码返回订单状态
-	// 这里需要根据实际平台返回的状态码进行映射
-	// 假设 2 表示成功，其他表示失败
-	status := 0 // 默认失败
-	if resp.Status == "2" {
-		status = 2 // 成功
+	// 将响应数据转换为JSON字符串
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		logger.Error("【查询订单状态】转换响应数据失败: %v", err)
+	} else {
+		logger.Info("【查询订单状态响应】原始返回数据: %s", string(respJSON))
 	}
 
-	logger.Info("【查询订单状态完成】order_id: %d, status: %d", order.ID, status)
+	status, _ := p.mapOrderState(resp.OrderState, order.ID, order.OrderNumber)
+
+	logger.Info("【查询订单状态完成】order_id: %d, order_number: %s, status: %d",
+		order.ID, order.OrderNumber, status)
 	return status, nil
 }
 
@@ -127,31 +168,12 @@ func (p *KekebangPlatform) ParseCallbackData(data []byte) (*model.CallbackData, 
 	}
 
 	// 转换订单状态
-	// kekebang状态码：
-	// 1：处理中
-	// 2：成功
-	// 3：失败
-	// 4：异常（需人工核实）
-	var status string
-	switch resp.OrderState {
-	case 1:
-		status = strconv.Itoa(int(model.OrderStatusRecharging)) // 充值中
-	case 2:
-		status = strconv.Itoa(int(model.OrderStatusSuccess)) // 成功
-	case 3:
-		status = strconv.Itoa(int(model.OrderStatusFailed)) // 失败
-	case 4:
-		status = strconv.Itoa(int(model.OrderStatusProcessing)) // 处理中（异常状态）
-	default:
-		status = strconv.Itoa(int(model.OrderStatusFailed)) // 默认失败
-	}
-
-	// 直接返回解析后的数据，不验证平台返回码
+	_, statusStr := p.mapOrderState(resp.OrderState, 0, resp.OrderID)
 
 	return &model.CallbackData{
 		OrderID:       resp.TerraceID,
 		OrderNumber:   resp.OrderID,
-		Status:        status, //订单状态
+		Status:        statusStr, //订单状态
 		Message:       resp.ReturnMsg,
 		CallbackType:  "order_status",
 		Amount:        strconv.FormatFloat(resp.Amount, 'f', 2, 64),
@@ -203,10 +225,11 @@ func (p *KekebangPlatform) sendRequest(ctx context.Context, url string, params m
 
 // KekebangResponse 可客帮响应
 type KekebangResponse struct {
-	Code    interface{} `json:"code"`
-	Message string      `json:"message"`
-	OrderID string      `json:"order_id"`
-	Status  string      `json:"status"`
+	Code       interface{} `json:"code"`
+	Message    string      `json:"message"`
+	OrderID    string      `json:"order_id"`
+	Status     string      `json:"status"`
+	OrderState int         `json:"order_state"`
 }
 
 // KekebangCallbackResponse 可客帮回调响应

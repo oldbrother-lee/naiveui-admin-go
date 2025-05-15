@@ -41,6 +41,8 @@ func RegisterCallbackRoutes(r *gin.RouterGroup) {
 		callbackLogRepo,
 		database.DB,
 		orderService,
+		repository.NewProductAPIRelationRepository(database.DB),
+		service.NewPlatformAPIParamService(repository.NewPlatformAPIParamRepository(database.DB)),
 	)
 
 	// 设置 orderService 的 rechargeService

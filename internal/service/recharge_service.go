@@ -38,6 +38,8 @@ type RechargeService interface {
 	GetOrderByID(ctx context.Context, orderID int64) (*model.Order, error)
 	// RemoveFromProcessingQueue 从处理中队列移除任务
 	RemoveFromProcessingQueue(ctx context.Context, orderID int64) error
+	// CheckRechargingOrders 检查充值中订单
+	CheckRechargingOrders(ctx context.Context) error
 }
 
 // rechargeService 充值服务实现
@@ -116,7 +118,8 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 	}
 
 	// 5. 更新订单支付平台 id 和 api id
-	if err := s.orderRepo.UpdatePlatformID(ctx, orderID, api.ID, apiParam.APIID); err != nil {
+	fmt.Println("更新订单支付平台ID@@@@@@@", api, apiParam.APIID)
+	if err := s.orderRepo.UpdatePlatformID(ctx, orderID, api, apiParam.ID); err != nil {
 		logger.Error("【更新订单支付平台ID失败】order_id: %d, error: %v", orderID, err)
 		return fmt.Errorf("update order platform id failed: %v", err)
 	}
@@ -352,4 +355,43 @@ func (s *rechargeService) RemoveFromProcessingQueue(ctx context.Context, orderID
 // GetOrderByID 根据ID获取订单
 func (s *rechargeService) GetOrderByID(ctx context.Context, orderID int64) (*model.Order, error) {
 	return s.orderRepo.GetByID(ctx, orderID)
+}
+
+// CheckRechargingOrders 检查充值中订单
+func (s *rechargeService) CheckRechargingOrders(ctx context.Context) error {
+	logger.Info("【开始检查充值中订单】开始执行定时检查任务")
+
+	// 获取所有充值中的订单
+	orders, err := s.orderRepo.GetByStatus(ctx, model.OrderStatusRecharging)
+	if err != nil {
+		logger.Error("【获取充值中订单失败】error: %v", err)
+		return fmt.Errorf("get recharging orders failed: %v", err)
+	}
+
+	logger.Info("【获取充值中订单成功】共获取到 %d 个订单", len(orders))
+
+	now := time.Now()
+	checkedCount := 0
+	for _, order := range orders {
+		// 检查订单是否超过5分钟
+		if order.UpdatedAt.Add(5 * time.Minute).Before(now) {
+			logger.Info("【发现超时订单】order_id: %d, order_number: %s, 最后更新时间: %s, 已超时: %v",
+				order.ID, order.OrderNumber, order.UpdatedAt.Format("2006-01-02 15:04:05"), now.Sub(order.UpdatedAt))
+
+			// 查询订单状态
+			if err := s.manager.QueryOrderStatus(ctx, order); err != nil {
+				logger.Error("【查询订单状态失败】order_id: %d, order_number: %s, error: %v",
+					order.ID, order.OrderNumber, err)
+				continue
+			}
+
+			logger.Info("【订单状态查询完成】order_id: %d, order_number: %s",
+				order.ID, order.OrderNumber)
+			checkedCount++
+		}
+	}
+
+	logger.Info("【充值中订单检查完成】共检查 %d 个订单，其中 %d 个订单需要查询状态",
+		len(orders), checkedCount)
+	return nil
 }

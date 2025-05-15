@@ -111,7 +111,7 @@ func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *mode
 // QueryOrderStatus 查询订单状态
 func (m *Manager) QueryOrderStatus(ctx context.Context, order *model.Order) error {
 	// 获取平台实例
-	platform, err := m.GetPlatform(order.PlatformName)
+	platform, err := m.GetPlatform(order.PlatformCode)
 	if err != nil {
 		return fmt.Errorf("failed to get platform: %v", err)
 	}

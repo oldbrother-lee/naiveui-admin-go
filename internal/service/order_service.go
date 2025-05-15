@@ -308,7 +308,28 @@ func (s *orderService) GetOrderByOutTradeNum(ctx context.Context, outTradeNum st
 
 // GetOrders 获取订单列表
 func (s *orderService) GetOrders(ctx context.Context, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error) {
-	return s.orderRepo.GetOrders(ctx, params, page, pageSize)
+	logger.Info("开始获取订单列表",
+		"params", params,
+		"page", page,
+		"page_size", pageSize,
+	)
+
+	orders, total, err := s.orderRepo.GetOrders(ctx, params, page, pageSize)
+	if err != nil {
+		logger.Error("获取订单列表失败",
+			"error", err,
+			"params", params,
+		)
+		return nil, 0, fmt.Errorf("get orders failed: %v", err)
+	}
+
+	logger.Info("获取订单列表成功",
+		"total", total,
+		"page", page,
+		"page_size", pageSize,
+	)
+
+	return orders, total, nil
 }
 
 // generateOrderNumber 生成订单号
