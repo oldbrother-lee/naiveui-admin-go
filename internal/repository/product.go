@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"recharge-go/internal/model"
 
 	"gorm.io/gorm"
@@ -128,4 +129,14 @@ func (r *ProductRepository) ListTypes() ([]model.ProductType, error) {
 	var types []model.ProductType
 	err := r.db.Order("sort asc").Find(&types).Error
 	return types, err
+}
+
+// GetAPIRelationsByProductID 获取商品API关系列表
+func (r *ProductRepository) GetAPIRelationsByProductID(ctx context.Context, productID int64) ([]*model.ProductAPIRelation, error) {
+	var relations []*model.ProductAPIRelation
+	err := r.db.WithContext(ctx).
+		Where("product_id = ? AND status = 1", productID).
+		Order("priority DESC").
+		Find(&relations).Error
+	return relations, err
 }

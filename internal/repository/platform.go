@@ -30,6 +30,7 @@ type PlatformRepository interface {
 	CreatePlatformAccount(account *model.PlatformAccount) error
 	UpdatePlatformAccount(account *model.PlatformAccount) error
 	GetAPIByID(ctx context.Context, apiID int64) (*model.PlatformAPI, error)
+	GetAPIParamByID(ctx context.Context, id int64) (*model.PlatformAPIParam, error)
 }
 
 type PlatformRepositoryImpl struct {
@@ -280,4 +281,14 @@ func (r *PlatformRepositoryImpl) GetPlatformByCode(ctx context.Context, code str
 		return nil, err
 	}
 	return &platform, nil
+}
+
+// GetAPIParamByID 根据API参数ID获取API参数信息
+func (r *PlatformRepositoryImpl) GetAPIParamByID(ctx context.Context, id int64) (*model.PlatformAPIParam, error) {
+	var param model.PlatformAPIParam
+	err := r.db.WithContext(ctx).First(&param, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &param, nil
 }

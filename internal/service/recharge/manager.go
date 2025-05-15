@@ -47,10 +47,17 @@ func (m *Manager) GetPlatform(platformCode string) (Platform, error) {
 
 // createPlatform 创建平台实例
 func (m *Manager) createPlatform(api *model.PlatformAPI) Platform {
+	if api == nil {
+		return nil
+	}
+
 	switch api.Code {
 	case "kekebang":
 		return NewKekebangPlatform(api)
+	case "xianzhuanxia":
+		return NewXianzhuanxiaPlatform(api)
 	default:
+		logger.Error("Unsupported platform code: %s", api.Code)
 		return nil
 	}
 }
@@ -87,6 +94,8 @@ func (m *Manager) LoadPlatforms() error {
 		m.mu.Lock()
 		m.platforms[platform.Code] = platformInstance
 		m.mu.Unlock()
+
+		logger.Info("Successfully loaded platform: %s", platform.Code)
 	}
 
 	return nil

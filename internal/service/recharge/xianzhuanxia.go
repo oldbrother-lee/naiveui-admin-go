@@ -48,6 +48,11 @@ type QueryOrderStatusResult struct {
 	} `json:"data"`
 }
 
+// GetName 获取平台名称
+func (p *XianzhuanxiaPlatform) GetName() string {
+	return "xianzhuanxia"
+}
+
 // SubmitOrder 提交订单
 func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
 	logger.Info("开始提交闲赚侠订单",

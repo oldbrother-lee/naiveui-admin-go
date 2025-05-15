@@ -2,104 +2,95 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"os/signal"
 	"recharge-go/internal/config"
 	"recharge-go/internal/repository"
-	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/recharge"
-	"recharge-go/internal/worker"
+	"recharge-go/internal/task"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
 	"recharge-go/pkg/queue"
 	"recharge-go/pkg/redis"
 	"syscall"
-
-	"go.uber.org/zap"
 )
 
 func main() {
+	// 初始化配置
+	cfg := config.GetConfig()
+
+	// 初始化日志
 	if err := logger.InitLogger(); err != nil {
-		panic(fmt.Sprintf("初始化日志失败: %v", err))
-	}
-	// 加载配置
-	cfg, err := config.LoadConfig("configs/config.yaml")
-	if err != nil {
-		logger.Log.Fatal("加载配置失败", zap.Error(err))
+		panic(err)
 	}
 
 	// 初始化数据库连接
 	if err := database.InitDB(); err != nil {
-		logger.Log.Fatal("初始化数据库失败", zap.Error(err))
+		panic(err)
 	}
+	db := database.DB
 
 	// 初始化Redis连接
-	if err := redis.InitRedis(
-		cfg.Redis.Host,
-		cfg.Redis.Port,
-		cfg.Redis.Password,
-		cfg.Redis.DB,
-	); err != nil {
-		logger.Log.Fatal("初始化Redis失败", zap.Error(err))
+	if err := redis.InitRedis(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Password, cfg.Redis.DB); err != nil {
+		panic(err)
 	}
 
-	// 创建仓储实例
-	orderRepo := repository.NewOrderRepository(database.DB)
-	platformRepo := repository.NewPlatformRepository(database.DB)
-	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
-	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
-	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
-	// 创建充值管理器
-	mgr := recharge.NewManager(database.DB)
+	// 初始化仓库
+	orderRepo := repository.NewOrderRepository(db)
+	platformRepo := repository.NewPlatformRepository(db)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(db)
+	callbackLogRepo := repository.NewCallbackLogRepository(db)
+	retryRepo := repository.NewRetryRepository(db)
+	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(db)
+	notificationRepo := repository.NewNotificationRepository(db)
 
-	// 创建队列实例
-	queueInstance := queue.NewRedisQueue()
+	// 初始化平台管理器
+	platformManager := recharge.NewManager(db)
+	if err := platformManager.LoadPlatforms(); err != nil {
+		panic(err)
+	}
 
-	// 创建通知仓库
-	notificationRepo := notificationRepo.NewRepository(database.DB)
+	// 初始化队列
+	queue := queue.NewRedisQueue()
 
-	// 创建平台API参数服务
+	// 初始化服务
+	orderService := service.NewOrderService(orderRepo, nil, notificationRepo, queue)
 	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
-
-	// 创建订单服务
-	orderService := service.NewOrderService(
-		orderRepo,
-		nil, // 先传入 nil，后面再设置
-		notificationRepo,
-		queueInstance,
-	)
-
-	// 创建服务实例
 	rechargeService := service.NewRechargeService(
 		orderRepo,
 		platformRepo,
-		mgr,
+		platformManager,
 		callbackLogRepo,
-		database.DB,
+		db,
 		orderService,
 		productAPIRelationRepo,
 		platformAPIParamService,
 	)
+	retryService := service.NewRetryService(retryRepo, orderRepo, platformRepo)
 
-	// 设置 orderService 的 rechargeService
+	// 设置充值服务
 	orderService.SetRechargeService(rechargeService)
 
-	// 初始化充值工作器
-	rechargeWorker := worker.NewRechargeWorker(rechargeService)
-	rechargeWorker.Start()
-	defer rechargeWorker.Stop()
+	// 创建上下文
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 初始化任务
+	retryTask := task.NewRetryTask(retryService)
+	rechargeTask := task.NewRechargeTask(rechargeService)
+
+	// 启动任务
+	go retryTask.Start()
+	go rechargeTask.Start(ctx)
 
 	// 等待中断信号
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 
-	// 关闭Redis连接
-	if err := redis.Close(); err != nil {
-		logger.Log.Error("关闭Redis连接失败", zap.Error(err))
-	}
-
-	logger.Log.Info("工作器已关闭")
+	// 停止任务
+	retryTask.Stop()
+	rechargeTask.Stop()
 }
