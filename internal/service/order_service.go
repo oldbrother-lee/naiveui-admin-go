@@ -117,9 +117,18 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 		"new_status", status,
 	)
 
+	// 开启事务
+	tx := s.orderRepo.(*repository.OrderRepositoryImpl).DB().Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// 获取订单信息
 	order, err := s.orderRepo.GetByID(ctx, id)
 	if err != nil {
+		tx.Rollback()
 		logger.Error("获取订单信息失败",
 			"error", err,
 			"order_id", id,
@@ -135,6 +144,7 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 
 	// 如果状态没有变化，直接返回
 	if order.Status == status {
+		tx.Rollback()
 		logger.Info("订单状态未发生变化，无需更新",
 			"order_id", id,
 			"status", status,
@@ -143,7 +153,8 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 	}
 
 	// 更新订单状态
-	if err := s.orderRepo.UpdateStatus(ctx, id, status); err != nil {
+	if err := tx.Model(&model.Order{}).Where("id = ?", id).Update("status", status).Error; err != nil {
+		tx.Rollback()
 		logger.Error("更新订单状态失败",
 			"error", err,
 			"order_id", id,
@@ -152,12 +163,6 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 		)
 		return fmt.Errorf("update order status failed: %v", err)
 	}
-
-	logger.Info("订单状态更新成功",
-		"order_id", id,
-		"old_status", order.Status,
-		"new_status", status,
-	)
 
 	// 创建通知记录
 	notification := &notificationModel.NotificationRecord{
@@ -170,20 +175,30 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 
 	// 保存通知记录到数据库
 	if err := s.notificationRepo.Create(ctx, notification); err != nil {
+		tx.Rollback()
 		logger.Error("创建通知记录失败",
 			"error", err,
 			"order_id", id,
 			"platform_code", order.PlatformCode,
 			"notification_type", notification.NotificationType,
 		)
-		// 通知失败不影响订单状态更新
-	} else {
-		logger.Info("通知记录创建成功",
-			"order_id", id,
-			"notification_id", notification.ID,
-			"platform_code", order.PlatformCode,
-		)
+		return fmt.Errorf("create notification record failed: %v", err)
 	}
+
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		logger.Error("提交事务失败",
+			"error", err,
+			"order_id", id,
+		)
+		return fmt.Errorf("commit transaction failed: %v", err)
+	}
+
+	logger.Info("订单状态更新成功",
+		"order_id", id,
+		"old_status", order.Status,
+		"new_status", status,
+	)
 
 	// 将通知记录添加到队列
 	if err := s.queue.Push(ctx, "notification_queue", notification); err != nil {
@@ -198,7 +213,6 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 		logger.Info("通知已推送到队列",
 			"order_id", id,
 			"notification_id", notification.ID,
-			"queue_name", "notification_queue",
 		)
 	}
 

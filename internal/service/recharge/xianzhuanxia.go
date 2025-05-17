@@ -128,6 +128,14 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		return fmt.Errorf("读取响应内容失败: %v", err)
 	}
 
+	// 记录平台原始响应内容
+	logger.Info("平台响应内容",
+		"order_id", order.ID,
+		"order_number", order.OrderNumber,
+		"response", string(body),
+	)
+
+	// 解析响应
 	var result SubmitOrderResult
 	if err := json.Unmarshal(body, &result); err != nil {
 		logger.Error("解析响应内容失败",

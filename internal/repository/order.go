@@ -48,6 +48,8 @@ type OrderRepository interface {
 	GetByOrderID(ctx context.Context, orderID string) (*model.Order, error)
 	// UpdatePlatformID 更新订单支付平台ID和API ID
 	UpdatePlatformID(ctx context.Context, orderID int64, platformID *model.PlatformAPI, ParamID int64) error
+	// DB 返回数据库连接
+	DB() *gorm.DB
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -55,9 +57,14 @@ type OrderRepositoryImpl struct {
 	db *gorm.DB
 }
 
-// NewOrderRepository 创建订单仓库
-func NewOrderRepository(db *gorm.DB) *OrderRepositoryImpl {
+// NewOrderRepository 创建订单仓库实例
+func NewOrderRepository(db *gorm.DB) OrderRepository {
 	return &OrderRepositoryImpl{db: db}
+}
+
+// DB 返回数据库连接
+func (r *OrderRepositoryImpl) DB() *gorm.DB {
+	return r.db
 }
 
 // GetByStatus 根据状态获取订单列表
