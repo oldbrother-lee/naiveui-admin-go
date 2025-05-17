@@ -23,7 +23,7 @@ func NewRetryTask(retryService *service.RetryService) *RetryTask {
 
 func (t *RetryTask) Start() {
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(1 * time.Minute)
 		defer ticker.Stop()
 
 		for {

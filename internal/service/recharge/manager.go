@@ -86,7 +86,7 @@ func (m *Manager) LoadPlatforms() error {
 		// 创建平台实例
 		platformInstance := m.createPlatform(api)
 		if platformInstance == nil {
-			logger.Error("Failed to create platform instance for %s", platform.Code)
+			logger.Error("Skipping unsupported platform: %s", platform.Code)
 			continue
 		}
 
@@ -98,29 +98,33 @@ func (m *Manager) LoadPlatforms() error {
 		logger.Info("Successfully loaded platform: %s", platform.Code)
 	}
 
+	// 检查是否至少加载了一个平台
+	if len(m.platforms) == 0 {
+		return fmt.Errorf("no platforms were loaded successfully")
+	}
+
 	return nil
 }
 
 // SubmitOrder 提交订单到平台
 func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
-	// 获取平台实例
-	fmt.Println("提交订单到平台,获取平台实例", order.OrderNumber, api)
-	fmt.Println("提交订单到平台,获取平台实例api", api)
-	//提交订单的 sku_code 参数在 platform_api_params 这个表里
-	platform, err := m.GetPlatform("kekebang")
+	platform, err := m.GetPlatform(api.Code)
 	if err != nil {
 		return fmt.Errorf("failed to get platform: %v", err)
 	}
-	fmt.Println("提交订单到平台,获取平台实例", platform)
-
-	// 提交订单
 	return platform.SubmitOrder(ctx, order, api, apiParam)
 }
 
 // QueryOrderStatus 查询订单状态
 func (m *Manager) QueryOrderStatus(ctx context.Context, order *model.Order) error {
+	// 获取平台API信息
+	api, err := m.platformAPIRepo.GetByID(ctx, order.PlatformId)
+	if err != nil {
+		return fmt.Errorf("failed to get platform API: %v", err)
+	}
+
 	// 获取平台实例
-	platform, err := m.GetPlatform(order.PlatformCode)
+	platform, err := m.GetPlatform(api.Code)
 	if err != nil {
 		return fmt.Errorf("failed to get platform: %v", err)
 	}
@@ -156,9 +160,9 @@ func (m *Manager) HandleCallback(ctx context.Context, platformCode string, data 
 }
 
 // ParseCallbackData 解析回调数据
-func (m *Manager) ParseCallbackData(data []byte) (*model.CallbackData, error) {
+func (m *Manager) ParseCallbackData(platformCode string, data []byte) (*model.CallbackData, error) {
 	// 获取平台实例
-	platform, err := m.GetPlatform("kekebang") // 这里需要根据实际情况获取正确的平台
+	platform, err := m.GetPlatform(platformCode)
 	if err != nil {
 		return nil, fmt.Errorf("get platform failed: %v", err)
 	}

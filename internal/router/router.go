@@ -24,6 +24,7 @@ func SetupRouter(
 	userLogController *controller.UserLogController,
 	userGradeController *controller.UserGradeController,
 	rechargeHandler *handler.RechargeHandler,
+	retryService *service.RetryService,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -47,6 +48,10 @@ func SetupRouter(
 
 		// 回调路由 - 不需要认证
 		RegisterCallbackRoutes(api)
+
+		// 重试路由 - 不需要认证
+		retryHandler := handler.NewRetryHandler(retryService)
+		retryHandler.RegisterRoutes(api)
 
 		// Protected routes
 		auth := api.Group("")

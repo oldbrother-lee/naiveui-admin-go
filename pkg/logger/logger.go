@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"fmt"
+	"context"
 	"os"
 	"path/filepath"
 
@@ -31,7 +31,7 @@ func InitLogger() error {
 		Compress:   true, // 压缩旧文件
 	}
 
-	// 配置编码器
+	// 创建编码器配置
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -46,15 +46,26 @@ func InitLogger() error {
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	// 创建核心
-	core := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.NewMultiWriteSyncer(zapcore.AddSync(logFile), zapcore.AddSync(os.Stdout)),
-		zapcore.InfoLevel,
+	// 创建控制台输出
+	consoleEncoder := zapcore.NewConsoleEncoder(encoderConfig)
+	consoleCore := zapcore.NewCore(
+		consoleEncoder,
+		zapcore.AddSync(os.Stdout),
+		zapcore.DebugLevel,
 	)
 
-	// 创建logger
+	// 创建文件输出
+	fileEncoder := zapcore.NewJSONEncoder(encoderConfig)
+	fileCore := zapcore.NewCore(
+		fileEncoder,
+		zapcore.AddSync(logFile),
+		zapcore.DebugLevel,
+	)
+
+	// 创建日志记录器
+	core := zapcore.NewTee(consoleCore, fileCore)
 	Log = zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+
 	return nil
 }
 
@@ -79,11 +90,49 @@ func init() {
 	}
 }
 
-// 在 logger 包中添加便捷方法
+// Info 记录信息日志
 func Info(msg string, fields ...interface{}) {
-	Log.Info(fmt.Sprintf(msg, fields...))
+	Log.Info(msg, parseFields(fields...)...)
 }
 
+// Error 记录错误日志
 func Error(msg string, fields ...interface{}) {
-	Log.Error(fmt.Sprintf(msg, fields...))
+	Log.Error(msg, parseFields(fields...)...)
+}
+
+// Debug 记录调试日志
+func Debug(msg string, fields ...interface{}) {
+	Log.Debug(msg, parseFields(fields...)...)
+}
+
+// Warn 记录警告日志
+func Warn(msg string, fields ...interface{}) {
+	Log.Warn(msg, parseFields(fields...)...)
+}
+
+// parseFields 解析字段
+func parseFields(fields ...interface{}) []zap.Field {
+	if len(fields) == 0 {
+		return nil
+	}
+
+	zapFields := make([]zap.Field, 0, len(fields)/2)
+	for i := 0; i < len(fields); i += 2 {
+		if i+1 < len(fields) {
+			key, ok := fields[i].(string)
+			if !ok {
+				continue
+			}
+			zapFields = append(zapFields, zap.Any(key, fields[i+1]))
+		}
+	}
+	return zapFields
+}
+
+// WithContext 添加上下文信息
+func WithContext(ctx context.Context) *zap.Logger {
+	return Log.With(
+		zap.String("trace_id", ctx.Value("trace_id").(string)),
+		zap.String("user_id", ctx.Value("user_id").(string)),
+	)
 }

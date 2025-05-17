@@ -4,25 +4,30 @@ import (
 	"time"
 )
 
-// PlatformAPI 平台接口配置
+// PlatformAPI 平台API模型
 type PlatformAPI struct {
-	ID          int64     `json:"id" gorm:"primaryKey"`
-	PlatformID  int64     `json:"platform_id" gorm:"not null;index"` // 平台ID
-	Name        string    `json:"name" gorm:"size:100;not null;comment:平台名称"`
-	Code        string    `json:"code" gorm:"size:50;not null;comment:接口代码;uniqueIndex"`
-	URL         string    `json:"url" gorm:"size:255;not null;comment:接口地址"`
-	Method      string    `json:"method" gorm:"size:10;not null;comment:请求方法"`
-	MerchantID  string    `json:"merchant_id" gorm:"size:255;comment:商户ID"`
-	AppKey      string    `json:"app_key" gorm:"size:255;comment:密钥"`
-	SecretKey   string    `json:"secret_key" gorm:"size:255;comment:密钥"`
-	CallbackURL string    `json:"callback_url" gorm:"size:255;comment:回调地址"`
-	Timeout     int       `json:"timeout" gorm:"default:30;comment:超时时间(秒)"`
-	RetryTimes  int       `json:"retry_times" gorm:"default:3;comment:重试次数"`
-	Remark      string    `json:"remark" gorm:"type:text;comment:接口说明"`
-	Status      int       `json:"status" gorm:"not null;default:1;comment:状态：1-启用，0-禁用"`
-	IsDeleted   int       `json:"is_deleted" gorm:"not null;default:0;comment:是否删除：0-未删除，1-已删除"`
-	CreatedAt   time.Time `json:"created_at" gorm:"not null;default:CURRENT_TIMESTAMP;type:datetime"`
-	UpdatedAt   time.Time `json:"updated_at" gorm:"not null;default:CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;type:datetime"`
+	ID          int64             `json:"id" gorm:"primaryKey"`
+	PlatformID  int64             `json:"platform_id" gorm:"not null;index"`
+	Name        string            `json:"name" gorm:"size:50;not null"`
+	Code        string            `json:"code" gorm:"size:50;not null"`
+	URL         string            `json:"url" gorm:"size:255;not null"`
+	Method      string            `json:"method" gorm:"size:10;not null"`
+	AppID       string            `json:"app_id" gorm:"size:50"`
+	AppKey      string            `json:"app_key" gorm:"size:100"`
+	AppSecret   string            `json:"app_secret" gorm:"size:100"`
+	MerchantID  string            `json:"merchant_id" gorm:"size:50"`
+	SecretKey   string            `json:"secret_key" gorm:"size:100"`
+	CallbackURL string            `json:"callback_url" gorm:"size:255"`
+	Timeout     int               `json:"timeout" gorm:"default:30"`
+	Status      int               `json:"status" gorm:"default:1"`
+	RetryTimes  int               `json:"retry_times" gorm:"default:3"` // 重试次数
+	RetryDelay  int               `json:"retry_delay" gorm:"default:5"` // 重试延迟（分钟）
+	ExtraParams map[string]string `json:"extra_params" gorm:"type:json"`
+}
+
+// TableName 表名
+func (PlatformAPI) TableName() string {
+	return "platform_apis"
 }
 
 // PlatformAPIParam 接口套餐配置

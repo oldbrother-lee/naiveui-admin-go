@@ -73,3 +73,32 @@ func VerifyTimestamp(timestamp float64, maxDiffSeconds float64) bool {
 	now := time.Now().Unix()
 	return maxDiffSeconds > math.Abs(float64(now)-timestamp)
 }
+
+// GenerateKekebangSignature 生成客客帮签名
+func GenerateKekebangSignature(params map[string]string, secretKey string) string {
+	// 1. 按参数名升序排序
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// 2. 拼接参数
+	var builder strings.Builder
+	for _, k := range keys {
+		if k == "sign" {
+			continue
+		}
+		builder.WriteString(k)
+		builder.WriteString("=")
+		builder.WriteString(params[k])
+		builder.WriteString("&")
+	}
+	builder.WriteString("key=")
+	builder.WriteString(secretKey)
+
+	// 3. MD5加密
+	hash := md5.New()
+	hash.Write([]byte(builder.String()))
+	return strings.ToUpper(hex.EncodeToString(hash.Sum(nil)))
+}

@@ -41,10 +41,10 @@ func GenerateXianzhuanxiaSignature(params map[string]string, apiKey, userID stri
 	sb.WriteString(queryTime)
 	sb.WriteString("key=")
 	sb.WriteString(apiKey)
-
+	fmt.Println("sbssss!!!!!", sb.String())
 	// 第三步：MD5 加密
 	md5Hash := fmt.Sprintf("%x", md5.Sum([]byte(sb.String())))
-
+	fmt.Println("md5Hash######", md5Hash)
 	// 第四步：拼接 Auth_Token
 	authToken := fmt.Sprintf("%s,%s,%s", md5Hash, userID, queryTime)
 

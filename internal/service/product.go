@@ -1,23 +1,30 @@
 package service
 
 import (
+	"context"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 )
 
 type ProductService struct {
-	productRepo *repository.ProductRepository
+	productRepo repository.ProductRepository
 }
 
-func NewProductService(productRepo *repository.ProductRepository) *ProductService {
+func NewProductService(productRepo repository.ProductRepository) *ProductService {
 	return &ProductService{
 		productRepo: productRepo,
 	}
 }
 
 // List 获取商品列表
-func (s *ProductService) List(req *model.ProductListRequest) (*model.ProductListResponse, error) {
-	products, total, err := s.productRepo.List(req)
+func (s *ProductService) List(ctx context.Context, req *model.ProductListRequest) (*model.ProductListResponse, error) {
+	params := map[string]interface{}{
+		"type":     req.Type,
+		"category": req.Category,
+		"isp":      req.ISP,
+		"status":   req.Status,
+	}
+	products, total, err := s.productRepo.List(ctx, params, req.Page, req.PageSize)
 	if err != nil {
 		return nil, err
 	}
@@ -29,23 +36,23 @@ func (s *ProductService) List(req *model.ProductListRequest) (*model.ProductList
 }
 
 // GetByID 获取商品详情
-func (s *ProductService) GetByID(id int64) (*model.ProductDetailResponse, error) {
-	product, err := s.productRepo.GetByID(id)
+func (s *ProductService) GetByID(ctx context.Context, id int64) (*model.ProductDetailResponse, error) {
+	product, err := s.productRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	specs, err := s.productRepo.GetSpecs(id)
+	specs, err := s.productRepo.GetSpecs(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	gradePrices, err := s.productRepo.GetGradePrices(id)
+	gradePrices, err := s.productRepo.GetGradePrices(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	category, err := s.productRepo.GetCategory(product.CategoryID)
+	category, err := s.productRepo.GetCategory(ctx, product.CategoryID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +66,7 @@ func (s *ProductService) GetByID(id int64) (*model.ProductDetailResponse, error)
 }
 
 // Create 创建商品
-func (s *ProductService) Create(req *model.ProductCreateRequest) (*model.Product, error) {
+func (s *ProductService) Create(ctx context.Context, req *model.ProductCreateRequest) (*model.Product, error) {
 	product := &model.Product{
 		Name:            req.Name,
 		Description:     req.Description,
@@ -88,7 +95,7 @@ func (s *ProductService) Create(req *model.ProductCreateRequest) (*model.Product
 		IsApi:           req.IsApi,
 	}
 
-	err := s.productRepo.Create(product)
+	err := s.productRepo.Create(ctx, product)
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +104,8 @@ func (s *ProductService) Create(req *model.ProductCreateRequest) (*model.Product
 }
 
 // Update 更新商品
-func (s *ProductService) Update(req *model.ProductUpdateRequest) (*model.Product, error) {
-	product, err := s.productRepo.GetByID(req.ID)
+func (s *ProductService) Update(ctx context.Context, req *model.ProductUpdateRequest) (*model.Product, error) {
+	product, err := s.productRepo.GetByID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +136,7 @@ func (s *ProductService) Update(req *model.ProductUpdateRequest) (*model.Product
 	product.APIParamID = req.APIParamID
 	product.IsApi = req.IsApi
 
-	err = s.productRepo.Update(product)
+	err = s.productRepo.Update(ctx, product)
 	if err != nil {
 		return nil, err
 	}
@@ -138,13 +145,13 @@ func (s *ProductService) Update(req *model.ProductUpdateRequest) (*model.Product
 }
 
 // Delete 删除商品
-func (s *ProductService) Delete(id int64) error {
-	return s.productRepo.Delete(id)
+func (s *ProductService) Delete(ctx context.Context, id int64) error {
+	return s.productRepo.Delete(ctx, id)
 }
 
 // ListCategories 获取商品分类列表
-func (s *ProductService) ListCategories() (*model.ProductCategoryListResponse, error) {
-	categories, err := s.productRepo.ListCategories()
+func (s *ProductService) ListCategories(ctx context.Context) (*model.ProductCategoryListResponse, error) {
+	categories, err := s.productRepo.ListCategories(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -156,21 +163,21 @@ func (s *ProductService) ListCategories() (*model.ProductCategoryListResponse, e
 }
 
 // CreateCategory 创建商品分类
-func (s *ProductService) CreateCategory(category *model.ProductCategory) error {
-	return s.productRepo.CreateCategory(category)
+func (s *ProductService) CreateCategory(ctx context.Context, category *model.ProductCategory) error {
+	return s.productRepo.CreateCategory(ctx, category)
 }
 
 // UpdateCategory 更新商品分类
-func (s *ProductService) UpdateCategory(category *model.ProductCategory) error {
-	return s.productRepo.UpdateCategory(category)
+func (s *ProductService) UpdateCategory(ctx context.Context, category *model.ProductCategory) error {
+	return s.productRepo.UpdateCategory(ctx, category)
 }
 
 // DeleteCategory 删除商品分类
-func (s *ProductService) DeleteCategory(id int64) error {
-	return s.productRepo.DeleteCategory(id)
+func (s *ProductService) DeleteCategory(ctx context.Context, id int64) error {
+	return s.productRepo.DeleteCategory(ctx, id)
 }
 
 // ListTypes 获取商品类型列表
-func (s *ProductService) ListTypes() ([]model.ProductType, error) {
-	return s.productRepo.ListTypes()
+func (s *ProductService) ListTypes(ctx context.Context) ([]model.ProductType, error) {
+	return s.productRepo.ListTypes(ctx)
 }

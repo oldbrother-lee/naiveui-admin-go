@@ -67,8 +67,10 @@ func main() {
 		orderService,
 		productAPIRelationRepo,
 		platformAPIParamService,
+		retryRepo,
 	)
-	retryService := service.NewRetryService(retryRepo, orderRepo, platformRepo)
+	productRepo := repository.NewProductRepository(db)
+	retryService := service.NewRetryService(retryRepo, orderRepo, platformRepo, productRepo, productAPIRelationRepo, rechargeService)
 
 	// 设置充值服务
 	orderService.SetRechargeService(rechargeService)

@@ -44,6 +44,7 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 		orderService,
 		repository.NewProductAPIRelationRepository(database.DB),
 		service.NewPlatformAPIParamService(repository.NewPlatformAPIParamRepository(database.DB)),
+		repository.NewRetryRepository(database.DB),
 	)
 
 	// 设置 orderService 的 rechargeService

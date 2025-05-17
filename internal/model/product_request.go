@@ -12,8 +12,8 @@ type ProductListRequest struct {
 
 // ProductListResponse 商品列表响应
 type ProductListResponse struct {
-	Total   int64     `json:"total"`
-	Records []Product `json:"records"`
+	Total   int64      `json:"total"`
+	Records []*Product `json:"records"`
 }
 
 // ProductCategoryListResponse 商品分类列表响应

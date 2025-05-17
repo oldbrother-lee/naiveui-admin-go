@@ -120,6 +120,7 @@ func main() {
 		orderService,
 		productAPIRelationRepo,
 		platformAPIParamService,
+		repository.NewRetryRepository(database.DB),
 	)
 
 	// 设置 orderService 的 rechargeService
@@ -145,6 +146,16 @@ func main() {
 	platformService := service.NewPlatformService(platformRepo, orderRepo)
 	platformAPIService := service.NewPlatformAPIService(platformAPIRepo)
 	productAPIRelationService := service.NewProductAPIRelationService(productAPIRelationRepo)
+
+	// 创建重试服务
+	retryService := service.NewRetryService(
+		repository.NewRetryRepository(database.DB),
+		repository.NewOrderRepository(database.DB),
+		repository.NewPlatformRepository(database.DB),
+		repository.NewProductRepository(database.DB),
+		productAPIRelationRepo,
+		rechargeService,
+	)
 
 	// 创建处理器实例
 	rechargeHandler := handler.NewRechargeHandler(rechargeService)
@@ -177,6 +188,7 @@ func main() {
 		userLogController,            // userLogController
 		userGradeController,          // userGradeController
 		rechargeHandler,
+		retryService, // retryService
 	)
 
 	// 启动HTTP服务器

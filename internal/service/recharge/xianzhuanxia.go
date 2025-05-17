@@ -63,16 +63,16 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 
 	// 构建请求参数
 	params := map[string]string{
-		"user_id":    p.userID,
-		"order_id":   order.OrderNumber,
-		"mobile":     order.Mobile,
-		"goods_id":   apiParam.ProductID,
-		"amount":     strconv.FormatFloat(order.TotalPrice, 'f', 2, 64),
-		"notify_url": api.CallbackURL,
-		"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
+		"orderNo":     order.OrderNumber,
+		"accountNum":  order.Mobile,
+		"taskGoodsId": apiParam.ProductID,
+		"ip":          "192.168.31.2",
+		"notifyUrl":   api.CallbackURL,
+		"maxWaitTime": strconv.Itoa(600),
 	}
 
 	// 生成签名
+	fmt.Println("生成签名", params, p.apiKey, p.userID)
 	authToken, queryTime, err := signature.GenerateXianzhuanxiaSignature(params, p.apiKey, p.userID)
 	if err != nil {
 		logger.Error("生成签名失败",
@@ -81,8 +81,10 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		)
 		return fmt.Errorf("生成签名失败: %v", err)
 	}
+	fmt.Println("生成签名 2", authToken, queryTime)
 
 	// 发送请求
+	fmt.Println("请求参数 2", params)
 	jsonData, err := json.Marshal(params)
 	if err != nil {
 		logger.Error("序列化请求参数失败",
@@ -91,8 +93,8 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		)
 		return fmt.Errorf("序列化请求参数失败: %v", err)
 	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL+"/api/recharge/submit", bytes.NewBuffer(jsonData))
+	fmt.Println("url", p.baseURL+"/api/recharge/submit")
+	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		logger.Error("创建HTTP请求失败",
 			"error", err,
@@ -102,10 +104,11 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+authToken)
-	req.URL.RawQuery = fmt.Sprintf("queryTime=%s", queryTime)
+	req.Header.Set("Auth_Token", authToken)
+	// req.URL.RawQuery = fmt.Sprintf("queryTime=%s", queryTime)
 
 	client := &http.Client{Timeout: 30 * time.Second}
+	fmt.Println("reqqqqqqqqqqqq$$$$", req)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Error("发送HTTP请求失败",
@@ -136,10 +139,13 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 
 	if result.Code != 0 {
 		logger.Error("提交订单失败",
-			"code", result.Code,
-			"message", result.Message,
+			"platform", "xianzhuanxia",
+			"order_id", order.ID,
+			"order_number", order.OrderNumber,
+			"error", result.Message,
+			"response", string(body),
 		)
-		return fmt.Errorf("提交订单失败: %s", result.Message)
+		return fmt.Errorf("submit order failed: %v", result.Message)
 	}
 
 	// 更新订单信息

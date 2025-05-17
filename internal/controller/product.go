@@ -36,7 +36,6 @@ func NewProductController(productService *service.ProductService) *ProductContro
 // @Success 200 {object} response.Response{data=model.ProductListResponse}
 // @Router /api/v1/product/list [get]
 func (c *ProductController) List(ctx *gin.Context) {
-
 	var req model.ProductListRequest
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		fmt.Printf("参数绑定错误: %v\n", err)
@@ -46,7 +45,7 @@ func (c *ProductController) List(ctx *gin.Context) {
 
 	fmt.Printf("绑定后的参数: %+v\n", req)
 
-	resp, err := c.productService.List(&req)
+	resp, err := c.productService.List(ctx.Request.Context(), &req)
 	if err != nil {
 		fmt.Printf("服务调用错误: %v\n", err)
 		utils.Error(ctx, http.StatusInternalServerError, fmt.Sprintf("服务错误: %v", err))
@@ -73,7 +72,7 @@ func (c *ProductController) GetByID(ctx *gin.Context) {
 		return
 	}
 
-	resp, err := c.productService.GetByID(id)
+	resp, err := c.productService.GetByID(ctx.Request.Context(), id)
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -98,7 +97,7 @@ func (c *ProductController) Create(ctx *gin.Context) {
 		return
 	}
 
-	product, err := c.productService.Create(&req)
+	product, err := c.productService.Create(ctx.Request.Context(), &req)
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -131,7 +130,7 @@ func (c *ProductController) Update(ctx *gin.Context) {
 	}
 
 	req.ID = id
-	product, err := c.productService.Update(&req)
+	product, err := c.productService.Update(ctx.Request.Context(), &req)
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -156,7 +155,7 @@ func (c *ProductController) Delete(ctx *gin.Context) {
 		return
 	}
 
-	err = c.productService.Delete(id)
+	err = c.productService.Delete(ctx.Request.Context(), id)
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -174,7 +173,7 @@ func (c *ProductController) Delete(ctx *gin.Context) {
 // @Success 200 {object} response.Response{data=model.ProductCategoryListResponse}
 // @Router /api/v1/product/categories [get]
 func (c *ProductController) ListCategories(ctx *gin.Context) {
-	resp, err := c.productService.ListCategories()
+	resp, err := c.productService.ListCategories(ctx.Request.Context())
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
@@ -199,7 +198,7 @@ func (c *ProductController) CreateCategory(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.productService.CreateCategory(&category); err != nil {
+	if err := c.productService.CreateCategory(ctx.Request.Context(), &category); err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -231,7 +230,7 @@ func (c *ProductController) UpdateCategory(ctx *gin.Context) {
 	}
 
 	category.ID = id
-	if err := c.productService.UpdateCategory(&category); err != nil {
+	if err := c.productService.UpdateCategory(ctx.Request.Context(), &category); err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -255,7 +254,8 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 		return
 	}
 
-	if err := c.productService.DeleteCategory(id); err != nil {
+	err = c.productService.DeleteCategory(ctx.Request.Context(), id)
+	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -272,7 +272,7 @@ func (c *ProductController) DeleteCategory(ctx *gin.Context) {
 // @Success 200 {object} response.Response{data=[]model.ProductType}
 // @Router /api/v1/product/types [get]
 func (c *ProductController) ListTypes(ctx *gin.Context) {
-	types, err := c.productService.ListTypes()
+	types, err := c.productService.ListTypes(ctx.Request.Context())
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
