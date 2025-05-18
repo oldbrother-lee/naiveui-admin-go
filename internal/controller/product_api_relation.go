@@ -25,16 +25,16 @@ func NewProductAPIRelationController(svc service.ProductAPIRelationService) *Pro
 func (c *ProductAPIRelationController) Create(ctx *gin.Context) {
 	var req model.ProductAPIRelationCreateRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.Error(ctx, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := c.svc.Create(ctx, &req); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+	utils.Success(ctx, nil)
 }
 
 // Update 更新商品接口关联
@@ -57,38 +57,38 @@ func (c *ProductAPIRelationController) Update(ctx *gin.Context) {
 func (c *ProductAPIRelationController) Delete(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		utils.Error(ctx, http.StatusBadRequest, "invalid id")
 		return
 	}
 
 	if err := c.svc.Delete(ctx, id); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "success"})
+	utils.Success(ctx, nil)
 }
 
 // GetByID 根据ID获取商品接口关联
 func (c *ProductAPIRelationController) GetByID(ctx *gin.Context) {
 	id, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		utils.Error(ctx, http.StatusBadRequest, "invalid id")
 		return
 	}
 
 	relation, err := c.svc.GetByID(ctx, id)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if relation == nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		utils.Error(ctx, http.StatusNotFound, "not found")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, relation)
+	utils.Success(ctx, relation)
 }
 
 // GetList 获取商品接口关联列表

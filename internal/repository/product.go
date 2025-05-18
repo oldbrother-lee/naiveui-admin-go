@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"recharge-go/internal/model"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -44,9 +46,27 @@ func (r *productRepository) List(ctx context.Context, params map[string]interfac
 		Preload("ProductType"). // 预加载商品类型
 		Where("status = ?", 1)
 
-	// 添加查询条件
-	for key, value := range params {
-		query = query.Where(key+" = ?", value)
+	// 参数白名单判断
+	if v, ok := params["type"]; ok {
+		if typeInt, err := strconv.Atoi(fmt.Sprint(v)); err == nil && typeInt > 0 {
+			query = query.Where("type = ?", typeInt)
+		}
+	}
+	if v, ok := params["category"]; ok {
+		if catInt, err := strconv.Atoi(fmt.Sprint(v)); err == nil && catInt > 0 {
+			query = query.Where("category_id = ?", catInt)
+		}
+	}
+	if v, ok := params["isp"]; ok {
+		ispStr := fmt.Sprint(v)
+		if ispStr != "" {
+			query = query.Where("isp LIKE ?", "%"+ispStr+"%")
+		}
+	}
+	if v, ok := params["status"]; ok {
+		if statusInt, err := strconv.Atoi(fmt.Sprint(v)); err == nil && statusInt > 0 {
+			query = query.Where("status = ?", statusInt)
+		}
 	}
 
 	err := query.Count(&total).Error

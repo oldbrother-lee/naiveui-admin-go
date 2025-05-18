@@ -43,6 +43,9 @@ func SetupRouter(
 		// MF178订单接口
 		RegisterMF178OrderRoutes(api)
 
+		// 可客帮订单接口 - 不需要认证
+		RegisterKekebangOrderRoutes(api)
+
 		// 外部订单接口 - 不需要认证
 		RegisterExternalOrderRoutes(api)
 
