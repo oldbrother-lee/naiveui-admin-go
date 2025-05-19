@@ -262,6 +262,8 @@ func (s *UserService) GetUserList(ctx context.Context, req *model.UserListReques
 			Email:     user.Email,
 			Avatar:    user.Avatar,
 			Status:    user.Status,
+			Credit:    user.Credit,
+			Balance:   user.Balance,
 			LastLogin: user.LastLogin,
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,

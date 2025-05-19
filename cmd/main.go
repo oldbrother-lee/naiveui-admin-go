@@ -189,6 +189,7 @@ func main() {
 		userGradeController,          // userGradeController
 		rechargeHandler,
 		retryService, // retryService
+		userRepo,     // 新增，确保参数数量和类型一致
 	)
 
 	// 启动HTTP服务器

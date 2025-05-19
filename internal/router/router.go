@@ -4,7 +4,9 @@ import (
 	"recharge-go/internal/controller"
 	"recharge-go/internal/handler"
 	"recharge-go/internal/middleware"
+	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
+	"recharge-go/pkg/database"
 
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +27,7 @@ func SetupRouter(
 	userGradeController *controller.UserGradeController,
 	rechargeHandler *handler.RechargeHandler,
 	retryService *service.RetryService,
+	userRepo *repository.UserRepository,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -101,6 +104,15 @@ func SetupRouter(
 			{
 				recharge.POST("/callback/:platform", rechargeHandler.HandleCallback)
 			}
+
+			// 余额相关接口（仅管理员可访问）
+			RegisterBalanceRoutes(auth, database.DB, userRepo, userService)
+
+			// 授信相关接口（仅管理员可访问）
+			creditLogRepo := repository.NewCreditLogRepository(database.DB)
+			creditService := service.NewCreditService(userRepo, creditLogRepo)
+			creditController := controller.NewCreditController(creditService)
+			RegisterCreditRoutes(auth, creditController)
 		}
 	}
 

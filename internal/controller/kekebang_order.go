@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
+	"recharge-go/internal/utils"
 	"recharge-go/pkg/logger"
-	"recharge-go/pkg/response"
 	"recharge-go/pkg/signature"
+	"recharge-go/pkg/utils/response"
 	"strconv"
 	"time"
 
@@ -33,7 +34,7 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 	var req model.KekebangOrderRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		logger.Error("【解析请求参数失败】error: %v", err)
-		response.Error(ctx, 400, "解析请求参数失败")
+		utils.Error(ctx, 400, "解析请求参数失败")
 		return
 	}
 
@@ -68,14 +69,14 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 	// 调用订单服务创建订单
 	if err := c.orderService.CreateOrder(ctx, order); err != nil {
 		logger.Error("【创建订单失败】error: %v", err)
-		response.Error(ctx, 500, "创建订单失败")
+		utils.Error(ctx, 500, "创建订单失败")
 		return
 	}
 
 	// 创建充值任务
 	if err := c.rechargeService.CreateRechargeTask(ctx, order.ID); err != nil {
 		logger.Error("【创建充值任务失败】error: %v", err)
-		response.Error(ctx, 500, "创建充值任务失败")
+		utils.Error(ctx, 500, "创建充值任务失败")
 		return
 	}
 
@@ -151,7 +152,7 @@ func (c *KekebangOrderController) QueryOrder(ctx *gin.Context) {
 
 	if !signature.VerifyKekebangSign(params, req.Sign, secretKey) {
 		logger.Error("【签名验证失败】request: %+v", req)
-		response.Error(ctx, 400, "签名验证失败")
+		utils.Error(ctx, 400, "签名验证失败")
 		return
 	}
 
@@ -159,7 +160,7 @@ func (c *KekebangOrderController) QueryOrder(ctx *gin.Context) {
 	order, err := c.orderService.GetOrderByOutTradeNum(ctx, strconv.FormatInt(req.UserOrderID, 10))
 	if err != nil {
 		logger.Error("【查询订单失败】error: %v", err)
-		response.Error(ctx, 500, "查询订单失败")
+		utils.Error(ctx, 500, "查询订单失败")
 		return
 	}
 

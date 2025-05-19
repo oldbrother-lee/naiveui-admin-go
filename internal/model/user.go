@@ -16,6 +16,7 @@ type User struct {
 	Type      int       `json:"type" gorm:"type:tinyint;default:1;comment:用户类型(1:普通用户 2:代理商 3:管理员)"`
 	Gender    int       `json:"gender" gorm:"type:tinyint;default:0;comment:性别(0:未知 1:男 2:女)"`
 	Credit    float64   `json:"credit" gorm:"type:decimal(10,2);default:0.00;comment:授信额度"`
+	Balance   float64   `json:"balance" gorm:"type:decimal(10,2);default:0.00;comment:余额"`
 	Status    int       `json:"status" gorm:"type:bigint;default:1"`
 	LastLogin time.Time `json:"last_login" gorm:"type:datetime"`
 	CreatedAt time.Time `json:"created_at" gorm:"type:datetime;autoCreateTime"`
@@ -201,19 +202,21 @@ func (Reward) TableName() string {
 
 // UserResponse 用户响应结构
 type UserResponse struct {
-	ID        int64     `json:"id"`
-	Username  string    `json:"username"`
-	Nickname  string    `json:"nickname"`
-	Phone     string    `json:"phone"`
-	Email     string    `json:"email"`
-	Avatar    string    `json:"avatar"`
-	Type      int       `json:"type"`
-	Gender    int       `json:"gender"`
-	Credit    float64   `json:"credit"`
-	Status    int       `json:"status"`
-	LastLogin time.Time `json:"last_login"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          int64     `json:"id"`
+	Username    string    `json:"username"`
+	Nickname    string    `json:"nickname"`
+	Phone       string    `json:"phone"`
+	Email       string    `json:"email"`
+	Avatar      string    `json:"avatar"`
+	Type        int       `json:"type"`
+	Gender      int       `json:"gender"`
+	Credit      float64   `json:"credit"`
+	Status      int       `json:"status"`
+	CreditLimit float64   `json:"credit_limit"`
+	Balance     float64   `json:"balance"`
+	LastLogin   time.Time `json:"last_login"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // UserListResponse 用户列表响应结构
