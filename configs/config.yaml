@@ -30,4 +30,15 @@ redis:
 
 notification:
   max_retries: 3
-  batch_size: 10 
+  batch_size: 10
+
+task:
+  interval: 5 # 任务执行间隔（秒）
+  max_retries: 3 # 最大重试次数
+  retry_delay: 1 # 重试延迟（秒）
+  max_concurrent: 10 # 最大并发数
+
+api:
+  key: "" # API密钥
+  user_id: "" # 用户ID
+  base_url: "" # API基础URL 

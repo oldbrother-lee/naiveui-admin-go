@@ -11,6 +11,8 @@ type Config struct {
 	DB     DBConfig     `mapstructure:"database"`
 	JWT    JWTConfig    `mapstructure:"jwt"`
 	Log    LogConfig    `mapstructure:"log"`
+	Task   TaskConfig   `mapstructure:"task"`
+	API    APIConfig    `mapstructure:"api"`
 }
 
 type ServerConfig struct {
@@ -39,6 +41,19 @@ type LogConfig struct {
 	MaxAge     int    `mapstructure:"max_age"`
 }
 
+type TaskConfig struct {
+	Interval      int `mapstructure:"interval"`
+	MaxRetries    int `mapstructure:"max_retries"`
+	RetryDelay    int `mapstructure:"retry_delay"`
+	MaxConcurrent int `mapstructure:"max_concurrent"`
+}
+
+type APIConfig struct {
+	Key     string `mapstructure:"key"`
+	UserID  string `mapstructure:"user_id"`
+	BaseURL string `mapstructure:"base_url"`
+}
+
 var config *Config
 
 func GetConfig() *Config {
@@ -46,6 +61,10 @@ func GetConfig() *Config {
 		viper.SetConfigName("config")
 		viper.SetConfigType("yaml")
 		viper.AddConfigPath("./configs")
+
+		// 设置环境变量前缀
+		viper.SetEnvPrefix("RECHARGE")
+		viper.AutomaticEnv()
 
 		if err := viper.ReadInConfig(); err != nil {
 			panic(fmt.Errorf("fatal error config file: %w", err))
@@ -57,4 +76,27 @@ func GetConfig() *Config {
 	}
 
 	return config
+}
+
+// Init 初始化配置
+func Init(env string) error {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("./configs")
+
+	// 设置环境变量前缀
+	viper.SetEnvPrefix("RECHARGE")
+	viper.AutomaticEnv()
+
+	// 读取配置文件
+	if err := viper.ReadInConfig(); err != nil {
+		return fmt.Errorf("读取配置文件失败: %w", err)
+	}
+
+	// 解析配置
+	if err := viper.Unmarshal(&config); err != nil {
+		return fmt.Errorf("解析配置文件失败: %w", err)
+	}
+
+	return nil
 }

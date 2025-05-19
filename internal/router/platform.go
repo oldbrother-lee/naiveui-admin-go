@@ -29,4 +29,10 @@ func RegisterPlatformRoutes(r *gin.RouterGroup, platformController *controller.P
 		platforms.GET("/:id", platformController.GetPlatform)
 		platforms.GET("/accounts/:id", platformController.GetPlatformAccount)
 	}
+
+	// 话费帮充接口路由
+	platform := r.Group("/api/platform")
+	{
+		platform.GET("/channels", platformController.GetChannelList)
+	}
 }

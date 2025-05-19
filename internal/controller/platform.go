@@ -4,18 +4,21 @@ import (
 	"net/http"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
+	"recharge-go/internal/service/platform"
 	"recharge-go/internal/utils"
+	"recharge-go/pkg/utils/response"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type PlatformController struct {
-	service *service.PlatformService
+	service     *service.PlatformService
+	platformSvc *platform.Service
 }
 
-func NewPlatformController(service *service.PlatformService) *PlatformController {
-	return &PlatformController{service: service}
+func NewPlatformController(service *service.PlatformService, platformSvc *platform.Service) *PlatformController {
+	return &PlatformController{service: service, platformSvc: platformSvc}
 }
 
 // ListPlatforms 获取平台列表
@@ -211,4 +214,21 @@ func (c *PlatformController) GetPlatformAccount(ctx *gin.Context) {
 	}
 
 	utils.Success(ctx, account)
+}
+
+// GetChannelList 获取渠道列表
+// @Summary 获取渠道列表
+// @Description 获取所有渠道及对应运营商编码
+// @Tags 平台接口
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.Response{data=[]platform.Channel}
+// @Router /api/platform/channels [get]
+func (c *PlatformController) GetChannelList(ctx *gin.Context) {
+	channels, err := c.platformSvc.GetChannelList()
+	if err != nil {
+		response.Error(ctx, err)
+		return
+	}
+	response.Success(ctx, channels)
 }

@@ -32,7 +32,8 @@ recharge-go/
 ├── pkg/                   # 可以被外部应用程序使用的库代码
 │   ├── auth/             # 认证相关
 │   ├── errors/           # 错误处理
-│   └── utils/            # 通用工具
+│   ├── database          # 数据库       
+│   └── utils/            # 通用工具  
 ├── scripts/              # 脚本文件
 │   ├── deploy/           # 部署脚本
 │   └── migrations/       # 数据库迁移脚本
