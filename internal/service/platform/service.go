@@ -386,20 +386,21 @@ func (s *Service) GetOrderList(orderNumber string, orderStatus, settlementStatus
 // GetChannelList 查询所有渠道及对应运营商编码
 func (s *Service) GetChannelList() ([]Channel, error) {
 	params := map[string]string{}
-
-	authToken, queryTime, err := signature.GenerateXianzhuanxiaSignature(params, s.apiKey, s.userID)
+	apiKey := "c362d30409744d7584abcbd3b58124c2"
+	userID := "558203"
+	authToken, queryTime, err := signature.GenerateXianzhuanxiaSignature(params, apiKey, userID)
 	if err != nil {
 		return nil, fmt.Errorf("生成签名失败: %v", err)
 	}
 
-	url := fmt.Sprintf("%s/api/task/recharge/taskChannelList", s.baseURL)
+	url := fmt.Sprintf("%s/api/task/recharge/taskChannelList", "https://cusapitest.xianzhuanxia.com")
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Auth-Token", authToken)
+	req.Header.Set("Auth_Token", authToken)
 	req.Header.Set("Query-Time", queryTime)
 
 	client := &http.Client{Timeout: 10 * time.Second}
