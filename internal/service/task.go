@@ -101,26 +101,26 @@ func (s *TaskService) processTask() {
 		logger.Error("获取任务配置失败", err)
 		return
 	}
-	logger.Info("获取到 %d 个启用的任务配置", len(configs))
+	logger.Info(fmt.Sprintf("获取到 %d 个启用的任务配置", len(configs)))
 
 	// 处理每个配置
 	for _, config := range configs {
-		// 转换类型
 		channelID := int(config.ChannelID)
 		productID := int(config.ProductID)
 
-		logger.Info("处理任务配置: ChannelID=%d, ProductID=%d", channelID, productID)
+		logger.Info(fmt.Sprint("处理任务配置: ChannelID=%d, ProductID=%d", channelID, productID))
 		fmt.Printf("处理任务配置11: %d\n", channelID)
-		// 提交任务
-		token, err := s.platformSvc.SubmitTask(channelID, productID, "", config.FaceValues, config.MinSettleAmounts)
+
+		// 1. 获取有效 token（自动复用/过期自动申请）
+		token, err := s.platformSvc.GetToken(channelID, productID, "", config.FaceValues, config.MinSettleAmounts)
 		if err != nil {
-			fmt.Printf("申请做单失败: ChannelID=%d, ProductID=%d, error=%v\n", channelID, productID, err)
-			logger.Error("申请做单失败: ChannelID=%d, ProductID=%d, error=%v", channelID, productID, err)
+			fmt.Printf("获取 token 失败: ChannelID=%d, ProductID=%d, error=%v\n", channelID, productID, err)
+			logger.Error("获取 token 失败: ChannelID=%d, ProductID=%d, error=%v", channelID, productID, err)
 			continue
 		}
-		logger.Info("申请做单成功: ChannelID=%d, ProductID=%d, token=%s", channelID, productID, token)
+		logger.Info(fmt.Sprintf("获取 token 成功: ChannelID=%d, ProductID=%d, token=%s", channelID, productID, token))
 
-		// 查询任务结果
+		// 2. 查询任务结果
 		order, err := s.platformSvc.QueryTask(token)
 		if err != nil {
 			logger.Error("查询任务匹配状态失败: token=%s, error=%v", token, err)
@@ -128,14 +128,17 @@ func (s *TaskService) processTask() {
 		}
 
 		if order == nil {
-			logger.Info("未匹配到订单: token=%s", token)
+			logger.Info(fmt.Sprintf("未匹配到订单: token=%s", token))
 			continue
 		}
 
 		logger.Info("匹配到订单: OrderNumber=%s, AccountNum=%s, SettlementAmount=%.2f",
 			order.OrderNumber, order.AccountNum, order.SettlementAmount)
 
-		// 创建任务订单记录
+		// 3. 匹配到订单后让 token 失效
+		_ = s.platformSvc.InvalidateToken()
+
+		// 4. 创建任务订单记录
 		taskOrder := &model.TaskOrder{
 			OrderNumber:            order.OrderNumber,
 			ChannelID:              channelID,
@@ -151,7 +154,7 @@ func (s *TaskService) processTask() {
 			ExpectedSettlementTime: order.ExpectedSettlementTime.UnixMilli(),
 		}
 
-		// 保存任务订单
+		// 5. 保存任务订单
 		if err := s.taskOrderRepo.Create(taskOrder); err != nil {
 			logger.Error("保存任务订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err)
 			continue

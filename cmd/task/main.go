@@ -46,7 +46,8 @@ func main() {
 	// 初始化依赖
 	taskConfigRepo := repository.NewTaskConfigRepository()
 	taskOrderRepo := repository.NewTaskOrderRepository()
-	platformSvc := platform.NewService()
+	tokenRepo := repository.NewPlatformTokenRepository()
+	platformSvc := platform.NewService(tokenRepo)
 
 	// 创建任务服务
 	taskSvc := service.NewTaskService(taskConfigRepo, taskOrderRepo, platformSvc, taskConfig)

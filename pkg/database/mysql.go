@@ -80,6 +80,9 @@ func InitDB() error {
 		&model.TaskConfig{},
 		&model.TaskOrder{},
 		&model.OrderStatistics{},
+		&model.PlatformToken{},
+		&model.TaskOrder{},
+		&model.DaichongOrder{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate tables: %v", err)
 	}

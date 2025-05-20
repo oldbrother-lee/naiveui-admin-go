@@ -120,6 +120,9 @@ func SetupRouter(
 
 			// Task config routes
 			RegisterTaskConfigRoutes(auth)
+
+			// 只允许管理员访问
+			RegisterDaichongOrderRoutes(auth)
 		}
 	}
 

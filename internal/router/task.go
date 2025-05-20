@@ -11,10 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterTaskRoutes(r *gin.RouterGroup) {
+// RegisterTaskRoutes 依赖注入 platformSvc
+func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 	taskConfigRepo := repository.NewTaskConfigRepository()
 	taskOrderRepo := repository.NewTaskOrderRepository()
-	platformSvc := platform.NewService()
 
 	taskConfig := &service.TaskConfig{
 		Interval:      5 * time.Minute, // 每5分钟执行一次
@@ -50,4 +50,12 @@ func RegisterTaskRoutes(r *gin.RouterGroup) {
 		taskOrder.GET("", taskOrderHandler.List)
 		taskOrder.GET("/:order_number", taskOrderHandler.GetByOrderNumber)
 	}
+}
+
+// InitTaskRouter 注册任务相关路由，platformSvc 由 main.go 注入
+func InitTaskRouter(r *gin.Engine, platformSvc *platform.Service) {
+	// 这里用 platformSvc 注册 controller 或 handler
+	// 示例：
+	// ctrl := controller.NewTaskController(platformSvc)
+	// r.POST("/task/xxx", ctrl.XXX)
 }

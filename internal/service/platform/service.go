@@ -7,10 +7,32 @@ import (
 	"io"
 	"net/http"
 	"recharge-go/configs"
+	"recharge-go/internal/repository"
+	"recharge-go/pkg/logger"
 	"recharge-go/pkg/signature"
 	"strconv"
 	"time"
 )
+
+// MilliTime 支持毫秒时间戳自动转 time.Time
+type MilliTime struct {
+	time.Time
+}
+
+func (mt *MilliTime) UnmarshalJSON(b []byte) error {
+	// 去掉引号
+	s := string(b)
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		s = s[1 : len(s)-1]
+	}
+	millis, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		mt.Time = time.Time{}
+		return err
+	}
+	mt.Time = time.UnixMilli(millis)
+	return nil
+}
 
 // PlatformOrder 平台返回的订单数据结构
 type PlatformOrder struct {
@@ -22,10 +44,10 @@ type PlatformOrder struct {
 	SettlementAmount       float64   `json:"settlementAmount"`       // 结算金额
 	OrderStatus            int       `json:"orderStatus"`            // 订单状态
 	SettlementStatus       int       `json:"settlementStatus"`       // 结算状态
-	CreateTime             time.Time `json:"createTime"`             // 创建时间
-	ExpirationTime         time.Time `json:"expirationTime"`         // 过期时间
-	SettlementTime         time.Time `json:"settlementTime"`         // 结算时间
-	ExpectedSettlementTime time.Time `json:"expectedSettlementTime"` // 预计结算时间
+	CreateTime             MilliTime `json:"createTime"`             // 创建时间
+	ExpirationTime         MilliTime `json:"expirationTime"`         // 过期时间
+	SettlementTime         MilliTime `json:"settlementTime"`         // 结算时间
+	ExpectedSettlementTime MilliTime `json:"expectedSettlementTime"` // 预计结算时间
 }
 
 // Channel 渠道信息
@@ -66,17 +88,19 @@ type PageResult struct {
 }
 
 type Service struct {
-	apiKey  string
-	userID  string
-	baseURL string
+	apiKey    string
+	userID    string
+	baseURL   string
+	tokenRepo *repository.PlatformTokenRepository
 }
 
-func NewService() *Service {
+func NewService(tokenRepo *repository.PlatformTokenRepository) *Service {
 	cfg := configs.GetConfig()
 	return &Service{
-		apiKey:  cfg.API.Key,
-		userID:  cfg.API.UserID,
-		baseURL: cfg.API.BaseURL,
+		apiKey:    cfg.API.Key,
+		userID:    cfg.API.UserID,
+		baseURL:   cfg.API.BaseURL,
+		tokenRepo: tokenRepo,
 	}
 }
 
@@ -153,7 +177,7 @@ func (s *Service) QueryTask(token string) (*PlatformOrder, error) {
 	}
 	apiKey := "c362d30409744d7584abcbd3b58124c2"
 	userID := "558203"
-	authToken, queryTime, err := signature.GenerateXianzhuanxiaSignature(params, apiKey, userID)
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, apiKey, userID)
 	if err != nil {
 		return nil, fmt.Errorf("生成签名失败: %v", err)
 	}
@@ -162,12 +186,12 @@ func (s *Service) QueryTask(token string) (*PlatformOrder, error) {
 		return nil, err
 	}
 
-	url := fmt.Sprintf("%s/api/task/recharge/query", "https://cusapitest.xianzhuanxia.com")
+	// url := fmt.Sprintf("%s/api/task/recharge/query", "https://cusapitest.xianzhuanxia.com")
+	url := "http://ip.jikelab.com:5000/api/orders"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %v", err)
 	}
-	fmt.Printf("queryTime: %s\n", queryTime)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Auth_Token", authToken)
 
@@ -488,4 +512,25 @@ func (s *Service) GetStockInfo(channelID, productID int, provinces string) ([]St
 	}
 
 	return result.Result, nil
+}
+
+// 获取有效 token
+func (s *Service) GetToken(channelID, productID int, provinces, faceValues, minSettleAmounts string) (string, error) {
+	tokenData, err := s.tokenRepo.Get()
+	if err != nil || tokenData == nil || time.Since(tokenData.CreatedAt) >= 5*time.Minute {
+		// 申请新 token
+		logger.Info(fmt.Sprintf("申请新 token: ChannelID=%d, ProductID=%d, provinces=%s, faceValues=%s, minSettleAmounts=%s", channelID, productID, provinces, faceValues, minSettleAmounts))
+		token, err := s.SubmitTask(channelID, productID, provinces, faceValues, minSettleAmounts)
+		if err != nil {
+			return "", err
+		}
+		_ = s.tokenRepo.Save(token)
+		return token, nil
+	}
+	return tokenData.Token, nil
+}
+
+// 匹配到订单后让 token 失效
+func (s *Service) InvalidateToken() error {
+	return s.tokenRepo.Delete()
 }
