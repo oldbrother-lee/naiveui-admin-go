@@ -31,7 +31,7 @@ func RegisterPlatformRoutes(r *gin.RouterGroup, platformController *controller.P
 	}
 
 	// 话费帮充接口路由
-	platform := r.Group("/platform")
+	platform := r.Group("/platform/xianzhuanxia")
 	{
 		platform.GET("/channels", platformController.GetChannelList)
 	}
