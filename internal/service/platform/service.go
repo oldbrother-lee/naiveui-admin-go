@@ -91,7 +91,7 @@ func (s *Service) SubmitTask(channelID int, productID int, provinces string, fac
 	}
 	apiKey := "c362d30409744d7584abcbd3b58124c2"
 	userID := "558203"
-	authToken, queryTime, err := signature.GenerateXianzhuanxiaSignature(params, apiKey, userID)
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, apiKey, userID)
 	if err != nil {
 		return "", fmt.Errorf("生成签名失败: %v", err)
 	}
@@ -107,12 +107,10 @@ func (s *Service) SubmitTask(channelID int, productID int, provinces string, fac
 	if err != nil {
 		return "", fmt.Errorf("创建请求失败: %v", err)
 	}
-	fmt.Printf("queryTime: %s\n", queryTime)
-	fmt.Printf("authToken: %s\n", authToken)
+
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Auth_Token", authToken)
 
-	fmt.Println("reqqqqqqqqqq$$$$", req)
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {

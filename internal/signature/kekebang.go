@@ -66,11 +66,11 @@ func (h *KekebangHandler) BuildRequestParams(ctx context.Context, order *model.O
 	}
 
 	// 添加其他必要参数
-	if api != nil && api.ExtraParams != nil {
-		for k, v := range api.ExtraParams {
-			params[k] = v
-		}
-	}
+	// if api != nil && api.ExtraParams != nil {
+	// 	for k, v := range api.ExtraParams {
+	// 		params[k] = v
+	// 	}
+	// }
 
 	// 生成签名
 	sign, err := h.GenerateSignature(ctx, params)

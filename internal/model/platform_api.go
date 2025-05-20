@@ -2,27 +2,30 @@ package model
 
 import (
 	"time"
+
+	"gorm.io/datatypes"
 )
 
 // PlatformAPI 平台API模型
 type PlatformAPI struct {
-	ID          int64             `json:"id" gorm:"primaryKey"`
-	PlatformID  int64             `json:"platform_id" gorm:"not null;index"`
-	Name        string            `json:"name" gorm:"size:50;not null"`
-	Code        string            `json:"code" gorm:"size:50;not null"`
-	URL         string            `json:"url" gorm:"size:255;not null"`
-	Method      string            `json:"method" gorm:"size:10;not null"`
-	AppID       string            `json:"app_id" gorm:"size:50"`
-	AppKey      string            `json:"app_key" gorm:"size:100"`
-	AppSecret   string            `json:"app_secret" gorm:"size:100"`
-	MerchantID  string            `json:"merchant_id" gorm:"size:50"`
-	SecretKey   string            `json:"secret_key" gorm:"size:100"`
-	CallbackURL string            `json:"callback_url" gorm:"size:255"`
-	Timeout     int               `json:"timeout" gorm:"default:30"`
-	Status      int               `json:"status" gorm:"default:1"`
-	RetryTimes  int               `json:"retry_times" gorm:"default:3"` // 重试次数
-	RetryDelay  int               `json:"retry_delay" gorm:"default:5"` // 重试延迟（分钟）
-	ExtraParams map[string]string `json:"extra_params" gorm:"type:json"`
+	ID          int64          `json:"id" gorm:"primaryKey"`
+	PlatformID  int64          `json:"platform_id" gorm:"not null;index"`
+	Name        string         `json:"name" gorm:"size:50;not null"`
+	Code        string         `json:"code" gorm:"size:50;not null"`
+	URL         string         `json:"url" gorm:"size:255;not null"`
+	Method      string         `json:"method" gorm:"size:10;not null"`
+	AppID       string         `json:"app_id" gorm:"size:50"`
+	AppKey      string         `json:"app_key" gorm:"size:100"`
+	AppSecret   string         `json:"app_secret" gorm:"size:100"`
+	MerchantID  string         `json:"merchant_id" gorm:"size:50"`
+	SecretKey   string         `json:"secret_key" gorm:"size:100"`
+	CallbackURL string         `json:"callback_url" gorm:"size:255"`
+	Timeout     int            `json:"timeout" gorm:"default:30"`
+	Status      int            `json:"status" gorm:"default:1"`
+	RetryTimes  int            `json:"retry_times" gorm:"default:3"` // 重试次数
+	RetryDelay  int            `json:"retry_delay" gorm:"default:5"` // 重试延迟（分钟）
+	ExtraParams datatypes.JSON `json:"extra_params" gorm:"type:json"`
+	AccountID   int64          `json:"account_id" gorm:"not null;default:0;comment:账号ID"`
 }
 
 // TableName 表名

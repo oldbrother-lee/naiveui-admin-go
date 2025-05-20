@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"fmt"
+	"recharge-go/pkg/logger"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,8 +42,9 @@ func GenerateXianzhuanxiaSignature(params map[string]string, apiKey, userID stri
 	sb.WriteString(queryTime)
 	sb.WriteString("key=")
 	sb.WriteString(apiKey)
-	fmt.Printf("签名前缀: %s\n", sb.String())
+	fmt.Printf("闲赚侠签名前缀: %s\n", sb.String())
 	// 第三步：MD5 加密
+	logger.Info("闲赚侠签名前缀: %s\n", sb.String())
 	md5Hash := fmt.Sprintf("%x", md5.Sum([]byte(sb.String())))
 
 	// 第四步：拼接 Auth_Token
