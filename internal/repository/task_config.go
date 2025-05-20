@@ -61,3 +61,16 @@ func (r *TaskConfigRepository) GetEnabledConfigs() ([]model.TaskConfig, error) {
 	}
 	return configs, nil
 }
+
+// Upsert: 如果 ChannelID 存在则更新，否则插入
+func (r *TaskConfigRepository) Upsert(config *model.TaskConfig) error {
+	var existing model.TaskConfig
+	err := r.db.Where("channel_id = ?", config.ChannelID).First(&existing).Error
+	if err == gorm.ErrRecordNotFound {
+		return r.db.Create(config).Error
+	} else if err != nil {
+		return err
+	}
+	// 存在则更新
+	return r.db.Model(&existing).Updates(config).Error
+}

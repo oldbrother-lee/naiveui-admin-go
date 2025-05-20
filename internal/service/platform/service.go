@@ -81,7 +81,7 @@ func NewService() *Service {
 }
 
 // SubmitTask 申请做单
-func (s *Service) SubmitTask(channelID, productID int, provinces string, faceValues, minSettleAmounts string) (string, error) {
+func (s *Service) SubmitTask(channelID int, productID int, provinces string, faceValues, minSettleAmounts string) (string, error) {
 	params := map[string]string{
 		"channelId":        strconv.Itoa(channelID),
 		"productIds":       strconv.Itoa(productID),

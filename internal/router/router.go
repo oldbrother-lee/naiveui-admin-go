@@ -117,6 +117,9 @@ func SetupRouter(
 
 			// 统计相关路由
 			RegisterStatisticsRoutes(auth, statisticsController)
+
+			// Task config routes
+			RegisterTaskConfigRoutes(auth)
 		}
 	}
 
