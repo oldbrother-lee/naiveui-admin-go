@@ -28,6 +28,7 @@ func SetupRouter(
 	rechargeHandler *handler.RechargeHandler,
 	retryService *service.RetryService,
 	userRepo *repository.UserRepository,
+	statisticsController *controller.StatisticsController,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -113,6 +114,9 @@ func SetupRouter(
 			creditService := service.NewCreditService(userRepo, creditLogRepo)
 			creditController := controller.NewCreditController(creditService)
 			RegisterCreditRoutes(auth, creditController)
+
+			// 统计相关路由
+			RegisterStatisticsRoutes(auth, statisticsController)
 		}
 	}
 

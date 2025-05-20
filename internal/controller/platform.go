@@ -6,7 +6,6 @@ import (
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/platform"
 	"recharge-go/internal/utils"
-	"recharge-go/pkg/utils/response"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -227,8 +226,8 @@ func (c *PlatformController) GetPlatformAccount(ctx *gin.Context) {
 func (c *PlatformController) GetChannelList(ctx *gin.Context) {
 	channels, err := c.platformSvc.GetChannelList()
 	if err != nil {
-		response.Error(ctx, err)
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	response.Success(ctx, channels)
+	utils.Success(ctx, channels)
 }

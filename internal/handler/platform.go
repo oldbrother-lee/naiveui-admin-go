@@ -1,35 +1,107 @@
 package handler
 
 import (
-	"recharge-go/internal/service/platform"
-	"recharge-go/pkg/response"
+	"recharge-go/internal/model"
+	"recharge-go/internal/repository"
+	"recharge-go/internal/utils"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type PlatformHandler struct {
-	platformSvc *platform.Service
+	platformRepo repository.PlatformRepository
 }
 
-func NewPlatformHandler(platformSvc *platform.Service) *PlatformHandler {
+func NewPlatformHandler(platformRepo repository.PlatformRepository) *PlatformHandler {
 	return &PlatformHandler{
-		platformSvc: platformSvc,
+		platformRepo: platformRepo,
 	}
 }
 
-// GetChannelList 获取渠道列表
-// @Summary 获取渠道列表
-// @Description 获取所有渠道及对应运营商编码
-// @Tags 平台接口
-// @Accept json
-// @Produce json
-// @Success 200 {object} response.Response{data=[]platform.Channel}
-// @Router /api/platform/channels [get]
-func (h *PlatformHandler) GetChannelList(c *gin.Context) {
-	channels, err := h.platformSvc.GetChannelList()
+// List 获取平台列表
+func (h *PlatformHandler) List(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+
+	req := &model.PlatformListRequest{
+		Page:     page,
+		PageSize: pageSize,
+	}
+
+	platforms, total, err := h.platformRepo.ListPlatforms(req)
 	if err != nil {
-		response.Error(c, err)
+		utils.Error(c, 500, "Internal server error")
 		return
 	}
-	response.Success(c, channels)
+
+	utils.Success(c, gin.H{
+		"list":  platforms,
+		"total": total,
+	})
+}
+
+// Get 获取平台详情
+func (h *PlatformHandler) Get(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, 400, "Invalid ID")
+		return
+	}
+
+	platform, err := h.platformRepo.GetPlatformByID(id)
+	if err != nil {
+		utils.Error(c, 500, "Internal server error")
+		return
+	}
+
+	utils.Success(c, platform)
+}
+
+// Create 创建平台
+func (h *PlatformHandler) Create(c *gin.Context) {
+	var platform model.Platform
+	if err := c.ShouldBindJSON(&platform); err != nil {
+		utils.Error(c, 400, "Invalid parameters")
+		return
+	}
+
+	if err := h.platformRepo.CreatePlatform(&platform); err != nil {
+		utils.Error(c, 500, "Internal server error")
+		return
+	}
+
+	utils.Success(c, platform)
+}
+
+// Update 更新平台
+func (h *PlatformHandler) Update(c *gin.Context) {
+	var platform model.Platform
+	if err := c.ShouldBindJSON(&platform); err != nil {
+		utils.Error(c, 400, "Invalid parameters")
+		return
+	}
+
+	if err := h.platformRepo.UpdatePlatform(&platform); err != nil {
+		utils.Error(c, 500, "Internal server error")
+		return
+	}
+
+	utils.Success(c, platform)
+}
+
+// Delete 删除平台
+func (h *PlatformHandler) Delete(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, 400, "Invalid ID")
+		return
+	}
+
+	if err := h.platformRepo.Delete(id); err != nil {
+		utils.Error(c, 500, "Internal server error")
+		return
+	}
+
+	utils.Success(c, nil)
 }

@@ -79,6 +79,7 @@ func InitDB() error {
 		&model.CreditLog{},
 		&model.TaskConfig{},
 		&model.TaskOrder{},
+		&model.OrderStatistics{},
 	); err != nil {
 		return fmt.Errorf("failed to migrate tables: %v", err)
 	}

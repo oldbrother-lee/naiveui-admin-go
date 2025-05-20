@@ -2,7 +2,7 @@ package handler
 
 import (
 	"recharge-go/internal/repository"
-	"recharge-go/internal/utils/response"
+	"recharge-go/internal/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -25,11 +25,11 @@ func (h *TaskOrderHandler) List(c *gin.Context) {
 
 	orders, total, err := h.taskOrderRepo.List(page, pageSize)
 	if err != nil {
-		response.Error(c, response.ErrInternalServer)
+		utils.Error(c, 500, "Internal server error")
 		return
 	}
 
-	response.Success(c, gin.H{
+	utils.Success(c, gin.H{
 		"list":  orders,
 		"total": total,
 	})
@@ -40,9 +40,9 @@ func (h *TaskOrderHandler) GetByOrderNumber(c *gin.Context) {
 	orderNumber := c.Param("order_number")
 	order, err := h.taskOrderRepo.GetByOrderNumber(orderNumber)
 	if err != nil {
-		response.Error(c, response.ErrInternalServer)
+		utils.Error(c, 500, "Internal server error")
 		return
 	}
 
-	response.Success(c, order)
+	utils.Success(c, order)
 }

@@ -10,6 +10,7 @@ import (
 	"recharge-go/internal/repository"
 	"recharge-go/internal/router"
 	"recharge-go/internal/service"
+	"recharge-go/internal/service/platform"
 	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
@@ -42,6 +43,7 @@ func main() {
 	if err := logger.InitLogger(); err != nil {
 		panic(fmt.Sprintf("初始化日志失败: %v", err))
 	}
+	defer logger.Close()
 
 	// 加载配置
 	cfg, err := config.LoadConfig("configs/config.yaml")
@@ -86,6 +88,7 @@ func main() {
 
 	// 创建平台管理器
 	manager := recharge.NewManager(database.DB)
+	platformSvc := platform.NewService()
 
 	// 从数据库加载平台配置
 	if err := manager.LoadPlatforms(); err != nil {
@@ -166,11 +169,20 @@ func main() {
 	productController := controller.NewProductController(productService)
 	phoneLocationController := controller.NewPhoneLocationController(phoneLocationService)
 	productTypeController := controller.NewProductTypeController(productTypeService)
-	platformController := controller.NewPlatformController(platformService)
+	platformController := controller.NewPlatformController(platformService, platformSvc)
 	platformAPIController := controller.NewPlatformAPIController(platformAPIService, platformService)
 	platformAPIParamController := controller.NewPlatformAPIParamController(platformAPIParamService)
 	productAPIRelationController := controller.NewProductAPIRelationController(productAPIRelationService)
 	userGradeController := controller.NewUserGradeController(userGradeService)
+
+	// 初始化统计相关依赖
+	orderStatsRepo := repository.NewOrderStatisticsRepository(database.DB)
+	statisticsService := service.NewStatisticsService(orderStatsRepo, orderRepo)
+	statisticsController := controller.NewStatisticsController(statisticsService)
+
+	// 初始化并启动统计任务
+	statisticsTask := service.NewStatisticsTask(statisticsService, logger.Log)
+	statisticsTask.Start()
 
 	// 注册路由
 	engine := router.SetupRouter(
@@ -190,6 +202,7 @@ func main() {
 		rechargeHandler,
 		retryService, // retryService
 		userRepo,     // 新增，确保参数数量和类型一致
+		statisticsController,
 	)
 
 	// 启动HTTP服务器

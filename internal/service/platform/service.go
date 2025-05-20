@@ -85,7 +85,7 @@ func (s *Service) SubmitTask(channelID, productID int, provinces string, faceVal
 	params := map[string]string{
 		"channelId":        strconv.Itoa(channelID),
 		"productIds":       strconv.Itoa(productID),
-		"provinces":        "山东,福建",
+		"provinces":        "",
 		"faceValues":       faceValues,
 		"minSettleAmounts": minSettleAmounts,
 	}

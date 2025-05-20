@@ -136,3 +136,41 @@ func WithContext(ctx context.Context) *zap.Logger {
 		zap.String("user_id", ctx.Value("user_id").(string)),
 	)
 }
+
+// NewLogger 创建新的日志实例
+func NewLogger() *zap.Logger {
+	// 配置日志轮转
+	writer := &lumberjack.Logger{
+		Filename:   "logs/app.log",
+		MaxSize:    100,  // MB
+		MaxBackups: 5,    // 保留5个备份
+		MaxAge:     30,   // 保留30天
+		Compress:   true, // 压缩
+	}
+
+	// 配置编码器
+	encoderConfig := zapcore.EncoderConfig{
+		TimeKey:        "time",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.LowercaseLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.SecondsDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+
+	// 创建核心
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(encoderConfig),
+		zapcore.NewMultiWriteSyncer(zapcore.AddSync(os.Stdout), zapcore.AddSync(writer)),
+		zapcore.InfoLevel,
+	)
+
+	// 创建logger
+	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
+	return logger
+}
