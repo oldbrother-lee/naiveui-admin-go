@@ -1,6 +1,7 @@
 package router
 
 import (
+	"recharge-go/internal/controller"
 	"recharge-go/internal/handler"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
@@ -25,8 +26,9 @@ func RegisterTaskRoutes(r *gin.RouterGroup) {
 		BaseURL:       "",              // API基础URL
 	}
 
-	taskConfigHandler := handler.NewTaskConfigHandler(taskConfigRepo)
 	taskOrderHandler := handler.NewTaskOrderHandler(taskOrderRepo)
+	taskConfigService := service.NewTaskConfigService(taskConfigRepo)
+	taskConfigController := controller.NewTaskConfigController(taskConfigService)
 	taskSvc := service.NewTaskService(taskConfigRepo, taskOrderRepo, platformSvc, taskConfig)
 
 	// 启动自动取单任务
@@ -35,11 +37,11 @@ func RegisterTaskRoutes(r *gin.RouterGroup) {
 	// 取单任务配置路由
 	taskConfigGroup := r.Group("/task-config")
 	{
-		taskConfigGroup.POST("", taskConfigHandler.Create)
-		taskConfigGroup.PUT("", taskConfigHandler.Update)
-		taskConfigGroup.DELETE("/:id", taskConfigHandler.Delete)
-		taskConfigGroup.GET("/:id", taskConfigHandler.Get)
-		taskConfigGroup.GET("", taskConfigHandler.List)
+		taskConfigGroup.POST("", taskConfigController.Create)
+		taskConfigGroup.PUT("", taskConfigController.Update)
+		taskConfigGroup.DELETE("/:id", taskConfigController.Delete)
+		taskConfigGroup.GET("/:id", taskConfigController.Get)
+		taskConfigGroup.GET("", taskConfigController.List)
 	}
 
 	// 取单任务订单路由

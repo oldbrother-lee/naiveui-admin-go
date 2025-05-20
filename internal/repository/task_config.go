@@ -17,23 +17,23 @@ func NewTaskConfigRepository() *TaskConfigRepository {
 	}
 }
 
-// Create 创建取单任务配置
+// Create 创建任务配置
 func (r *TaskConfigRepository) Create(config *model.TaskConfig) error {
 	return r.db.Create(config).Error
 }
 
-// Update 更新取单任务配置
+// Update 更新任务配置
 func (r *TaskConfigRepository) Update(config *model.TaskConfig) error {
 	return r.db.Save(config).Error
 }
 
-// Delete 删除取单任务配置
-func (r *TaskConfigRepository) Delete(id string) error {
+// Delete 删除任务配置
+func (r *TaskConfigRepository) Delete(id int64) error {
 	return r.db.Delete(&model.TaskConfig{}, id).Error
 }
 
-// GetByID 根据ID获取取单任务配置
-func (r *TaskConfigRepository) GetByID(id string) (*model.TaskConfig, error) {
+// GetByID 根据ID获取任务配置
+func (r *TaskConfigRepository) GetByID(id int64) (*model.TaskConfig, error) {
 	var config model.TaskConfig
 	err := r.db.First(&config, id).Error
 	if err != nil {
@@ -42,14 +42,24 @@ func (r *TaskConfigRepository) GetByID(id string) (*model.TaskConfig, error) {
 	return &config, nil
 }
 
-// List 获取取单任务配置列表
-func (r *TaskConfigRepository) List() ([]model.TaskConfig, error) {
-	var configs []model.TaskConfig
-	err := r.db.Find(&configs).Error
-	if err != nil {
-		return nil, err
+// List 获取任务配置列表
+func (r *TaskConfigRepository) List(page, pageSize int) ([]*model.TaskConfig, int64, error) {
+	var configs []*model.TaskConfig
+	var total int64
+
+	offset := (page - 1) * pageSize
+
+	// 获取总数
+	if err := r.db.Model(&model.TaskConfig{}).Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
-	return configs, nil
+
+	// 获取分页数据
+	if err := r.db.Offset(offset).Limit(pageSize).Find(&configs).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return configs, total, nil
 }
 
 // GetEnabledConfigs 获取所有启用的取单任务配置

@@ -13,5 +13,9 @@ func RegisterTaskConfigRoutes(r *gin.RouterGroup) {
 	svc := service.NewTaskConfigService(repo)
 	ctrl := controller.NewTaskConfigController(svc)
 
-	r.POST("/task-config", ctrl.BatchCreate)
+	r.POST("/task-config", ctrl.Create)
+	r.PUT("/task-config", ctrl.Update)
+	r.DELETE("/task-config/:id", ctrl.Delete)
+	r.GET("/task-config/:id", ctrl.GetByID)
+	r.GET("/task-config", ctrl.List)
 }

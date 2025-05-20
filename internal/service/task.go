@@ -71,7 +71,7 @@ func (s *TaskService) StartTask() {
 			case <-s.ctx.Done():
 				return
 			case <-ticker.C:
-				s.fetchOrders()
+				s.processTask()
 			}
 		}
 	}()
@@ -91,37 +91,36 @@ func (s *TaskService) StopTask() {
 	s.wg.Wait()
 }
 
-// fetchOrders 获取订单
-func (s *TaskService) fetchOrders() error {
+// processTask 处理取单任务
+func (s *TaskService) processTask() {
 	logger.Info("开始执行定时任务")
 
-	// 获取任务配置
+	// 获取所有启用的任务配置
 	configs, err := s.taskConfigRepo.GetEnabledConfigs()
 	if err != nil {
 		logger.Error("获取任务配置失败", err)
-		return err
+		return
 	}
 	logger.Info("获取到 %d 个启用的任务配置", len(configs))
 
+	// 处理每个配置
 	for _, config := range configs {
-		logger.Info("处理任务配置: ChannelID=%d, ProductID=%d", config.ChannelID, config.ProductID)
-		fmt.Printf("处理任务配置11: %d\n", config.ChannelID)
-		// 申请做单
-		token, err := s.platformSvc.SubmitTask(
-			config.ChannelID,
-			config.ProductID,
-			"", // 暂时不限制省份
-			config.FaceValues,
-			config.MinSettleAmounts,
-		)
+		// 转换类型
+		channelID := int(config.ChannelID)
+		productID := int(config.ProductID)
+
+		logger.Info("处理任务配置: ChannelID=%d, ProductID=%d", channelID, productID)
+		fmt.Printf("处理任务配置11: %d\n", channelID)
+		// 提交任务
+		token, err := s.platformSvc.SubmitTask(channelID, productID, "", config.FaceValues, config.MinSettleAmounts)
 		if err != nil {
-			fmt.Printf("申请做单失败: ChannelID=%d, ProductID=%d, error=%v\n", config.ChannelID, config.ProductID, err)
-			logger.Error("申请做单失败: ChannelID=%d, ProductID=%d, error=%v", config.ChannelID, config.ProductID, err)
+			fmt.Printf("申请做单失败: ChannelID=%d, ProductID=%d, error=%v\n", channelID, productID, err)
+			logger.Error("申请做单失败: ChannelID=%d, ProductID=%d, error=%v", channelID, productID, err)
 			continue
 		}
-		logger.Info("申请做单成功: ChannelID=%d, ProductID=%d, token=%s", config.ChannelID, config.ProductID, token)
+		logger.Info("申请做单成功: ChannelID=%d, ProductID=%d, token=%s", channelID, productID, token)
 
-		// 查询是否匹配到订单
+		// 查询任务结果
 		order, err := s.platformSvc.QueryTask(token)
 		if err != nil {
 			logger.Error("查询任务匹配状态失败: token=%s, error=%v", token, err)
@@ -139,11 +138,13 @@ func (s *TaskService) fetchOrders() error {
 		// 创建任务订单记录
 		taskOrder := &model.TaskOrder{
 			OrderNumber:            order.OrderNumber,
-			ChannelID:              config.ChannelID,
-			ProductID:              config.ProductID,
+			ChannelID:              channelID,
+			ProductID:              productID,
 			AccountNum:             order.AccountNum,
+			AccountLocation:        order.AccountLocation,
 			SettlementAmount:       order.SettlementAmount,
 			OrderStatus:            order.OrderStatus,
+			SettlementStatus:       1, // 待结算
 			CreateTime:             order.CreateTime.UnixMilli(),
 			ExpirationTime:         order.ExpirationTime.UnixMilli(),
 			SettlementTime:         order.SettlementTime.UnixMilli(),
@@ -159,5 +160,4 @@ func (s *TaskService) fetchOrders() error {
 	}
 
 	logger.Info("定时任务执行完成")
-	return nil
 }

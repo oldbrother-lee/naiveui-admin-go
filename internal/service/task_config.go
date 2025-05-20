@@ -1,16 +1,20 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 )
 
 type TaskConfigService struct {
-	repo *repository.TaskConfigRepository
+	taskConfigRepo *repository.TaskConfigRepository
 }
 
-func NewTaskConfigService(repo *repository.TaskConfigRepository) *TaskConfigService {
-	return &TaskConfigService{repo: repo}
+func NewTaskConfigService(taskConfigRepo *repository.TaskConfigRepository) *TaskConfigService {
+	return &TaskConfigService{
+		taskConfigRepo: taskConfigRepo,
+	}
 }
 
 type Product struct {
@@ -18,24 +22,63 @@ type Product struct {
 }
 
 type TaskConfigPayload struct {
+	ID               int64  `json:"id"`
 	ChannelID        int    `json:"channelId"`
+	ChannelName      string `json:"channelName"`
+	ProductID        int    `json:"ProductID"`
+	ProductName      string `json:"ProductName"`
 	FaceValues       string `json:"FaceValues"`
 	MinSettleAmounts string `json:"MinSettleAmounts"`
-	ProductID        int    `json:"ProductID"`
+	Status           int    `json:"status"`
 }
 
-func (s *TaskConfigService) BatchCreate(payloads []TaskConfigPayload) error {
-	for _, p := range payloads {
-		config := &model.TaskConfig{
-			ChannelID:        p.ChannelID,
-			ProductID:        p.ProductID,
-			FaceValues:       p.FaceValues,
-			MinSettleAmounts: p.MinSettleAmounts,
-			Status:           1,
-		}
-		if err := s.repo.Create(config); err != nil {
-			return err
-		}
+// Create 创建任务配置
+func (s *TaskConfigService) Create(ctx context.Context, config *model.TaskConfig) error {
+	return s.taskConfigRepo.Create(config)
+}
+
+// Update 更新任务配置
+func (s *TaskConfigService) Update(ctx context.Context, config *model.TaskConfig) error {
+	return s.taskConfigRepo.Update(config)
+}
+
+// UpdatePartial 部分更新任务配置
+func (s *TaskConfigService) UpdatePartial(ctx context.Context, req *model.UpdateTaskConfigRequest) error {
+	if req.ID == nil {
+		return fmt.Errorf("id is required")
 	}
-	return nil
+
+	// 先获取现有配置
+	config, err := s.taskConfigRepo.GetByID(*req.ID)
+	if err != nil {
+		return err
+	}
+
+	// 只更新非 nil 的字段
+	if req.FaceValues != nil {
+		config.FaceValues = *req.FaceValues
+	}
+	if req.MinSettleAmounts != nil {
+		config.MinSettleAmounts = *req.MinSettleAmounts
+	}
+	if req.Status != nil {
+		config.Status = *req.Status
+	}
+
+	return s.taskConfigRepo.Update(config)
+}
+
+// Delete 删除任务配置
+func (s *TaskConfigService) Delete(ctx context.Context, id int64) error {
+	return s.taskConfigRepo.Delete(id)
+}
+
+// GetByID 根据ID获取任务配置
+func (s *TaskConfigService) GetByID(ctx context.Context, id int64) (*model.TaskConfig, error) {
+	return s.taskConfigRepo.GetByID(id)
+}
+
+// List 获取任务配置列表
+func (s *TaskConfigService) List(ctx context.Context, page, pageSize int) ([]*model.TaskConfig, int64, error) {
+	return s.taskConfigRepo.List(page, pageSize)
 }
