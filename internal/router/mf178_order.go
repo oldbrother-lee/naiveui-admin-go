@@ -89,7 +89,7 @@ func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 	mf178OrderController := controller.NewMF178OrderController(orderService, rechargeService)
 
 	// 注册路由
-	mf178Order := r.Group("/mf178/order")
+	mf178Order := r.Group("/mf178/order/:userid")
 	{
 		mf178Order.POST("", mf178OrderController.CreateOrder)
 		mf178Order.POST("/query", mf178OrderController.QueryOrder)

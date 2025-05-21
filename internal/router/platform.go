@@ -21,8 +21,8 @@ func RegisterPlatformRoutes(r *gin.RouterGroup, platformController *controller.P
 			admin.DELETE("/:id", platformController.DeletePlatform)
 			admin.GET("/account/list", platformController.ListPlatformAccounts)
 			admin.POST("/account", platformController.CreatePlatformAccount)
-			admin.PUT("/accounts/:id", platformController.UpdatePlatformAccount)
-			admin.DELETE("/accounts/:id", platformController.DeletePlatformAccount)
+			admin.PUT("/account/:id", platformController.UpdatePlatformAccount)
+			admin.DELETE("/account/:id", platformController.DeletePlatformAccount)
 		}
 
 		// 公共路由

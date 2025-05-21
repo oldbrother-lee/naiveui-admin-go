@@ -56,6 +56,7 @@ type Order struct {
 	Mobile            string      `json:"mobile" gorm:"size:20;index;comment:手机号"`
 	ProductID         int64       `json:"product_id" gorm:"index;comment:产品ID"`
 	Status            OrderStatus `json:"status" gorm:"comment:订单状态"`
+	Denom             float64     `json:"denom" gorm:"type:decimal(10,2);comment:面值"`
 	TotalPrice        float64     `json:"total_price" gorm:"type:decimal(10,2);comment:总价"`
 	Price             float64     `json:"price" gorm:"type:decimal(10,2);comment:单价"`
 	PayWay            int         `json:"pay_way" gorm:"comment:支付方式"`
@@ -66,6 +67,7 @@ type Order struct {
 	FinishTime        *time.Time  `json:"finish_time" gorm:"comment:完成时间"`
 	Remark            string      `json:"remark" gorm:"size:255;comment:备注"`
 	ISP               int         `json:"isp" gorm:"comment:运营商"`
+	AccountLocation   string      `json:"account_location" gorm:"size:255;comment:归属地"`
 	Param1            string      `json:"param1" gorm:"size:255;comment:参数1"`
 	Param2            string      `json:"param2" gorm:"size:255;comment:参数2"`
 	Param3            string      `json:"param3" gorm:"size:255;comment:参数3"`

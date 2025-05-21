@@ -98,14 +98,14 @@ type PlatformAccountCreateRequest struct {
 
 // PlatformAccountUpdateRequest 更新平台账号请求
 type PlatformAccountUpdateRequest struct {
-	AccountName  string  `json:"account_name" binding:"max=50"`        // 账号名称
-	Type         int     `json:"type" binding:"oneof=1 2"`             // 账号类型：1-测试账号，2-正式账号
-	AppKey       string  `json:"app_key" binding:"max=64"`             // AppKey
-	AppSecret    string  `json:"app_secret" binding:"max=64"`          // AppSecret
-	Description  string  `json:"description" binding:"max=255"`        // 描述
-	DailyLimit   float64 `json:"daily_limit" binding:"min=0"`          // 每日限额
-	MonthlyLimit float64 `json:"monthly_limit" binding:"min=0"`        // 每月限额
-	Balance      float64 `json:"balance" binding:"min=0"`              // 余额
-	Priority     int     `json:"priority" binding:"min=0"`             // 优先级
-	Status       *int    `json:"status" binding:"omitempty,oneof=0 1"` // 状态：1-启用，0-禁用
+	AccountName  *string  `json:"account_name" binding:"max=50"`
+	Type         *int     `json:"type" binding:"oneof=1 2"`
+	AppKey       *string  `json:"app_key" binding:"max=64"`
+	AppSecret    *string  `json:"app_secret" binding:"max=64"`
+	Description  *string  `json:"description" binding:"max=255"`
+	DailyLimit   *float64 `json:"daily_limit" binding:"min=0"`
+	MonthlyLimit *float64 `json:"monthly_limit" binding:"min=0"`
+	Balance      *float64 `json:"balance" binding:"min=0"`
+	Priority     *int     `json:"priority" binding:"min=0"`
+	Status       *int     `json:"status" binding:"omitempty,oneof=0 1"`
 }

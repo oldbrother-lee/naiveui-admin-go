@@ -107,8 +107,45 @@ func (s *PlatformService) GetPlatformAccount(id int64) (*model.PlatformAccount, 
 }
 
 // UpdatePlatformAccount 更新平台账号
-func (s *PlatformService) UpdatePlatformAccount(account *model.PlatformAccount) error {
-	return s.platformRepo.UpdatePlatformAccount(account)
+func (s *PlatformService) UpdatePlatformAccount(ctx context.Context, id int64, req *model.PlatformAccountUpdateRequest) error {
+	updateMap := map[string]interface{}{}
+
+	if req.AccountName != nil {
+		updateMap["account_name"] = *req.AccountName
+	}
+	if req.Type != nil {
+		updateMap["type"] = *req.Type
+	}
+	if req.AppKey != nil {
+		updateMap["app_key"] = *req.AppKey
+	}
+	if req.AppSecret != nil {
+		updateMap["app_secret"] = *req.AppSecret
+	}
+	if req.Description != nil {
+		updateMap["description"] = *req.Description
+	}
+	if req.DailyLimit != nil {
+		updateMap["daily_limit"] = *req.DailyLimit
+	}
+	if req.MonthlyLimit != nil {
+		updateMap["monthly_limit"] = *req.MonthlyLimit
+	}
+	if req.Balance != nil {
+		updateMap["balance"] = *req.Balance
+	}
+	if req.Priority != nil {
+		updateMap["priority"] = *req.Priority
+	}
+	if req.Status != nil {
+		updateMap["status"] = *req.Status
+	}
+
+	if len(updateMap) == 0 {
+		return nil // 没有任何字段需要更新
+	}
+
+	return s.platformRepo.UpdatePlatformAccountFields(ctx, id, updateMap)
 }
 
 // DeletePlatformAccount 删除平台账号

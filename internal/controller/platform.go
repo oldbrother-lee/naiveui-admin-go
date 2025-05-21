@@ -158,23 +158,7 @@ func (c *PlatformController) UpdatePlatformAccount(ctx *gin.Context) {
 		return
 	}
 
-	account := &model.PlatformAccount{
-		ID:           id,
-		AccountName:  req.AccountName,
-		Type:         req.Type,
-		AppKey:       req.AppKey,
-		AppSecret:    req.AppSecret,
-		Description:  req.Description,
-		DailyLimit:   req.DailyLimit,
-		MonthlyLimit: req.MonthlyLimit,
-		Balance:      req.Balance,
-		Priority:     req.Priority,
-	}
-	if req.Status != nil {
-		account.Status = *req.Status
-	}
-
-	if err := c.service.UpdatePlatformAccount(account); err != nil {
+	if err := c.service.UpdatePlatformAccount(ctx, id, &req); err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}

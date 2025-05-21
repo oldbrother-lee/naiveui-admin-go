@@ -31,6 +31,8 @@ type PlatformRepository interface {
 	UpdatePlatformAccount(account *model.PlatformAccount) error
 	GetAPIByID(ctx context.Context, apiID int64) (*model.PlatformAPI, error)
 	GetAPIParamByID(ctx context.Context, id int64) (*model.PlatformAPIParam, error)
+	UpdatePlatformAccountFields(ctx context.Context, id int64, fields map[string]interface{}) error
+	GetPlatformAccountByAccountName(accountName string) (*model.PlatformAccount, error)
 }
 
 type PlatformRepositoryImpl struct {
@@ -291,4 +293,19 @@ func (r *PlatformRepositoryImpl) GetAPIParamByID(ctx context.Context, id int64) 
 		return nil, err
 	}
 	return &param, nil
+}
+
+// UpdatePlatformAccountFields 更新平台账号字段
+func (r *PlatformRepositoryImpl) UpdatePlatformAccountFields(ctx context.Context, id int64, fields map[string]interface{}) error {
+	return r.db.WithContext(ctx).Model(&model.PlatformAccount{}).Where("id = ?", id).Updates(fields).Error
+}
+
+// GetPlatformAccountByAccountName 通过账号名查找平台账号
+func (r *PlatformRepositoryImpl) GetPlatformAccountByAccountName(accountName string) (*model.PlatformAccount, error) {
+	var account model.PlatformAccount
+	err := r.db.Where("account_name = ?", accountName).First(&account).Error
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
 }

@@ -60,6 +60,22 @@ type MF178OrderRequest struct {
 func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 	logger.Log.Info("开始处理创建订单请求")
 
+	userid := ctx.Param("userid")
+	// 1. 查询 platform_accounts 表，找到 account_name = userid 的账号
+	accountRepo := repository.NewPlatformRepository(database.DB)
+	account, err := accountRepo.GetPlatformAccountByAccountName(userid)
+	if err != nil || account == nil {
+		utils.Error(ctx, http.StatusBadRequest, "无效的账号标识")
+		return
+	}
+
+	// 2. 可通过 account.PlatformID 查询平台信息
+	platform, err := accountRepo.GetPlatformByID(account.PlatformID)
+	if err != nil || platform == nil {
+		utils.Error(ctx, http.StatusBadRequest, "无效的平台")
+		return
+	}
+
 	// 1. 读取请求体
 	body, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
@@ -205,19 +221,28 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		zap.Int64("product_id", productID),
 		zap.String("request_id", ctx.GetString("request_id")))
 
-	// 8. 创建订单
+	//运营商转换
+	isp := 1
+	if req.Datas.OperatorID == "移动" {
+		isp = 1
+	} else if req.Datas.OperatorID == "电信" {
+		isp = 2
+	} else if req.Datas.OperatorID == "联通" {
+		isp = 3
+	}
 	order = &model.Order{
-		Mobile:      req.Target,
-		ProductID:   productID,
-		OutTradeNum: strconv.FormatInt(req.UserOrderID, 10),
-		TotalPrice:  officialPayment,
-		Price:       userPayment,
-		Status:      model.OrderStatusPendingRecharge,
-		IsDel:       0,
-		Client:      3, // 3代表MF178
-		Param1:      req.Datas.OperatorID,
-		Param2:      req.Datas.ProvCode,
-		Param3:      req.GoodsName,
+		Mobile:          req.Target,
+		ProductID:       productID,
+		OutTradeNum:     strconv.FormatInt(req.UserOrderID, 10),
+		TotalPrice:      officialPayment,
+		Price:           userPayment,
+		Status:          model.OrderStatusPendingRecharge,
+		IsDel:           0,
+		Client:          3,   // 3代表MF178
+		ISP:             isp, // 1代表移动
+		Param1:          req.Datas.OperatorID,
+		AccountLocation: req.Datas.ProvCode,
+		Param3:          req.GoodsName,
 	}
 	logger.Log.Info("准备创建订单",
 		zap.Any("order", order),
