@@ -6,6 +6,7 @@ import (
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/platform"
+	"recharge-go/pkg/database"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,8 +14,10 @@ import (
 
 // RegisterTaskRoutes 依赖注入 platformSvc
 func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
+	db := database.DB
 	taskConfigRepo := repository.NewTaskConfigRepository()
 	taskOrderRepo := repository.NewTaskOrderRepository()
+	daichongOrderRepo := repository.NewDaichongOrderRepository(db)
 
 	taskConfig := &service.TaskConfig{
 		Interval:      5 * time.Minute, // 每5分钟执行一次
@@ -29,7 +32,13 @@ func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 	taskOrderHandler := handler.NewTaskOrderHandler(taskOrderRepo)
 	taskConfigService := service.NewTaskConfigService(taskConfigRepo)
 	taskConfigController := controller.NewTaskConfigController(taskConfigService)
-	taskSvc := service.NewTaskService(taskConfigRepo, taskOrderRepo, platformSvc, taskConfig)
+	taskSvc := service.NewTaskService(
+		taskConfigRepo,
+		taskOrderRepo,
+		daichongOrderRepo,
+		platformSvc,
+		taskConfig,
+	)
 
 	// 启动自动取单任务
 	taskSvc.StartTask()

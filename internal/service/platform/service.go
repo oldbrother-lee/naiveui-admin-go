@@ -42,6 +42,7 @@ type PlatformOrder struct {
 	AccountNum             string    `json:"accountNum"`             // 充值账号
 	AccountLocation        string    `json:"accountLocation"`        // 归属地
 	SettlementAmount       float64   `json:"settlementAmount"`       // 结算金额
+	FaceValue              float64   `json:"faceValue"`              // 面值
 	OrderStatus            int       `json:"orderStatus"`            // 订单状态
 	SettlementStatus       int       `json:"settlementStatus"`       // 结算状态
 	CreateTime             MilliTime `json:"createTime"`             // 创建时间
@@ -533,4 +534,51 @@ func (s *Service) GetToken(channelID, productID int, provinces, faceValues, minS
 // 匹配到订单后让 token 失效
 func (s *Service) InvalidateToken() error {
 	return s.tokenRepo.Delete()
+}
+
+// PushToThirdParty 推送订单到第三方平台
+func (s *Service) PushToThirdParty(order *PlatformOrder, notifyUrl string) error {
+	params := map[string]interface{}{
+		"orderNumber":            order.OrderNumber,
+		"channelName":            order.ChannelName,
+		"productName":            order.ProductName,
+		"accountNum":             order.AccountNum,
+		"accountLocation":        order.AccountLocation,
+		"settlementAmount":       order.SettlementAmount,
+		"orderStatus":            order.OrderStatus,
+		"settlementStatus":       order.SettlementStatus,
+		"createTime":             order.CreateTime.UnixMilli(),
+		"expirationTime":         order.ExpirationTime.UnixMilli(),
+		"settlementTime":         order.SettlementTime.UnixMilli(),
+		"expectedSettlementTime": order.ExpectedSettlementTime.UnixMilli(),
+	}
+	jsonData, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("参数序列化失败: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", notifyUrl, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("请求失败: %s", string(body))
+	}
+
+	// 可根据第三方返回内容做进一步处理
+	return nil
 }

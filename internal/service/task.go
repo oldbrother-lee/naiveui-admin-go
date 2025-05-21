@@ -7,20 +7,22 @@ import (
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service/platform"
 	"recharge-go/pkg/logger"
+	"strings"
 	"sync"
 	"time"
 )
 
 type TaskService struct {
-	taskConfigRepo *repository.TaskConfigRepository
-	taskOrderRepo  *repository.TaskOrderRepository
-	platformSvc    *platform.Service
-	config         *TaskConfig
-	ctx            context.Context
-	cancel         context.CancelFunc
-	wg             sync.WaitGroup
-	mu             sync.Mutex
-	isRunning      bool
+	taskConfigRepo    *repository.TaskConfigRepository
+	taskOrderRepo     *repository.TaskOrderRepository
+	daichongOrderRepo *repository.DaichongOrderRepository
+	platformSvc       *platform.Service
+	config            *TaskConfig
+	ctx               context.Context
+	cancel            context.CancelFunc
+	wg                sync.WaitGroup
+	mu                sync.Mutex
+	isRunning         bool
 }
 
 type TaskConfig struct {
@@ -36,17 +38,19 @@ type TaskConfig struct {
 func NewTaskService(
 	taskConfigRepo *repository.TaskConfigRepository,
 	taskOrderRepo *repository.TaskOrderRepository,
+	daichongOrderRepo *repository.DaichongOrderRepository,
 	platformSvc *platform.Service,
 	config *TaskConfig,
 ) *TaskService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TaskService{
-		taskConfigRepo: taskConfigRepo,
-		taskOrderRepo:  taskOrderRepo,
-		platformSvc:    platformSvc,
-		config:         config,
-		ctx:            ctx,
-		cancel:         cancel,
+		taskConfigRepo:    taskConfigRepo,
+		taskOrderRepo:     taskOrderRepo,
+		daichongOrderRepo: daichongOrderRepo,
+		platformSvc:       platformSvc,
+		config:            config,
+		ctx:               ctx,
+		cancel:            cancel,
 	}
 }
 
@@ -123,17 +127,16 @@ func (s *TaskService) processTask() {
 		// 2. 查询任务结果
 		order, err := s.platformSvc.QueryTask(token)
 		if err != nil {
-			logger.Error("查询任务匹配状态失败: token=%s, error=%v", token, err)
+			logger.Error(fmt.Sprintf("查询任务匹配状态失败: token=%s, error=%v", token, err))
 			continue
 		}
-
 		if order == nil {
 			logger.Info(fmt.Sprintf("未匹配到订单: token=%s", token))
 			continue
 		}
 
-		logger.Info("匹配到订单: OrderNumber=%s, AccountNum=%s, SettlementAmount=%.2f",
-			order.OrderNumber, order.AccountNum, order.SettlementAmount)
+		logger.Info(fmt.Sprintf("匹配到订单: OrderNumber=%s, AccountNum=%s, SettlementAmount=%.2f",
+			order.OrderNumber, order.AccountNum, order.SettlementAmount))
 
 		// 3. 匹配到订单后让 token 失效
 		_ = s.platformSvc.InvalidateToken()
@@ -147,6 +150,7 @@ func (s *TaskService) processTask() {
 			AccountLocation:        order.AccountLocation,
 			SettlementAmount:       order.SettlementAmount,
 			OrderStatus:            order.OrderStatus,
+			FaceValue:              order.FaceValue,
 			SettlementStatus:       1, // 待结算
 			CreateTime:             order.CreateTime.UnixMilli(),
 			ExpirationTime:         order.ExpirationTime.UnixMilli(),
@@ -156,11 +160,32 @@ func (s *TaskService) processTask() {
 
 		// 5. 保存任务订单
 		if err := s.taskOrderRepo.Create(taskOrder); err != nil {
-			logger.Error("保存任务订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err)
+			logger.Error(fmt.Sprintf("保存任务订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
 			continue
 		}
-		logger.Info("保存任务订单成功: OrderNumber=%s", order.OrderNumber)
+		// 6. 创建代充订单
+		daichongOrder := &model.DaichongOrder{
+			OrderID:     order.OrderNumber,
+			Account:     order.AccountNum,
+			Prov:        order.AccountLocation,
+			Yunying:     strings.Replace(order.ProductName, "中国", "", -1),
+			Denom:       order.FaceValue,
+			SettlePrice: 0,
+			CreateTime:  order.CreateTime.UnixMilli(),
+			Status:      model.OrderStatusPendingRecharge,
+			Way:         3,
+		}
+
+		// 7. 保存代充订单
+		if err := s.daichongOrderRepo.Create(daichongOrder); err != nil {
+			logger.Error(fmt.Sprintf("保存代充订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
+			continue
+		}
+
+		fmt.Printf("代充订单: %+v\n", daichongOrder)
+
+		logger.Info(fmt.Sprintf("保存任务订单成功: OrderNumber=%s", order.OrderNumber))
 	}
 
-	logger.Info("定时任务执行完成")
+	// logger.Info("定时任务执行完成")
 }

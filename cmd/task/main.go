@@ -44,13 +44,21 @@ func main() {
 	}
 
 	// 初始化依赖
+	db := database.DB
 	taskConfigRepo := repository.NewTaskConfigRepository()
 	taskOrderRepo := repository.NewTaskOrderRepository()
 	tokenRepo := repository.NewPlatformTokenRepository()
 	platformSvc := platform.NewService(tokenRepo)
+	daichongOrderRepo := repository.NewDaichongOrderRepository(db)
 
 	// 创建任务服务
-	taskSvc := service.NewTaskService(taskConfigRepo, taskOrderRepo, platformSvc, taskConfig)
+	taskSvc := service.NewTaskService(
+		taskConfigRepo,
+		taskOrderRepo,
+		daichongOrderRepo,
+		platformSvc,
+		taskConfig,
+	)
 
 	// 启动任务
 	taskSvc.StartTask()

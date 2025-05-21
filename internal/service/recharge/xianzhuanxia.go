@@ -146,12 +146,12 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 	}
 
 	if result.Code != 0 {
-		logger.Error("提交订单失败",
+		logger.Error(fmt.Sprintf("提交订单失败",
 			"platform", "xianzhuanxia",
 			"order_id", order.ID,
 			"order_number", order.OrderNumber,
 			"error", result.Message,
-			"response", string(body),
+			"response", string(body)),
 		)
 		return fmt.Errorf("submit order failed: %v", result.Message)
 	}
