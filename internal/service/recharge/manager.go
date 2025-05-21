@@ -11,6 +11,22 @@ import (
 	"gorm.io/gorm"
 )
 
+// platformCreator 平台创建函数类型
+type platformCreator func(api *model.PlatformAPI) Platform
+
+// platformRegistry 平台注册表
+var (
+	platformRegistry = make(map[string]platformCreator)
+	registryMutex    sync.RWMutex
+)
+
+// RegisterPlatform 注册平台创建函数
+func RegisterPlatform(code string, creator platformCreator) {
+	registryMutex.Lock()
+	defer registryMutex.Unlock()
+	platformRegistry[code] = creator
+}
+
 // Manager 平台管理器
 type Manager struct {
 	platformRepo    repository.PlatformRepository
@@ -51,15 +67,16 @@ func (m *Manager) createPlatform(api *model.PlatformAPI) Platform {
 		return nil
 	}
 
-	switch api.Code {
-	case "kekebang":
-		return NewKekebangPlatform(api)
-	case "xianzhuanxia":
-		return NewXianzhuanxiaPlatform(api)
-	default:
+	registryMutex.RLock()
+	creator, exists := platformRegistry[api.Code]
+	registryMutex.RUnlock()
+
+	if !exists {
 		logger.Error("Unsupported platform code: %s", api.Code)
 		return nil
 	}
+
+	return creator(api)
 }
 
 // LoadPlatforms 从数据库加载所有平台配置

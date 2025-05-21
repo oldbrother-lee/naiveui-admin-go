@@ -22,12 +22,17 @@ type XianzhuanxiaPlatform struct {
 }
 
 // NewXianzhuanxiaPlatform 创建闲赚侠平台实例
-func NewXianzhuanxiaPlatform(api *model.PlatformAPI) *XianzhuanxiaPlatform {
+func NewXianzhuanxiaPlatform(api *model.PlatformAPI) Platform {
 	return &XianzhuanxiaPlatform{
 		baseURL: api.URL,
 		apiKey:  api.AppKey,
 		userID:  api.MerchantID,
 	}
+}
+
+// init 注册闲赚侠平台
+func init() {
+	RegisterPlatform("xianzhuanxia", NewXianzhuanxiaPlatform)
 }
 
 // SubmitOrderResult 提交订单结果

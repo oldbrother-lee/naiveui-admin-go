@@ -21,10 +21,15 @@ type KekebangPlatform struct {
 }
 
 // NewKekebangPlatform 创建可客帮平台实例
-func NewKekebangPlatform(api *model.PlatformAPI) *KekebangPlatform {
+func NewKekebangPlatform(api *model.PlatformAPI) Platform {
 	return &KekebangPlatform{
 		api: api,
 	}
+}
+
+// init 注册可客帮平台
+func init() {
+	RegisterPlatform("kekebang", NewKekebangPlatform)
 }
 
 // GetName 获取平台名称
