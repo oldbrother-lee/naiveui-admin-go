@@ -77,6 +77,7 @@ type PlatformCreateRequest struct {
 // PlatformUpdateRequest 更新平台请求
 type PlatformUpdateRequest struct {
 	Name        string `json:"name" binding:"required,max=50"`
+	Code        string `json:"code" binding:"required,max=20"`
 	ApiURL      string `json:"api_url" binding:"required,max=255"`
 	Description string `json:"description" binding:"max=255"`
 	Status      *int   `json:"status" binding:"omitempty,oneof=0 1"`

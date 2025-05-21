@@ -56,6 +56,7 @@ func (s *PlatformService) UpdatePlatform(id int64, req *model.PlatformUpdateRequ
 	platform := &model.Platform{
 		ID:          id,
 		Name:        req.Name,
+		Code:        req.Code,
 		ApiURL:      req.ApiURL,
 		Description: req.Description,
 	}
@@ -260,4 +261,8 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 // GetOrder 获取订单信息
 func (s *PlatformService) GetOrder(ctx context.Context, orderID int64) (*model.Order, error) {
 	return s.orderRepo.GetByID(ctx, orderID)
+}
+
+func (s *PlatformService) GetPlatformAccountByAccountName(accountName string) (*model.PlatformAccount, error) {
+	return s.platformRepo.GetPlatformAccountByAccountName(accountName)
 }

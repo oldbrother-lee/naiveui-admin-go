@@ -230,19 +230,24 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 	} else if req.Datas.OperatorID == "联通" {
 		isp = 3
 	}
+	fmt.Printf("platform-------: %+v", platform)
 	order = &model.Order{
-		Mobile:          req.Target,
-		ProductID:       productID,
-		OutTradeNum:     strconv.FormatInt(req.UserOrderID, 10),
-		TotalPrice:      officialPayment,
-		Price:           userPayment,
-		Status:          model.OrderStatusPendingRecharge,
-		IsDel:           0,
-		Client:          3,   // 3代表MF178
-		ISP:             isp, // 1代表移动
-		Param1:          req.Datas.OperatorID,
-		AccountLocation: req.Datas.ProvCode,
-		Param3:          req.GoodsName,
+		Mobile:            req.Target,
+		ProductID:         productID,
+		OutTradeNum:       strconv.FormatInt(req.UserOrderID, 10),
+		TotalPrice:        officialPayment,
+		Price:             userPayment,
+		Status:            model.OrderStatusPendingRecharge,
+		IsDel:             0,
+		Client:            3,   // 3代表MF178
+		ISP:               isp, // 1代表移动
+		Param1:            req.Datas.OperatorID,
+		AccountLocation:   req.Datas.ProvCode,
+		Param3:            req.GoodsName,
+		PlatformAccountID: account.ID,
+		PlatformId:        platform.ID,
+		PlatformCode:      platform.Code,
+		PlatformName:      platform.Name,
 	}
 	logger.Log.Info("准备创建订单",
 		zap.Any("order", order),

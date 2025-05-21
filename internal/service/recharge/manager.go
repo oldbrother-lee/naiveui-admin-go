@@ -79,7 +79,7 @@ func (m *Manager) LoadPlatforms() error {
 		// 获取平台API配置
 		api, err := m.platformAPIRepo.GetByCode(context.Background(), platform.Code)
 		if err != nil {
-			logger.Error("Failed to get platform API for %s: %v", platform.Code, err)
+			logger.Error(fmt.Sprintf("为每个平台创建实例 Failed to get platform API for %s: %v", platform.Code, err))
 			continue
 		}
 
