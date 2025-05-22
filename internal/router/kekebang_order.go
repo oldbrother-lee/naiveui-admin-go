@@ -54,7 +54,7 @@ func RegisterKekebangOrderRoutes(r *gin.RouterGroup) {
 	kekebangOrderController := controller.NewKekebangOrderController(orderService, rechargeService)
 
 	// 注册路由
-	kekebangOrder := r.Group("/kekebang/order")
+	kekebangOrder := r.Group("/kekebang/order/:userid")
 	{
 		kekebangOrder.POST("", kekebangOrderController.CreateOrder)
 		kekebangOrder.POST("/query", kekebangOrderController.QueryOrder)

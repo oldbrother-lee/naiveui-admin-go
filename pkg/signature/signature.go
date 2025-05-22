@@ -15,7 +15,6 @@ import (
 func GenerateSign(params map[string]interface{}, appSecret string) string {
 	// 1. 过滤掉 sign 字段
 	delete(params, "sign")
-	fmt.Println("vvvvvvvvvvvvvvvvvvvvv", params)
 	// 2. 将参数按照 key 的字典序排序
 	keys := make([]string, 0, len(params))
 	for k := range params {

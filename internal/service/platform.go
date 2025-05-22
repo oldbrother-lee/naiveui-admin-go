@@ -161,36 +161,71 @@ func (s *PlatformService) SendNotification(ctx context.Context, order *model.Ord
 	// if err != nil {
 	// 	return fmt.Errorf("获取平台配置失败: %w", err)
 	// }
-	data := map[string]interface{}{
-		"data": map[string]interface{}{
-			"user_order_id": order.OutTradeNum,
-			"status":        9,
-			"rsp_info":      "充值成功",
-		},
-	}
-	jsonData, err := json.Marshal(data["data"])
+	account, err := s.platformRepo.GetPlatformAccountByID(order.PlatformAccountID)
 	if err != nil {
-		fmt.Println(err)
+		return fmt.Errorf("获取平台账号失败: %w", err)
 	}
-	params := map[string]interface{}{
-		"data": string(jsonData),
+	platform, err := s.platformRepo.GetPlatformByID(account.PlatformID)
+	if err != nil {
+		return fmt.Errorf("获取平台配置失败: %w", err)
 	}
-	params["app_key"] = "1675958551"
-	params["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
+	fmt.Printf("platform----------: %v\n", platform)
+	fmt.Printf("account----------: %v\n", account)
+	// 3. 构建通知参数
+	var params map[string]interface{}
+	switch platform.Code {
+	case "mifeng":
+		params = s.buildMf178Params(order, account)
+	case "kekebang":
+		params = s.buildKekebangParams(order, account)
+	default:
+		return fmt.Errorf("不支持的平台: %s", platform.Code)
+	}
+	// // s生成签名
+	params["sign"] = s.generateSign(platform.Code, params, account)
+	//通过platform.Code 获取对应的api_url ，并拼接参数和订单状态转换
+	// fmt.Printf("platform----------: %v\n", platform)
+	// fmt.Printf("account----------: %v\n", account)
+	// data := map[string]interface{}{
+	// 	"data": map[string]interface{}{
+	// 		"user_order_id": order.OutTradeNum,
+	// 		"status":        9,
+	// 		"rsp_info":      "充值成功",
+	// 	},
+	// }
+	// jsonData, err := json.Marshal(data["data"])
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// params := map[string]interface{}{
+	// 	"data": string(jsonData),
+	// }
+	// params["app_key"] = "1675958551"
+	// params["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
 
 	// 3. 生成签名
-	params["sign"] = signature.GenerateSign(params, "3649c621b6945721")
-	fmt.Printf("params----------: %v\n", params)
+	// params["sign"] = signature.GenerateSign(params, account.AppSecret)
+	fmt.Printf("params-----++++++++-----: %v\n", params)
 	// 4. 发送通知请求
-	url := "http://test.shop.center.mf178.cn/userapi/sgd/updateStatus"
-	resp, err := s.sendRequest(ctx, url, params)
+	// url := "http://test.shop.center.mf178.cn/userapi/sgd/updateStatus"
+	resp, err := s.sendRequest(ctx, platform.ApiURL, params)
 	if err != nil {
 		return fmt.Errorf("发送通知请求失败: %w", err)
 	}
 
 	// 5. 处理响应
-	if resp.Code != 0 {
-		return fmt.Errorf("通知发送失败: %s", resp.Message)
+	if platform.Code == "kekebang" {
+		if resp.Code != "0" {
+			return fmt.Errorf("通知发送失败kekebang:code:%s, message:%s", resp.Code, resp.Message)
+		}
+	} else {
+		code, err := strconv.ParseInt(resp.Code, 10, 64)
+		if err != nil {
+			return fmt.Errorf("解析响应码失败: %w", err)
+		}
+		if code != 0 {
+			return fmt.Errorf("通知发送失败1: %s", resp.Message)
+		}
 	}
 
 	return nil
@@ -212,7 +247,7 @@ func (s *PlatformService) convertOrderStatus(status model.OrderStatus) string {
 
 // sendRequest 发送HTTP请求
 func (s *PlatformService) sendRequest(ctx context.Context, url string, params map[string]interface{}) (*struct {
-	Code    int    `json:"code"`
+	Code    string `json:"code"`
 	Message string `json:"message"`
 }, error) {
 	// 1. 将参数转换为JSON
@@ -236,7 +271,7 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("发送请求失败: %w", err)
+		return nil, fmt.Errorf("发送请求失败1: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -245,10 +280,11 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 	if err != nil {
 		return nil, fmt.Errorf("读取响应失败: %w", err)
 	}
-
+	// 打印原始响应
+	fmt.Printf("原始响应: %s\n", string(body))
 	// 6. 解析响应
 	var result struct {
-		Code    int    `json:"code"`
+		Code    string `json:"code"`
 		Message string `json:"message"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -265,4 +301,106 @@ func (s *PlatformService) GetOrder(ctx context.Context, orderID int64) (*model.O
 
 func (s *PlatformService) GetPlatformAccountByAccountName(accountName string) (*model.PlatformAccount, error) {
 	return s.platformRepo.GetPlatformAccountByAccountName(accountName)
+}
+
+func (s *PlatformService) buildKekebangParams(order *model.Order, account *model.PlatformAccount) map[string]interface{} {
+	// return map[string]interface{}{
+	// 	"app_key":   account.AppKey,
+	// 	"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+	// 	"data": map[string]interface{}{
+	// 		"user_order_id": order.OutTradeNum,
+	// 		"status":        s.getKekebangStatus(order.Status),
+	// 		"rsp_info":      s.getStatusText(order.Status),
+	// 		"voucher":       "",
+	// 	},
+	// }
+	data := map[string]interface{}{
+		"user_order_id": order.OutTradeNum,
+		"status":        s.getKekebangStatus(order.Status),
+		"rsp_info":      s.getStatusText(order.Status),
+		"voucher":       "",
+	}
+
+	jsonData, err := json.Marshal(data["data"])
+	if err != nil {
+		fmt.Println(err)
+	}
+	params := map[string]interface{}{
+		"data": string(jsonData),
+	}
+	params["app_key"] = account.AppKey
+	params["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
+	return params
+}
+
+func (s *PlatformService) buildMf178Params(order *model.Order, account *model.PlatformAccount) map[string]interface{} {
+
+	data := map[string]interface{}{
+		"data": map[string]interface{}{
+			"user_order_id": order.OutTradeNum,
+			"status":        s.getPlatformStatus(order.Status),
+			"rsp_info":      s.getStatusText(order.Status),
+		},
+	}
+	jsonData, err := json.Marshal(data["data"])
+	if err != nil {
+		fmt.Println(err)
+	}
+	params := map[string]interface{}{
+		"data": string(jsonData),
+	}
+	params["app_key"] = account.AppKey
+	params["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
+	return params
+}
+
+func (s *PlatformService) getPlatformStatus(orderStatus model.OrderStatus) int {
+	// 根据平台代码和订单状态返回对应的平台状态码
+	switch orderStatus {
+	case model.OrderStatusSuccess:
+		return 9 // 米蜂成功状态码
+	case model.OrderStatusFailed:
+		return 5 // 米蜂失败状态码
+	// ... 其他状态映射
+	default:
+		return 0
+	}
+}
+
+func (s *PlatformService) getKekebangStatus(orderStatus model.OrderStatus) int {
+	// 根据平台代码和订单状态返回对应的平台状态码
+	switch orderStatus {
+	case model.OrderStatusSuccess:
+		return 9 // 米蜂成功状态码
+	case model.OrderStatusFailed:
+		return 8 // 米蜂失败状态码
+	// ... 其他状态映射
+	default:
+		return 0
+	}
+}
+
+func (s *PlatformService) getStatusText(orderStatus model.OrderStatus) string {
+	// 根据订单状态返回对应的文本信息
+	switch orderStatus {
+	case model.OrderStatusSuccess:
+		return "充值成功"
+	case model.OrderStatusFailed:
+		return "充值失败"
+	case model.OrderStatusProcessing:
+		return "充值中"
+	default:
+		return "未知状态"
+	}
+}
+
+func (s *PlatformService) generateSign(platformCode string, params map[string]interface{}, account *model.PlatformAccount) string {
+	switch platformCode {
+	case "mifeng":
+		return signature.GenerateSign(params, account.AppSecret)
+	case "kekebang":
+		return signature.GenerateKekebangSign(params, account.AppSecret)
+	default:
+		return ""
+	}
 }

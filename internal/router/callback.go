@@ -50,11 +50,15 @@ func RegisterCallbackRoutes(r *gin.RouterGroup) {
 	orderService.SetRechargeService(rechargeService)
 
 	// 创建控制器
-	callbackController := controller.NewCallbackController(rechargeService)
+	callbackController := controller.NewCallbackController(rechargeService, platformRepo)
 
 	// 注册路由
 	callback := r.Group("/callback")
 	{
-		callback.POST("/kekebang", callbackController.HandleKekebangCallback)
+		// 修改客客帮回调路由
+		kekebangOrder := callback.Group("/kekebang/:userid")
+		{
+			kekebangOrder.POST("", callbackController.HandleKekebangCallback)
+		}
 	}
 }

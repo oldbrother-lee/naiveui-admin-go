@@ -250,21 +250,20 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 // HandleCallback 处理平台回调
 func (s *rechargeService) HandleCallback(ctx context.Context, platformName string, data []byte) error {
 	// 1. 解析回调数据
-	fmt.Println(platformName, "platformName++++++++")
 	callbackData, err := s.manager.ParseCallbackData(platformName, data)
 	if err != nil {
-		logger.Error("解析回调数据失败: %v", err)
+		logger.Error(fmt.Sprintf("解析回调数据失败: %v", err))
 		return fmt.Errorf("parse callback data failed: %v", err)
 	}
 
 	// 2. 检查是否已处理过该回调
 	exists, err := s.callbackLogRepo.GetByOrderIDAndType(ctx, callbackData.OrderID, callbackData.CallbackType)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Error("检查回调记录失败: %v", err)
+		logger.Error(fmt.Sprintf("检查回调记录失败: %v", err))
 		return fmt.Errorf("check callback record failed: %v", err)
 	}
 	if exists != nil {
-		logger.Info("回调已处理过: order_id: %s, callback_type: %s", callbackData.OrderID, callbackData.CallbackType)
+		logger.Info(fmt.Sprintf("回调已处理过: order_id: %s, callback_type: %s", callbackData.OrderID, callbackData.CallbackType))
 		return nil
 	}
 

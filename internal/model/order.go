@@ -71,7 +71,7 @@ type Order struct {
 	Param1            string      `json:"param1" gorm:"size:255;comment:参数1"`
 	Param2            string      `json:"param2" gorm:"size:255;comment:参数2"`
 	Param3            string      `json:"param3" gorm:"size:255;comment:参数3"`
-	OutTradeNum       string      `json:"out_trade_num" gorm:"size:64;comment:外部交易号"`
+	OutTradeNum       string      `json:"out_trade_num" gorm:"size:64;uniqueIndex;comment:外部交易号"`
 	APICurID          int64       `json:"api_cur_id" gorm:"comment:当前API ID"`
 	APIOrderNumber    string      `json:"api_order_number" gorm:"size:64;comment:API订单号"`
 	APITradeNum       string      `json:"api_trade_num" gorm:"size:64;comment:API交易号"`

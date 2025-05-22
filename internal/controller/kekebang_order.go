@@ -2,10 +2,14 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"recharge-go/internal/model"
+	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
+	"recharge-go/pkg/database"
 	"recharge-go/pkg/logger"
 	"recharge-go/pkg/signature"
 	"recharge-go/pkg/utils/response"
@@ -13,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // KekebangOrderController 可客帮订单控制器
@@ -29,18 +34,106 @@ func NewKekebangOrderController(orderService service.OrderService, rechargeServi
 	}
 }
 
+func (c *KekebangOrderController) verifyProductExists(productID int64) error {
+	fmt.Printf("[kekebang] 开始验证产品是否存在, 产品ID: %d\n", productID)
+
+	var count int64
+	err := database.DB.Model(&model.Product{}).
+		Where("id = ?", productID).
+		Count(&count).Error
+
+	if err != nil {
+		fmt.Printf("[kekebang] 验证产品失败: %v\n", err)
+		return err
+	}
+
+	if count == 0 {
+		fmt.Printf("[kekebang] 产品不存在, 产品ID: %d\n", productID)
+		return errors.New("product not found")
+	}
+
+	fmt.Printf("[kekebang] 产品验证通过, 产品ID: %d\n", productID)
+	return nil
+}
+
 // CreateOrder 创建订单
 func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
+	userid := ctx.Param("userid")
+	// 1. 查询 platform_accounts 表，找到 account_name = userid 的账号
+	accountRepo := repository.NewPlatformRepository(database.DB)
+	account, err := accountRepo.GetPlatformAccountByAccountName(userid)
+	if err != nil || account == nil {
+		utils.Error(ctx, http.StatusBadRequest, "无效的账号标识")
+		return
+	}
+
+	// 2. 可通过 account.PlatformID 查询平台信息
+	platform, err := accountRepo.GetPlatformByID(account.PlatformID)
+	if err != nil || platform == nil {
+		utils.Error(ctx, http.StatusBadRequest, "无效的平台")
+		return
+	}
+
 	var req model.KekebangOrderRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		logger.Error("【解析请求参数失败】error: %v", err)
-		utils.Error(ctx, 400, "解析请求参数失败")
+		response := gin.H{
+			"code":    "FAIL",
+			"message": "参数错误",
+			"data":    gin.H{},
+		}
+		ctx.JSON(http.StatusOK, response)
 		return
 	}
 
 	// 记录原始请求数据
 	logger.Info("【收到可客帮订单请求】request: %+v", req)
-
+	//先检查订单是否存在
+	order, err := c.orderService.GetOrderByOutTradeNum(ctx, strconv.FormatInt(req.UserOrderID, 10))
+	if err != nil && !errors.Is(err, repository.ErrOrderNotFound) {
+		logger.Log.Error("查询订单失败",
+			zap.Error(err),
+			zap.String("order_id", strconv.FormatInt(req.UserOrderID, 10)))
+		response := gin.H{
+			"code":    "FAIL",
+			"message": "产品不存在",
+			"data":    gin.H{},
+		}
+		ctx.JSON(http.StatusOK, response)
+		return
+	}
+	if order != nil {
+		response := gin.H{
+			"code":    "FAIL",
+			"message": "订单已存在",
+			"data": gin.H{
+				"createTime": order.CreateTime.Format("2006-01-02T15:04:05+0800"),
+				"orderId":    req.UserOrderID,
+				"orderNo":    order.OrderNumber,
+			},
+		}
+		ctx.JSON(http.StatusOK, response)
+		return
+	}
+	productID, err := strconv.ParseInt(req.OuterGoodsCode, 10, 64)
+	if err != nil {
+		logger.Error(fmt.Sprintf("【产品编码转换失败】error: %v", err))
+		utils.Error(ctx, 500, "产品编码转换失败")
+		return
+	}
+	if err := c.verifyProductExists(productID); err != nil {
+		logger.Log.Error("产品验证失败",
+			zap.Error(err),
+			zap.Int64("product_id", productID),
+			zap.String("request_id", ctx.GetString("request_id")))
+		response := gin.H{
+			"code":    "FAIL",
+			"message": "产品不存在",
+			"data":    gin.H{},
+		}
+		ctx.JSON(http.StatusOK, response)
+		return
+	}
 	// 验证签名
 	// if !c.verifySign(req) {
 	// 	logger.Error("【签名验证失败】request: %+v", req)
@@ -49,27 +142,33 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 	// }
 
 	// 创建订单
-	order := &model.Order{
-		Mobile:         req.Target,
-		TotalPrice:     req.Datas.Amount,
-		ProductID:      1, // 需要根据 OuterGoodsCode 查询对应的商品ID
-		Status:         model.OrderStatusPendingRecharge,
-		PlatformCode:   "kekebang",
-		PlatformId:     req.VenderID,
-		OutTradeNum:    strconv.FormatInt(req.UserOrderID, 10),     // 外部交易号
-		UserOrderId:    strconv.FormatInt(req.UserOrderID, 10),     // 用户订单ID
-		APIOrderNumber: strconv.FormatInt(req.UserOrderID, 10),     // API订单号
-		ISP:            getISPFromOperatorID(req.Datas.OperatorID), // 根据运营商ID获取ISP
-		Param1:         req.Datas.ProvCode,                         // 省份代码
-		Param2:         req.GoodsName,                              // 商品名称
-		Param3:         req.OuterGoodsCode,                         // 外部商品编码
-		Remark:         fmt.Sprintf("可客帮订单，商品ID：%s", req.GoodsID),
+	order = &model.Order{
+		Mobile:            req.Target,
+		Denom:             req.Datas.Amount,
+		ProductID:         productID, // 需要根据 OuterGoodsCode 查询对应的商品ID
+		Status:            model.OrderStatusPendingRecharge,
+		OutTradeNum:       strconv.FormatInt(req.UserOrderID, 10),     // 外部交易号
+		ISP:               getISPFromOperatorID(req.Datas.OperatorID), // 根据运营商ID获取ISP
+		Param1:            req.Datas.ProvCode,                         // 省份代码
+		Param2:            req.GoodsID,                                // 商品名称
+		Param3:            req.GoodsName,                              // 外部商品编码
+		Remark:            fmt.Sprintf("可客帮订单，商品ID：%s", req.GoodsID),
+		AccountLocation:   req.Datas.ProvCode,
+		PlatformAccountID: account.ID,
+		PlatformId:        platform.ID,
+		PlatformCode:      platform.Code,
+		PlatformName:      platform.Name,
 	}
 
 	// 调用订单服务创建订单
 	if err := c.orderService.CreateOrder(ctx, order); err != nil {
-		logger.Error("【创建订单失败】error: %v", err)
-		utils.Error(ctx, 500, "创建订单失败")
+		logger.Error(fmt.Sprintf("【创建订单失败】error: %v", err))
+		response := gin.H{
+			"code":    "FAIL",
+			"message": "产品不存在",
+			"data":    gin.H{},
+		}
+		ctx.JSON(http.StatusOK, response)
 		return
 	}
 
@@ -79,11 +178,15 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 		utils.Error(ctx, 500, "创建充值任务失败")
 		return
 	}
-
-	response.Success(ctx, gin.H{
-		"order_id": order.ID,
-		"status":   "success",
-	})
+	response := gin.H{
+		"code":    "SUCCESS",
+		"message": "订单创建成功",
+		"data": gin.H{
+			"order_id": order.OutTradeNum,
+			"status":   2,
+		},
+	}
+	ctx.JSON(http.StatusOK, response)
 }
 
 // verifySign 验证签名
