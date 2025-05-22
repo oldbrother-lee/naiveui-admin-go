@@ -30,6 +30,7 @@ func NewManager(db *gorm.DB) *Manager {
 		platformTypes: map[string]reflect.Type{
 			"kekebang":     reflect.TypeOf((*KekebangPlatform)(nil)).Elem(),
 			"xianzhuanxia": reflect.TypeOf((*XianzhuanxiaPlatform)(nil)).Elem(),
+			"mishi":        reflect.TypeOf((*MishiPlatform)(nil)).Elem(),
 		},
 	}
 }
@@ -69,6 +70,8 @@ func (m *Manager) createPlatform(code string) (Platform, error) {
 		platform = NewXianzhuanxiaPlatform(m.platformRepo.GetDB())
 	case "mifeng":
 		platform = NewKekebangPlatform(m.platformRepo.GetDB()) // 暂时使用可客帮平台的实现
+	case "mishi":
+		platform = NewMishiPlatform(m.platformRepo.GetDB())
 	default:
 		return nil, fmt.Errorf("unsupported platform code: %s", code)
 	}
@@ -147,6 +150,8 @@ func (m *Manager) getPlatformTypeByName(name string) reflect.Type {
 		return reflect.TypeOf((*XianzhuanxiaPlatform)(nil)).Elem()
 	case "mifeng":
 		return reflect.TypeOf((*KekebangPlatform)(nil)).Elem() // 暂时使用可客帮平台的实现
+	case "mishi":
+		return reflect.TypeOf((*MishiPlatform)(nil)).Elem()
 	default:
 		return nil
 	}
