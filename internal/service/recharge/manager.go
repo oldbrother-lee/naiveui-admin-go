@@ -6,32 +6,18 @@ import (
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/pkg/logger"
+	"reflect"
 	"sync"
 
 	"gorm.io/gorm"
 )
-
-// platformCreator 平台创建函数类型
-type platformCreator func(api *model.PlatformAPI) Platform
-
-// platformRegistry 平台注册表
-var (
-	platformRegistry = make(map[string]platformCreator)
-	registryMutex    sync.RWMutex
-)
-
-// RegisterPlatform 注册平台创建函数
-func RegisterPlatform(code string, creator platformCreator) {
-	registryMutex.Lock()
-	defer registryMutex.Unlock()
-	platformRegistry[code] = creator
-}
 
 // Manager 平台管理器
 type Manager struct {
 	platformRepo    repository.PlatformRepository
 	platformAPIRepo repository.PlatformAPIRepository
 	platforms       map[string]Platform
+	platformTypes   map[string]reflect.Type
 	mu              sync.RWMutex
 }
 
@@ -41,45 +27,68 @@ func NewManager(db *gorm.DB) *Manager {
 		platformRepo:    repository.NewPlatformRepository(db),
 		platformAPIRepo: repository.NewPlatformAPIRepository(db),
 		platforms:       make(map[string]Platform),
+		platformTypes: map[string]reflect.Type{
+			"kekebang":     reflect.TypeOf((*KekebangPlatform)(nil)).Elem(),
+			"xianzhuanxia": reflect.TypeOf((*XianzhuanxiaPlatform)(nil)).Elem(),
+		},
 	}
 }
 
 // GetPlatform 获取平台实例
 func (m *Manager) GetPlatform(platformCode string) (Platform, error) {
-	// 直接从数据库加载平台API配置
-	api, err := m.platformAPIRepo.GetByCode(context.Background(), platformCode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get platform API: %v", err)
+	// 先从缓存中查找
+	m.mu.RLock()
+	if platform, exists := m.platforms[platformCode]; exists {
+		m.mu.RUnlock()
+		return platform, nil
 	}
+	m.mu.RUnlock()
 
 	// 创建平台实例
-	platform := m.createPlatform(api)
-	if platform == nil {
-		return nil, fmt.Errorf("failed to create platform instance for %s", platformCode)
+	platform, err := m.createPlatform(platformCode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create platform instance for %s: %v", platformCode, err)
 	}
+
+	// 缓存平台实例
+	m.mu.Lock()
+	m.platforms[platformCode] = platform
+	m.mu.Unlock()
 
 	return platform, nil
 }
 
 // createPlatform 创建平台实例
-func (m *Manager) createPlatform(api *model.PlatformAPI) Platform {
-	if api == nil {
-		return nil
-	}
-
-	registryMutex.RLock()
-	creator, exists := platformRegistry[api.Code]
-	registryMutex.RUnlock()
-
+func (m *Manager) createPlatform(code string) (Platform, error) {
+	// 查找对应的平台类型
+	platformType, exists := m.platformTypes[code]
 	if !exists {
-		logger.Error("Unsupported platform code: %s", api.Code)
-		return nil
+		logger.Error(fmt.Sprintf("不支持的平台代码: %s", code))
+		return nil, fmt.Errorf("unsupported platform code: %s", code)
 	}
 
-	return creator(api)
+	// 创建平台实例
+	platform := reflect.New(platformType).Interface().(Platform)
+	return platform, nil
 }
 
-// LoadPlatforms 从数据库加载所有平台配置
+// RegisterPlatform 注册新的平台类型
+func (m *Manager) RegisterPlatform(code string, platformType reflect.Type) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// 确保platformType实现了Platform接口
+	if !reflect.TypeOf((*Platform)(nil)).Elem().Implements(platformType) {
+		logger.Error(fmt.Sprintf("平台类型 %s 未实现 Platform 接口", code))
+		return
+	}
+
+	// 注册平台类型
+	m.platformTypes[code] = platformType
+	logger.Info(fmt.Sprintf("注册平台成功: %s", code))
+}
+
+// LoadPlatforms 加载所有平台
 func (m *Manager) LoadPlatforms() error {
 	// 获取所有启用的平台
 	platforms, _, err := m.platformRepo.ListPlatforms(&model.PlatformListRequest{
@@ -91,33 +100,15 @@ func (m *Manager) LoadPlatforms() error {
 		return fmt.Errorf("failed to list platforms: %v", err)
 	}
 
-	// 为每个平台创建实例
+	// 遍历平台列表，创建对应的平台实例
 	for _, platform := range platforms {
-		// 获取平台API配置
-		api, err := m.platformAPIRepo.GetByCode(context.Background(), platform.Code)
+		platformInstance, err := m.createPlatform(platform.Code)
 		if err != nil {
-			logger.Error(fmt.Sprintf("为每个平台创建实例 Failed to get platform API for %s: %v", platform.Code, err))
+			logger.Error(fmt.Sprintf("创建平台实例失败: %v, code: %s", err, platform.Code))
 			continue
 		}
-
-		// 创建平台实例
-		platformInstance := m.createPlatform(api)
-		if platformInstance == nil {
-			logger.Error("Skipping unsupported platform: %s", platform.Code)
-			continue
-		}
-
-		// 缓存平台实例
-		m.mu.Lock()
 		m.platforms[platform.Code] = platformInstance
-		m.mu.Unlock()
-
-		logger.Info("Successfully loaded platform: %s", platform.Code)
-	}
-
-	// 检查是否至少加载了一个平台
-	if len(m.platforms) == 0 {
-		return fmt.Errorf("no platforms were loaded successfully")
+		logger.Info(fmt.Sprintf("加载平台成功: %s", platform.Code))
 	}
 
 	return nil
@@ -125,23 +116,17 @@ func (m *Manager) LoadPlatforms() error {
 
 // SubmitOrder 提交订单到平台
 func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
-	platform, err := m.GetPlatform(api.Code)
+	platform, err := m.GetPlatform(order.PlatformCode)
 	if err != nil {
 		return fmt.Errorf("failed to get platform: %v", err)
 	}
-	return platform.SubmitOrder(ctx, order, api, apiParam)
+	return platform.SubmitOrder(ctx, order, apiParam)
 }
 
 // QueryOrderStatus 查询订单状态
 func (m *Manager) QueryOrderStatus(ctx context.Context, order *model.Order) error {
-	// 获取平台API信息
-	api, err := m.platformAPIRepo.GetByID(ctx, order.PlatformId)
-	if err != nil {
-		return fmt.Errorf("failed to get platform API: %v", err)
-	}
-
 	// 获取平台实例
-	platform, err := m.GetPlatform(api.Code)
+	platform, err := m.GetPlatform(order.PlatformCode)
 	if err != nil {
 		return fmt.Errorf("failed to get platform: %v", err)
 	}

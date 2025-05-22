@@ -16,23 +16,17 @@ import (
 
 // XianzhuanxiaPlatform 闲赚侠平台实现
 type XianzhuanxiaPlatform struct {
-	baseURL string
-	apiKey  string
-	userID  string
+	BasePlatform
 }
 
-// NewXianzhuanxiaPlatform 创建闲赚侠平台实例
-func NewXianzhuanxiaPlatform(api *model.PlatformAPI) Platform {
-	return &XianzhuanxiaPlatform{
-		baseURL: api.URL,
-		apiKey:  api.AppKey,
-		userID:  api.MerchantID,
-	}
+// NewXianzhuanxiaPlatform 创建闲转侠平台实例
+func NewXianzhuanxiaPlatform() *XianzhuanxiaPlatform {
+	return &XianzhuanxiaPlatform{}
 }
 
-// init 注册闲赚侠平台
-func init() {
-	RegisterPlatform("xianzhuanxia", NewXianzhuanxiaPlatform)
+// GetName 获取平台名称
+func (p *XianzhuanxiaPlatform) GetName() string {
+	return "xianzhuanxia"
 }
 
 // SubmitOrderResult 提交订单结果
@@ -53,13 +47,8 @@ type QueryOrderStatusResult struct {
 	} `json:"data"`
 }
 
-// GetName 获取平台名称
-func (p *XianzhuanxiaPlatform) GetName() string {
-	return "xianzhuanxia"
-}
-
 // SubmitOrder 提交订单
-func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
+func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Order, apiParam *model.PlatformAPIParam) error {
 	logger.Info("开始提交闲赚侠订单",
 		"order_id", order.ID,
 		"order_number", order.OrderNumber,
@@ -72,13 +61,12 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		"accountNum":  order.Mobile,
 		"taskGoodsId": apiParam.ProductID,
 		"ip":          "192.168.31.2",
-		"notifyUrl":   api.CallbackURL,
+		"notifyUrl":   order.PlatformCallbackURL,
 		"maxWaitTime": strconv.Itoa(600),
 	}
 
 	// 生成签名
-	fmt.Println("生成签名", params, p.apiKey, p.userID)
-	authToken, queryTime, err := signature.GenerateXianzhuanxiaSignature(params, p.apiKey, p.userID)
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, order.PlatformAppKey, order.PlatformSecretKey)
 	if err != nil {
 		logger.Error("生成签名失败",
 			"error", err,
@@ -86,10 +74,8 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		)
 		return fmt.Errorf("生成签名失败: %v", err)
 	}
-	fmt.Println("生成签名 2", authToken, queryTime)
 
 	// 发送请求
-	fmt.Println("请求参数 2", params)
 	jsonData, err := json.Marshal(params)
 	if err != nil {
 		logger.Error("序列化请求参数失败",
@@ -98,22 +84,20 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		)
 		return fmt.Errorf("序列化请求参数失败: %v", err)
 	}
-	fmt.Println("url", p.baseURL+"/api/recharge/submit")
-	req, err := http.NewRequestWithContext(ctx, "POST", p.baseURL, bytes.NewBuffer(jsonData))
+
+	req, err := http.NewRequestWithContext(ctx, "POST", order.PlatformURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		logger.Error("创建HTTP请求失败",
 			"error", err,
-			"url", p.baseURL+"/api/recharge/submit",
+			"url", order.PlatformURL,
 		)
 		return fmt.Errorf("创建HTTP请求失败: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Auth_Token", authToken)
-	// req.URL.RawQuery = fmt.Sprintf("queryTime=%s", queryTime)
 
 	client := &http.Client{Timeout: 30 * time.Second}
-	fmt.Println("reqqqqqqqqqqqq$$$$", req)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Error("发送HTTP请求失败",
@@ -151,12 +135,12 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 	}
 
 	if result.Code != 0 {
-		logger.Error(fmt.Sprintf("提交订单失败",
+		logger.Error("提交订单失败",
 			"platform", "xianzhuanxia",
 			"order_id", order.ID,
 			"order_number", order.OrderNumber,
 			"error", result.Message,
-			"response", string(body)),
+			"response", string(body),
 		)
 		return fmt.Errorf("submit order failed: %v", result.Message)
 	}
@@ -164,10 +148,6 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 	// 更新订单信息
 	order.APIOrderNumber = result.Data.OrderID
 	order.APITradeNum = result.Data.OrderID
-	order.APICurID = api.ID
-	order.PlatformId = api.ID
-	order.PlatformName = api.Name
-	order.PlatformCode = api.Code
 
 	logger.Info("提交订单成功",
 		"order_id", order.ID,
@@ -188,13 +168,13 @@ func (p *XianzhuanxiaPlatform) QueryOrderStatus(order *model.Order) (int, error)
 
 	// 构建请求参数
 	params := map[string]string{
-		"user_id":   p.userID,
+		"user_id":   order.PlatformSecretKey, // 使用SecretKey作为user_id
 		"order_id":  order.APIOrderNumber,
 		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 	}
 
 	// 生成签名
-	authToken, queryTime, err := signature.GenerateXianzhuanxiaSignature(params, p.apiKey, p.userID)
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, order.PlatformAppKey, order.PlatformSecretKey)
 	if err != nil {
 		logger.Error("生成签名失败",
 			"error", err,
@@ -213,18 +193,17 @@ func (p *XianzhuanxiaPlatform) QueryOrderStatus(order *model.Order) (int, error)
 		return 0, fmt.Errorf("序列化请求参数失败: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", p.baseURL+"/api/recharge/query", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", order.PlatformURL+"/query", bytes.NewBuffer(jsonData))
 	if err != nil {
 		logger.Error("创建HTTP请求失败",
 			"error", err,
-			"url", p.baseURL+"/api/recharge/query",
+			"url", order.PlatformURL+"/query",
 		)
 		return 0, fmt.Errorf("创建HTTP请求失败: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+authToken)
-	req.URL.RawQuery = fmt.Sprintf("queryTime=%s", queryTime)
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
@@ -295,7 +274,7 @@ func (p *XianzhuanxiaPlatform) ParseCallbackData(data []byte) (*model.CallbackDa
 		"timestamp": callback.Timestamp,
 	}
 
-	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, p.apiKey, p.userID)
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, "", "") // 这里需要从订单中获取
 	if err != nil {
 		return nil, fmt.Errorf("生成签名失败: %v", err)
 	}

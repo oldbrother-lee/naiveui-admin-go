@@ -17,19 +17,12 @@ import (
 
 // KekebangPlatform 可客帮平台
 type KekebangPlatform struct {
-	api *model.PlatformAPI
+	BasePlatform
 }
 
-// NewKekebangPlatform 创建可客帮平台实例
-func NewKekebangPlatform(api *model.PlatformAPI) Platform {
-	return &KekebangPlatform{
-		api: api,
-	}
-}
-
-// init 注册可客帮平台
-func init() {
-	RegisterPlatform("kekebang", NewKekebangPlatform)
+// NewKekebangPlatform 创建客帮平台实例
+func NewKekebangPlatform() *KekebangPlatform {
+	return &KekebangPlatform{}
 }
 
 // GetName 获取平台名称
@@ -38,31 +31,28 @@ func (p *KekebangPlatform) GetName() string {
 }
 
 // SubmitOrder 提交订单
-func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
+func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, apiParam *model.PlatformAPIParam) error {
 	logger.Info("【开始提交可客帮订单】order_id: %d", order.ID)
 
 	// 构建请求参数
-
-	fmt.Println("提交订单到平台,构建请求参数!!!!!", api)
 	params := map[string]interface{}{
-		"app_key":    api.AppKey,
+		"app_key":    order.PlatformAppKey,
 		"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
 		"biz_code":   "1", // 充值业务
 		"order_id":   order.OrderNumber,
 		"sku_code":   apiParam.ProductID,
-		"notify_url": api.CallbackURL,
+		"notify_url": order.PlatformCallbackURL,
 		"data": map[string]string{
 			"account": order.Mobile,
 		},
 	}
 
 	// 使用客帮帮平台的签名方法
-	sign := signature.GenerateKekebangSign(params, api.SecretKey)
+	sign := signature.GenerateKekebangSign(params, order.PlatformSecretKey)
 	params["sign"] = sign
 
 	// 发送请求
-	fmt.Println("提交订单到平台,发送请求", params)
-	resp, err := p.sendRequest(ctx, api.URL, params)
+	resp, err := p.sendRequest(ctx, order.PlatformURL, params)
 	if err != nil {
 		logger.Error("【提交订单失败】order_id: %d, error: %v", order.ID, err)
 		return fmt.Errorf("submit order failed: %v", err)
@@ -123,18 +113,18 @@ func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
 
 	// 构建请求参数
 	params := map[string]interface{}{
-		"app_key":   p.api.AppKey,
+		"app_key":   order.PlatformAppKey,
 		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 		"biz_code":  "1", // 查询订单状态
 		"order_id":  order.OrderNumber,
 	}
 
 	// 使用客帮帮平台的签名方法
-	sign := signature.GenerateKekebangSign(params, p.api.SecretKey)
+	sign := signature.GenerateKekebangSign(params, order.PlatformSecretKey)
 	params["sign"] = sign
 
 	// 发送请求
-	resp, err := p.sendRequest(context.Background(), "http://test.70mail.cn:30289/openapi/purchase/v1/query-order", params)
+	resp, err := p.sendRequest(context.Background(), order.PlatformURL+"/query-order", params)
 	if err != nil {
 		logger.Error("【查询订单状态失败】order_id: %d, order_number: %s, error: %v",
 			order.ID, order.OrderNumber, err)
@@ -147,14 +137,6 @@ func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
 		logger.Error("【查询订单状态失败】order_id: %d, order_number: %s, code: %s, message: %s",
 			order.ID, order.OrderNumber, code, resp.Message)
 		return 0, fmt.Errorf("query order status failed: %s", resp.Message)
-	}
-
-	// 将响应数据转换为JSON字符串
-	respJSON, err := json.Marshal(resp)
-	if err != nil {
-		logger.Error("【查询订单状态】转换响应数据失败: %v", err)
-	} else {
-		logger.Info("【查询订单状态响应】原始返回数据: %s", string(respJSON))
 	}
 
 	status, _ := p.mapOrderState(resp.OrderState, order.ID, order.OrderNumber)

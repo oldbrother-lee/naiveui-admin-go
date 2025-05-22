@@ -94,6 +94,11 @@ type Order struct {
 	UserOrderId       string      `json:"user_order_id" gorm:"size:64;comment:用户订单ID"`
 	PlatformName      string      `json:"platform_name" gorm:"size:255;comment:平台名称"`
 	PlatformCode      string      `json:"platform_code" gorm:"size:50;comment:平台代码"`
+	// 平台配置信息
+	PlatformAppKey      string `json:"platform_app_key" gorm:"size:255;comment:平台AppKey"`
+	PlatformSecretKey   string `json:"platform_secret_key" gorm:"size:255;comment:平台SecretKey"`
+	PlatformURL         string `json:"platform_url" gorm:"size:255;comment:平台URL"`
+	PlatformCallbackURL string `json:"platform_callback_url" gorm:"size:255;comment:平台回调URL"`
 }
 
 // TableName 表名

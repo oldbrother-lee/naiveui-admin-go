@@ -171,33 +171,33 @@ func (s *RetryService) ProcessRetries(ctx context.Context) error {
 	for _, record := range records {
 		// 检查重试时间是否到达
 		if time.Now().Before(record.NextRetryTime) {
-			logger.Info("【重试时间未到】record_id: %d, order_id: %d, next_retry_time: %v, current_time: %v",
-				record.ID, record.OrderID, record.NextRetryTime, time.Now())
+			logger.Info(fmt.Sprintf("【重试时间未到】record_id: %d, order_id: %d, next_retry_time: %v, current_time: %v",
+				record.ID, record.OrderID, record.NextRetryTime, time.Now()))
 			continue
 		}
 
 		// 更新重试记录状态为处理中
 		record.Status = 1 // 处理中
 		if err := s.retryRepo.Update(ctx, record); err != nil {
-			logger.Error("【更新重试记录状态失败】record_id: %d, order_id: %d, error: %v",
-				record.ID, record.OrderID, err)
+			logger.Error(fmt.Sprintf("【更新重试记录状态失败】record_id: %d, order_id: %d, error: %v",
+				record.ID, record.OrderID, err))
 			continue
 		}
 
-		logger.Info("【开始执行重试】record_id: %d, order_id: %d, retry_count: %d",
-			record.ID, record.OrderID, record.RetryCount)
+		logger.Info(fmt.Sprintf("【开始执行重试】record_id: %d, order_id: %d, retry_count: %d",
+			record.ID, record.OrderID, record.RetryCount))
 
 		// 执行重试
 		if err := s.executeRetry(ctx, record); err != nil {
-			logger.Error("【重试执行失败】record_id: %d, order_id: %d, error: %v",
-				record.ID, record.OrderID, err)
+			logger.Error(fmt.Sprintf("【重试执行失败】record_id: %d, order_id: %d, error: %v",
+				record.ID, record.OrderID, err))
 
 			// 更新重试记录状态为失败
 			record.Status = 3 // 重试失败
 			record.LastError = err.Error()
 			if err := s.retryRepo.Update(ctx, record); err != nil {
-				logger.Error("【更新重试记录状态失败】record_id: %d, order_id: %d, error: %v",
-					record.ID, record.OrderID, err)
+				logger.Error(fmt.Sprintf("【更新重试记录状态失败】record_id: %d, order_id: %d, error: %v",
+					record.ID, record.OrderID, err))
 			}
 			continue
 		}
@@ -205,12 +205,12 @@ func (s *RetryService) ProcessRetries(ctx context.Context) error {
 		// 更新重试记录状态为成功
 		record.Status = 2 // 重试成功
 		if err := s.retryRepo.Update(ctx, record); err != nil {
-			logger.Error("【更新重试记录状态失败】record_id: %d, order_id: %d, error: %v",
-				record.ID, record.OrderID, err)
+			logger.Error(fmt.Sprintf("【更新重试记录状态失败】record_id: %d, order_id: %d, error: %v",
+				record.ID, record.OrderID, err))
 			continue
 		}
 
-		logger.Info("【重试执行成功】record_id: %d, order_id: %d", record.ID, record.OrderID)
+		logger.Info(fmt.Sprintf("【重试执行成功】record_id: %d, order_id: %d", record.ID, record.OrderID))
 	}
 
 	logger.Info("【所有重试记录处理完成】")
@@ -219,68 +219,68 @@ func (s *RetryService) ProcessRetries(ctx context.Context) error {
 
 // executeRetry 执行重试
 func (s *RetryService) executeRetry(ctx context.Context, record *model.OrderRetryRecord) error {
-	logger.Info("【开始执行重试】record_id: %d, order_id: %d", record.ID, record.OrderID)
+	logger.Info(fmt.Sprintf("【开始执行重试】record_id: %d, order_id: %d", record.ID, record.OrderID))
 
 	// 1. 获取订单信息
 	order, err := s.orderRepo.GetByID(ctx, record.OrderID)
 	if err != nil {
-		logger.Error("【获取订单信息失败】record_id: %d, order_id: %d, error: %v",
-			record.ID, record.OrderID, err)
+		logger.Error(fmt.Sprintf("【获取订单信息失败】record_id: %d, order_id: %d, error: %v",
+			record.ID, record.OrderID, err))
 		return fmt.Errorf("获取订单信息失败: %v", err)
 	}
-	logger.Info("【获取订单信息成功】record_id: %d, order_id: %d, status: %d, order_number: %s",
-		record.ID, record.OrderID, order.Status, order.OrderNumber)
+	logger.Info(fmt.Sprintf("【获取订单信息成功】record_id: %d, order_id: %d, status: %d, order_number: %s",
+		record.ID, record.OrderID, order.Status, order.OrderNumber))
 
 	// 2. 获取可用的API关系列表
 	relations, err := s.getAvailableAPIRelations(ctx, record.OrderID, order.ProductID)
 	if err != nil {
-		logger.Error("【获取可用API关系失败】record_id: %d, order_id: %d, error: %v",
-			record.ID, record.OrderID, err)
+		logger.Error(fmt.Sprintf("【获取可用API关系失败】record_id: %d, order_id: %d, error: %v",
+			record.ID, record.OrderID, err))
 		return fmt.Errorf("获取可用API关系失败: %v", err)
 	}
 
 	if len(relations) == 0 {
-		logger.Error("【没有可用的API关系】record_id: %d, order_id: %d", record.ID, record.OrderID)
+		logger.Error(fmt.Sprintf("【没有可用的API关系】record_id: %d, order_id: %d", record.ID, record.OrderID))
 		return fmt.Errorf("没有可用的API关系")
 	}
 
-	logger.Info("【获取到可用API关系】record_id: %d, order_id: %d, count: %d",
-		record.ID, record.OrderID, len(relations))
+	logger.Info(fmt.Sprintf("【获取到可用API关系】record_id: %d, order_id: %d, count: %d",
+		record.ID, record.OrderID, len(relations)))
 
 	// 3. 选择第一个可用的API关系
 	relation := relations[0]
-	logger.Info("【选择API关系】record_id: %d, order_id: %d, api_id: %d, param_id: %d",
-		record.ID, record.OrderID, relation.APIID, relation.ParamID)
+	logger.Info(fmt.Sprintf("【选择API关系】record_id: %d, order_id: %d, api_id: %d, param_id: %d",
+		record.ID, record.OrderID, relation.APIID, relation.ParamID))
 
 	// 4. 获取API信息
 	api, err := s.platformRepo.GetAPIByID(ctx, relation.APIID)
 	if err != nil {
-		logger.Error("【获取API信息失败】record_id: %d, order_id: %d, error: %v",
-			record.ID, record.OrderID, err)
+		logger.Error(fmt.Sprintf("【获取API信息失败】record_id: %d, order_id: %d, error: %v",
+			record.ID, record.OrderID, err))
 		return fmt.Errorf("获取API信息失败: %v", err)
 	}
-	logger.Info("【获取API信息成功】record_id: %d, order_id: %d, api_id: %d, api_name: %s",
-		record.ID, record.OrderID, api.ID, api.Name)
+	logger.Info(fmt.Sprintf("【获取API信息成功】record_id: %d, order_id: %d, api_id: %d, api_name: %s",
+		record.ID, record.OrderID, api.ID, api.Name))
 
 	// 5. 获取API参数
 	param, err := s.platformRepo.GetAPIParamByID(ctx, relation.ParamID)
 	if err != nil {
-		logger.Error("【获取API参数失败】record_id: %d, order_id: %d, error: %v",
+		logger.Error("	【获取API参数失败】record_id: %d, order_id: %d, error: %v",
 			record.ID, record.OrderID, err)
 		return fmt.Errorf("获取API参数失败: %v", err)
 	}
-	logger.Info("【获取API参数成功】record_id: %d, order_id: %d, param_id: %d",
-		record.ID, record.OrderID, param.ID)
+	logger.Info(fmt.Sprintf("【获取API参数成功】record_id: %d, order_id: %d, param_id: %d",
+		record.ID, record.OrderID, param.ID))
 
 	// 6. 更新重试记录中的API信息
 	record.APIID = relation.APIID
 	record.ParamID = relation.ParamID
 	if err := s.retryRepo.Update(ctx, record); err != nil {
-		logger.Error("【更新重试记录API信息失败】record_id: %d, order_id: %d, error: %v",
+		logger.Error("	【更新重试记录API信息失败】record_id: %d, order_id: %d, error: %v",
 			record.ID, record.OrderID, err)
 	}
-	logger.Info("【更新重试记录API信息成功】record_id: %d, order_id: %d, api_id: %d, param_id: %d",
-		record.ID, record.OrderID, record.APIID, record.ParamID)
+	logger.Info(fmt.Sprintf("【更新重试记录API信息成功】record_id: %d, order_id: %d, api_id: %d, param_id: %d",
+		record.ID, record.OrderID, record.APIID, record.ParamID))
 
 	// 7. 开启事务
 	tx := s.orderRepo.(*repository.OrderRepositoryImpl).DB().Begin()
@@ -295,7 +295,7 @@ func (s *RetryService) executeRetry(ctx context.Context, record *model.OrderRetr
 	// 8. 调用 RechargeService 的 SubmitOrder 方法
 	logger.Info("【开始提交订单】record_id: %d, order_id: %d, order_number: %s",
 		record.ID, record.OrderID, order.OrderNumber)
-	if err := s.rechargeService.SubmitOrder(ctx, order, api, param); err != nil {
+	if err := s.rechargeService.SubmitOrder(ctx, order, param); err != nil {
 		tx.Rollback()
 		logger.Error("【提交订单失败】record_id: %d, order_id: %d, error: %v",
 			record.ID, record.OrderID, err)
