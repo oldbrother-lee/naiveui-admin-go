@@ -33,6 +33,9 @@ type PlatformRepository interface {
 	GetAPIParamByID(ctx context.Context, id int64) (*model.PlatformAPIParam, error)
 	UpdatePlatformAccountFields(ctx context.Context, id int64, fields map[string]interface{}) error
 	GetPlatformAccountByAccountName(accountName string) (*model.PlatformAccount, error)
+
+	// 数据库相关方法
+	GetDB() *gorm.DB
 }
 
 type PlatformRepositoryImpl struct {
@@ -308,4 +311,9 @@ func (r *PlatformRepositoryImpl) GetPlatformAccountByAccountName(accountName str
 		return nil, err
 	}
 	return &account, nil
+}
+
+// GetDB 获取数据库连接
+func (r *PlatformRepositoryImpl) GetDB() *gorm.DB {
+	return r.db
 }

@@ -43,7 +43,7 @@ type RechargeService interface {
 	// CheckRechargingOrders 检查充值中订单
 	CheckRechargingOrders(ctx context.Context) error
 	// SubmitOrder 提交订单到平台
-	SubmitOrder(ctx context.Context, order *model.Order, apiParam *model.PlatformAPIParam) error
+	SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error
 	// ProcessRetryTask 处理重试任务
 	ProcessRetryTask(ctx context.Context, retryRecord *model.OrderRetryRecord) error
 }
@@ -119,7 +119,7 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 
 	// 3. 提交订单到平台
 	logger.Info(fmt.Sprintf("【开始提交订单到平台】order_id: %d, platform: %d", orderID, api.PlatformID))
-	if err := s.manager.SubmitOrder(ctx, order, apiParam); err != nil {
+	if err := s.manager.SubmitOrder(ctx, order, api, apiParam); err != nil {
 		logger.Error(fmt.Sprintf("【提交订单到平台失败】order_id: %d, error: %v", orderID, err))
 
 		// 创建重试记录
@@ -384,11 +384,11 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 		log.Printf("【获取API信息失败】order_id: %d, error: %v", order.ID, err)
 		return fmt.Errorf("get platform API failed: %v", err)
 	}
-	log.Printf("【获取API信息成功】order_id: %d, api_id: %d, api_name: %s, api.code: %s, apiParam.id: %d", order.ID, api.ID, api.Name, api.Code, apiParam.ID)
+	log.Printf("【获取API信息成功】order_id: %d, api_id: %d, api_name: %s", order.ID, api.ID, api.Name)
 
 	// 提交订单到平台
 	log.Printf("【开始提交订单到平台】order_id: %d, platform: %s", order.ID, api.PlatformID)
-	submitErr := s.manager.SubmitOrder(ctx, order, api.Code, apiParam)
+	submitErr := s.manager.SubmitOrder(ctx, order, api, apiParam)
 	if submitErr != nil {
 		log.Printf("【提交订单到平台失败】order_id: %d, error: %v", order.ID, submitErr)
 
@@ -469,7 +469,7 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 			log.Printf("【从处理队列移除失败】order_id: %d, error: %v", order.ID, err)
 		}
 
-		log.Printf("【充值任务处理完成】order_id: %d, order_number: %s",
+		log.Printf("【充值任务处理完成1】order_id: %d, order_number: %s",
 			order.ID, order.OrderNumber)
 		return fmt.Errorf("submit order failed: %v", submitErr)
 	}
@@ -479,7 +479,7 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 		log.Printf("【从处理队列移除失败】order_id: %d, error: %v", order.ID, err)
 	}
 
-	log.Printf("【充值任务处理完成】order_id: %d, order_number: %s",
+	log.Printf("【充值任务处理完成2】order_id: %d, order_number: %s",
 		order.ID, order.OrderNumber)
 	return nil
 }
@@ -618,8 +618,8 @@ func (s *rechargeService) CheckRechargingOrders(ctx context.Context) error {
 }
 
 // SubmitOrder 提交订单到平台
-func (s *rechargeService) SubmitOrder(ctx context.Context, order *model.Order, apiParam *model.PlatformAPIParam) error {
-	return s.manager.SubmitOrder(ctx, order, apiParam)
+func (s *rechargeService) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
+	return s.manager.SubmitOrder(ctx, order, api, apiParam)
 }
 
 // ProcessRetryTask 处理重试任务
@@ -659,7 +659,7 @@ func (s *rechargeService) ProcessRetryTask(ctx context.Context, retryRecord *mod
 	// 4. 提交订单到平台
 	logger.Info("【开始提交订单到平台】retry_id: %d, order_id: %d, order_number: %s",
 		retryRecord.ID, retryRecord.OrderID, order.OrderNumber)
-	if err := s.manager.SubmitOrder(ctx, order, apiParam); err != nil {
+	if err := s.manager.SubmitOrder(ctx, order, api, apiParam); err != nil {
 		logger.Error("【提交订单到平台失败】retry_id: %d, order_id: %d, error: %v",
 			retryRecord.ID, retryRecord.OrderID, err)
 		return fmt.Errorf("submit order failed: %v", err)

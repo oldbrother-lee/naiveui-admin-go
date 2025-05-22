@@ -12,21 +12,36 @@ import (
 	"recharge-go/pkg/signature"
 	"strconv"
 	"time"
+
+	"recharge-go/internal/repository"
+
+	"gorm.io/gorm"
 )
 
 // XianzhuanxiaPlatform 闲赚侠平台实现
 type XianzhuanxiaPlatform struct {
-	BasePlatform
+	platformRepo repository.PlatformRepository
 }
 
 // NewXianzhuanxiaPlatform 创建闲转侠平台实例
-func NewXianzhuanxiaPlatform() *XianzhuanxiaPlatform {
-	return &XianzhuanxiaPlatform{}
+func NewXianzhuanxiaPlatform(db *gorm.DB) *XianzhuanxiaPlatform {
+	return &XianzhuanxiaPlatform{
+		platformRepo: repository.NewPlatformRepository(db),
+	}
 }
 
 // GetName 获取平台名称
 func (p *XianzhuanxiaPlatform) GetName() string {
 	return "xianzhuanxia"
+}
+
+// getAPIKeyAndSecret 获取API密钥和密钥
+func (p *XianzhuanxiaPlatform) getAPIKeyAndSecret(apiID uint) (string, string, string, error) {
+	account, err := p.platformRepo.GetAccountByID(context.Background(), int64(apiID))
+	if err != nil {
+		return "", "", "", fmt.Errorf("获取平台账号信息失败: %v", err)
+	}
+	return account.AppKey, account.AppSecret, account.AccountName, nil
 }
 
 // SubmitOrderResult 提交订单结果
@@ -48,12 +63,20 @@ type QueryOrderStatusResult struct {
 }
 
 // SubmitOrder 提交订单
-func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Order, apiParam *model.PlatformAPIParam) error {
+func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
 	logger.Info("开始提交闲赚侠订单",
 		"order_id", order.ID,
 		"order_number", order.OrderNumber,
 		"mobile", order.Mobile,
 	)
+
+	// 获取API密钥和密钥
+	fmt.Printf("【开始提交闲赚侠订单】api 信息: %+v\n", api)
+	appKey, appSecret, accountName, err := p.getAPIKeyAndSecret(uint(api.AccountID))
+	if err != nil {
+		return fmt.Errorf("获取API密钥失败: %v", err)
+	}
+	fmt.Printf("【提交闲赚侠订单】appKey: %s, appSecret: %s, accountName: %s\n", appKey, appSecret, accountName)
 
 	// 构建请求参数
 	params := map[string]string{
@@ -61,12 +84,12 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		"accountNum":  order.Mobile,
 		"taskGoodsId": apiParam.ProductID,
 		"ip":          "192.168.31.2",
-		"notifyUrl":   order.PlatformCallbackURL,
+		"notifyUrl":   api.CallbackURL,
 		"maxWaitTime": strconv.Itoa(600),
 	}
 
 	// 生成签名
-	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, order.PlatformAppKey, order.PlatformSecretKey)
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, appKey, accountName)
 	if err != nil {
 		logger.Error("生成签名失败",
 			"error", err,
@@ -85,7 +108,7 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 		return fmt.Errorf("序列化请求参数失败: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", order.PlatformURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", api.URL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		logger.Error("创建HTTP请求失败",
 			"error", err,
@@ -159,22 +182,28 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 }
 
 // QueryOrderStatus 查询订单状态
-func (p *XianzhuanxiaPlatform) QueryOrderStatus(order *model.Order) (int, error) {
+func (p *XianzhuanxiaPlatform) QueryOrderStatus(order *model.Order) (model.OrderStatus, error) {
 	logger.Info("开始查询闲赚侠订单状态",
 		"order_id", order.ID,
 		"order_number", order.OrderNumber,
 		"api_order_id", order.APIOrderNumber,
 	)
 
+	// 获取API密钥和密钥
+	appKey, appSecret, _, err := p.getAPIKeyAndSecret(uint(order.APICurID))
+	if err != nil {
+		return 0, fmt.Errorf("获取API密钥失败: %v", err)
+	}
+
 	// 构建请求参数
 	params := map[string]string{
-		"user_id":   order.PlatformSecretKey, // 使用SecretKey作为user_id
+		"user_id":   appSecret, // 使用SecretKey作为user_id
 		"order_id":  order.APIOrderNumber,
 		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
 	}
 
 	// 生成签名
-	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, order.PlatformAppKey, order.PlatformSecretKey)
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, appKey, appSecret)
 	if err != nil {
 		logger.Error("生成签名失败",
 			"error", err,
@@ -248,7 +277,7 @@ func (p *XianzhuanxiaPlatform) QueryOrderStatus(order *model.Order) (int, error)
 		"status", result.Data.Status,
 	)
 
-	return result.Data.Status, nil
+	return model.OrderStatus(result.Data.Status), nil
 }
 
 // ParseCallbackData 解析回调数据

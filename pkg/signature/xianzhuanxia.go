@@ -47,6 +47,7 @@ func GenerateXianzhuanxiaSignature(params map[string]string, apiKey, userID stri
 	md5Hash := fmt.Sprintf("%x", md5.Sum([]byte(sb.String())))
 
 	// 第四步：拼接 Auth_Token
+	fmt.Printf("【闲赚侠签名】md5Hash: %s, userID: %s, queryTime: %s\n", md5Hash, userID, queryTime)
 	authToken := fmt.Sprintf("%s,%s,%s", md5Hash, userID, queryTime)
 
 	// Base64 编码

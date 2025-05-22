@@ -11,18 +11,23 @@ import (
 	"time"
 
 	"recharge-go/internal/model"
+	"recharge-go/internal/repository"
 	"recharge-go/pkg/logger"
 	"recharge-go/pkg/signature"
+
+	"gorm.io/gorm"
 )
 
 // KekebangPlatform 可客帮平台
 type KekebangPlatform struct {
-	BasePlatform
+	platformRepo repository.PlatformRepository
 }
 
 // NewKekebangPlatform 创建客帮平台实例
-func NewKekebangPlatform() *KekebangPlatform {
-	return &KekebangPlatform{}
+func NewKekebangPlatform(db *gorm.DB) *KekebangPlatform {
+	return &KekebangPlatform{
+		platformRepo: repository.NewPlatformRepository(db),
+	}
 }
 
 // GetName 获取平台名称
@@ -30,13 +35,29 @@ func (p *KekebangPlatform) GetName() string {
 	return "kekebang"
 }
 
+// getAPIKeyAndSecret 获取API密钥和密钥
+func (p *KekebangPlatform) getAPIKeyAndSecret(accountID int64) (string, string, error) {
+	account, err := p.platformRepo.GetAccountByID(context.Background(), accountID)
+	if err != nil {
+		return "", "", fmt.Errorf("获取平台账号信息失败: %v", err)
+	}
+	return account.AppKey, account.AppSecret, nil
+}
+
 // SubmitOrder 提交订单
-func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, apiParam *model.PlatformAPIParam) error {
-	logger.Info("【开始提交可客帮订单】order_id: %d", order.ID)
+func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
+	logger.Info(fmt.Sprintf("【开始提交可客帮订单】order_number: %s", order.OrderNumber))
+	fmt.Printf("【开始提交可客帮订单】order_number: %+v\n", apiParam)
+	//通过account_id 获取到 api_key 和 api_secret
+	apiKey, apiSecret, err := p.getAPIKeyAndSecret(api.AccountID)
+	if err != nil {
+		return fmt.Errorf("get api key and secret failed: %v", err)
+	}
 
 	// 构建请求参数
+	fmt.Printf("【开始提交可客帮订单】api 信息: %+v\n", api)
 	params := map[string]interface{}{
-		"app_key":    order.PlatformAppKey,
+		"app_key":    apiKey,
 		"timestamp":  strconv.FormatInt(time.Now().Unix(), 10),
 		"biz_code":   "1", // 充值业务
 		"order_id":   order.OrderNumber,
@@ -48,25 +69,25 @@ func (p *KekebangPlatform) SubmitOrder(ctx context.Context, order *model.Order, 
 	}
 
 	// 使用客帮帮平台的签名方法
-	sign := signature.GenerateKekebangSign(params, order.PlatformSecretKey)
+	sign := signature.GenerateKekebangSign(params, apiSecret)
 	params["sign"] = sign
 
 	// 发送请求
-	resp, err := p.sendRequest(ctx, order.PlatformURL, params)
+	resp, err := p.sendRequest(ctx, api.URL, params)
 	if err != nil {
-		logger.Error("【提交订单失败】order_id: %d, error: %v", order.ID, err)
+		logger.Error(fmt.Sprintf("【提交订单失败】order_id: %s, error: %v", order.OrderNumber, err))
 		return fmt.Errorf("submit order failed: %v", err)
 	}
 
 	// 确保 Code 是字符串类型
 	code := fmt.Sprintf("%v", resp.Code)
 	if code != "00000" {
-		logger.Error("【提交订单失败】order_id: %d, code: %s, message: %s",
-			order.ID, code, resp.Message)
+		logger.Error(fmt.Sprintf("【提交订单失败】order_id: %s, code: %s, message: %s",
+			order.OrderNumber, code, resp.Message))
 		return fmt.Errorf("submit order failed: %s", resp.Message)
 	}
 
-	logger.Info("【提交订单成功】order_id: %d", order.ID)
+	logger.Info(fmt.Sprintf("【kekebang提交订单成功】order_id: %s", order.OrderNumber))
 	return nil
 }
 
@@ -108,7 +129,7 @@ func (p *KekebangPlatform) mapOrderState(orderState int, orderID int64, orderNum
 }
 
 // QueryOrderStatus 查询订单状态
-func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
+func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (model.OrderStatus, error) {
 	logger.Info("【开始查询可客帮订单状态】order_id: %d, order_number: %s", order.ID, order.OrderNumber)
 
 	// 构建请求参数
@@ -143,7 +164,7 @@ func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (int, error) {
 
 	logger.Info("【查询订单状态完成】order_id: %d, order_number: %s, status: %d",
 		order.ID, order.OrderNumber, status)
-	return status, nil
+	return model.OrderStatus(status), nil
 }
 
 // ParseCallbackData 解析回调数据

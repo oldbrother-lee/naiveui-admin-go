@@ -295,14 +295,15 @@ func (s *RetryService) executeRetry(ctx context.Context, record *model.OrderRetr
 	// 8. 调用 RechargeService 的 SubmitOrder 方法
 	logger.Info("【开始提交订单】record_id: %d, order_id: %d, order_number: %s",
 		record.ID, record.OrderID, order.OrderNumber)
-	if err := s.rechargeService.SubmitOrder(ctx, order, param); err != nil {
+	if err := s.rechargeService.SubmitOrder(ctx, order, api, param); err != nil {
 		tx.Rollback()
 		logger.Error("【提交订单失败】record_id: %d, order_id: %d, error: %v",
 			record.ID, record.OrderID, err)
 		return fmt.Errorf("提交订单失败: %v", err)
 	}
-	logger.Info("【提交订单成功】record_id: %d, order_id: %d, order_number: %s",
-		record.ID, record.OrderID, order.OrderNumber)
+	fmt.Println("-----------")
+	logger.Info(fmt.Sprintf("【提交订单成功】record_id: %d, order_id: %d, order_number: %s",
+		record.ID, record.OrderID, order.OrderNumber))
 
 	// 9. 更新订单状态
 	logger.Info("【开始更新订单状态】record_id: %d, order_id: %d, order_number: %s, old_status: %d, new_status: %d",

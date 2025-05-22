@@ -60,15 +60,19 @@ func (m *Manager) GetPlatform(platformCode string) (Platform, error) {
 
 // createPlatform 创建平台实例
 func (m *Manager) createPlatform(code string) (Platform, error) {
-	// 查找对应的平台类型
-	platformType, exists := m.platformTypes[code]
-	if !exists {
-		logger.Error(fmt.Sprintf("不支持的平台代码: %s", code))
+	// 创建平台实例
+	var platform Platform
+	switch code {
+	case "kekebang":
+		platform = NewKekebangPlatform(m.platformRepo.GetDB())
+	case "xianzhuanxia":
+		platform = NewXianzhuanxiaPlatform(m.platformRepo.GetDB())
+	case "mifeng":
+		platform = NewKekebangPlatform(m.platformRepo.GetDB()) // 暂时使用可客帮平台的实现
+	default:
 		return nil, fmt.Errorf("unsupported platform code: %s", code)
 	}
 
-	// 创建平台实例
-	platform := reflect.New(platformType).Interface().(Platform)
 	return platform, nil
 }
 
@@ -116,11 +120,36 @@ func (m *Manager) LoadPlatforms() error {
 
 // SubmitOrder 提交订单到平台
 func (m *Manager) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
-	platform, err := m.GetPlatform(order.PlatformCode)
+	// 获取平台实例
+	platform, err := m.GetPlatform(api.Code)
 	if err != nil {
-		return fmt.Errorf("failed to get platform: %v", err)
+		// 如果平台不存在，尝试动态注册
+		platformType := m.getPlatformTypeByName(api.Code)
+		if platformType != nil {
+			m.RegisterPlatform(api.Code, platformType)
+			platform, err = m.GetPlatform(api.Code)
+			if err != nil {
+				return fmt.Errorf("failed to get platform: %v", err)
+			}
+		} else {
+			return fmt.Errorf("platform not found: %s", api.Code)
+		}
 	}
-	return platform.SubmitOrder(ctx, order, apiParam)
+	return platform.SubmitOrder(ctx, order, api, apiParam)
+}
+
+// getPlatformTypeByName 根据平台名称获取平台类型
+func (m *Manager) getPlatformTypeByName(name string) reflect.Type {
+	switch name {
+	case "kekebang":
+		return reflect.TypeOf((*KekebangPlatform)(nil)).Elem()
+	case "xianzhuanxia":
+		return reflect.TypeOf((*XianzhuanxiaPlatform)(nil)).Elem()
+	case "mifeng":
+		return reflect.TypeOf((*KekebangPlatform)(nil)).Elem() // 暂时使用可客帮平台的实现
+	default:
+		return nil
+	}
 }
 
 // QueryOrderStatus 查询订单状态
