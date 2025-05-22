@@ -469,17 +469,24 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 			log.Printf("【从处理队列移除失败】order_id: %d, error: %v", order.ID, err)
 		}
 
-		log.Printf("【充值任务处理完成1】order_id: %d, order_number: %s",
+		log.Printf("【充值任务处理完成】order_id: %d, order_number: %s",
 			order.ID, order.OrderNumber)
 		return fmt.Errorf("submit order failed: %v", submitErr)
 	}
+
+	// 更新订单状态为充值中
+	if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusRecharging); err != nil {
+		log.Printf("【更新订单状态失败】order_id: %d, error: %v", order.ID, err)
+		return fmt.Errorf("update order status failed: %v", err)
+	}
+	log.Printf("【订单状态更新成功】order_id: %d, status: %d", order.ID, model.OrderStatusRecharging)
 
 	// 从处理队列中移除
 	if err := s.RemoveFromProcessingQueue(ctx, order.ID); err != nil {
 		log.Printf("【从处理队列移除失败】order_id: %d, error: %v", order.ID, err)
 	}
 
-	log.Printf("【充值任务处理完成2】order_id: %d, order_number: %s",
+	log.Printf("【充值任务处理完成】order_id: %d, order_number: %s",
 		order.ID, order.OrderNumber)
 	return nil
 }
@@ -619,7 +626,26 @@ func (s *rechargeService) CheckRechargingOrders(ctx context.Context) error {
 
 // SubmitOrder 提交订单到平台
 func (s *rechargeService) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
-	return s.manager.SubmitOrder(ctx, order, api, apiParam)
+	// 获取平台实例
+	platform, err := s.manager.GetPlatform(api.Code)
+	if err != nil {
+		return fmt.Errorf("get platform failed: %v", err)
+	}
+
+	// 提交订单到平台
+	err = platform.SubmitOrder(ctx, order, api, apiParam)
+	if err != nil {
+		return fmt.Errorf("submit order failed: %v", err)
+	}
+
+	// 更新订单状态为充值中
+	if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusRecharging); err != nil {
+		log.Printf("【更新订单状态失败】order_id: %d, error: %v", order.ID, err)
+		return fmt.Errorf("update order status failed: %v", err)
+	}
+
+	log.Printf("【订单状态更新成功】order_id: %d, status: %d", order.ID, model.OrderStatusRecharging)
+	return nil
 }
 
 // ProcessRetryTask 处理重试任务

@@ -306,8 +306,8 @@ func (s *RetryService) executeRetry(ctx context.Context, record *model.OrderRetr
 		record.ID, record.OrderID, order.OrderNumber))
 
 	// 9. 更新订单状态
-	logger.Info("【开始更新订单状态】record_id: %d, order_id: %d, order_number: %s, old_status: %d, new_status: %d",
-		record.ID, record.OrderID, order.OrderNumber, order.Status, model.OrderStatusRecharging)
+	logger.Info(fmt.Sprintf("【开始更新订单状态】record_id: %d, order_id: %d, order_number: %s, old_status: %d, new_status: %d",
+		record.ID, record.OrderID, order.OrderNumber, order.Status, model.OrderStatusRecharging))
 	result := tx.Model(&model.Order{}).Where("id = ?", record.OrderID).Update("status", model.OrderStatusRecharging)
 	if result.Error != nil {
 		tx.Rollback()

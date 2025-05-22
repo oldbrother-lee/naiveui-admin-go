@@ -235,7 +235,7 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		Mobile:            req.Target,
 		ProductID:         productID,
 		OutTradeNum:       strconv.FormatInt(req.UserOrderID, 10),
-		TotalPrice:        officialPayment,
+		Denom:             req.Datas.Amount,
 		Price:             userPayment,
 		Status:            model.OrderStatusPendingRecharge,
 		IsDel:             0,
@@ -355,7 +355,7 @@ func (c *MF178OrderController) QueryOrder(ctx *gin.Context) {
 	// 查询订单
 	order, err := c.orderService.GetOrderByOutTradeNum(ctx, strconv.FormatInt(req.UserOrderID, 10))
 	if err != nil {
-		logger.Log.Error("查询订单失败",
+		logger.Log.Info("查询订单失败",
 			zap.Error(err),
 			zap.Int64("order_id", req.UserOrderID),
 			zap.String("request_id", ctx.GetString("request_id")))
