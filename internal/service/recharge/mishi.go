@@ -45,6 +45,38 @@ func (p *MishiPlatform) getAPIKeyAndSecret(accountID int64) (string, string, str
 	return account.AppKey, account.AppSecret, account.AccountName, nil
 }
 
+// convertOperatorCode 转换运营商编码
+func convertOperatorCode(operatorCode string) string {
+	switch operatorCode {
+	case "1":
+		return "1" // 移动
+	case "3":
+		return "2" // 联通
+	case "2":
+		return "3" // 电信
+	case "虚拟":
+		return "4" // 虚商
+	case "国家电网":
+		return "101" // 国家电网
+	case "南方电网":
+		return "102" // 南方电网
+	case "中石化":
+		return "104" // 中石化
+	case "中石油":
+		return "105" // 中石油
+	case "腾讯":
+		return "1000" // 腾讯
+	case "爱奇艺":
+		return "1001" // 爱奇艺
+	case "优酷":
+		return "1002" // 优酷
+	case "抖音":
+		return "1031" // 抖音
+	default:
+		return "1" // 默认移动
+	}
+}
+
 // SubmitOrder 提交订单
 func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api *model.PlatformAPI, apiParam *model.PlatformAPIParam) error {
 	logger.Info("开始提交秘史订单",
@@ -54,26 +86,26 @@ func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api
 	)
 
 	// 获取API密钥和密钥
-	appKey, appSecret, accountName, err := p.getAPIKeyAndSecret(api.AccountID)
+	_, appSecret, accountName, err := p.getAPIKeyAndSecret(api.AccountID)
 	if err != nil {
 		return fmt.Errorf("获取API密钥失败: %v", err)
 	}
 
 	// 构建请求参数
 	params := url.Values{}
-	params.Add("szAgentId", accountName)
-	params.Add("szOrderId", order.OrderNumber)
-	params.Add("szPhoneNum", order.Mobile)
-	params.Add("nMoney", strconv.FormatInt(int64(order.TotalPrice), 10))
-	params.Add("nSortType", "1")
-	params.Add("nProductClass", "1")
-	params.Add("nProductType", "1")
+	params.Add("szAgentId", accountName)                                  // 客户id
+	params.Add("szOrderId", order.OrderNumber)                            // 订单号
+	params.Add("szPhoneNum", order.Mobile)                                // 充值手机号
+	params.Add("nMoney", strconv.FormatInt(int64(order.TotalPrice), 10))  // 充值金额
+	params.Add("nSortType", convertOperatorCode(strconv.Itoa(order.ISP))) // 运营商编码
+	params.Add("nProductClass", "1")                                      // 充值产品分类
+	params.Add("nProductType", "1")                                       // 充值产品类型
 	params.Add("szProductId", apiParam.ProductID)
 
 	// 生成签名
-
 	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nMoney=%s&nSortType=%s&nProductClass=%s&nProductType=%s&szTimeStamp=%s&szKey=%s",
-		appKey, order.OrderNumber, order.Mobile, strconv.FormatInt(int64(order.TotalPrice), 10), "1", "1", "1", time.Now().Format("2006-01-02 15:04:05"), appSecret)
+		accountName, order.OrderNumber, order.Mobile, strconv.FormatInt(int64(order.TotalPrice), 10),
+		convertOperatorCode(apiParam.ProductID), "1", "1", time.Now().Format("2006-01-02 15:04:05"), appSecret)
 	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
 
@@ -81,7 +113,7 @@ func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api
 	params.Add("szNotifyUrl", api.CallbackURL)
 
 	// 发送请求
-	respStr, err := p.sendRequest(ctx, api.URL, params)
+	respStr, err := p.sendRequest(ctx, "http://ip.jikelab.com:5000/order/mishi", params)
 	if err != nil {
 		return fmt.Errorf("发送请求失败: %v", err)
 	}
@@ -115,26 +147,25 @@ func (p *MishiPlatform) QueryOrderStatus(order *model.Order) (model.OrderStatus,
 	logger.Info("开始查询秘史订单状态",
 		"order_id", order.ID,
 		"order_number", order.OrderNumber,
-		"out_trade_num", order.OutTradeNum,
+		"api_order_id", order.APIOrderNumber,
 	)
 
 	// 获取API密钥和密钥
-	appKey, appSecret, err := p.getAPIKeyAndSecret(order.PlatformAccountID)
+	_, appSecret, accountName, err := p.getAPIKeyAndSecret(order.PlatformAccountID)
 	if err != nil {
 		return 0, fmt.Errorf("获取API密钥失败: %v", err)
 	}
 
 	// 构建请求参数
 	params := url.Values{}
-	params.Add("szAgentId", appKey)
+	params.Add("szAgentId", accountName)
 	params.Add("szOrderId", order.OrderNumber)
 
 	// 生成签名
 	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szKey=%s",
-		appKey, order.OrderNumber, appSecret)
+		accountName, order.OrderNumber, appSecret)
 	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
-	params.Add("szFormat", "json")
 
 	// 发送请求
 	respStr, err := p.sendRequest(context.Background(), order.PlatformURL+"/query", params)
@@ -243,7 +274,7 @@ func (p *MishiPlatform) QueryBalance(ctx context.Context, accountID int64) (floa
 	)
 
 	// 获取API密钥和密钥
-	appKey, appSecret, err := p.getAPIKeyAndSecret(accountID)
+	_, appSecret, accountName, err := p.getAPIKeyAndSecret(accountID)
 	if err != nil {
 		return 0, fmt.Errorf("获取API密钥失败: %v", err)
 	}
@@ -256,10 +287,10 @@ func (p *MishiPlatform) QueryBalance(ctx context.Context, accountID int64) (floa
 
 	// 构建请求参数
 	params := url.Values{}
-	params.Add("szAgentId", strconv.FormatInt(accountID, 10))
+	params.Add("szAgentId", accountName)
 
 	// 生成签名
-	signStr := fmt.Sprintf("szAgentId=%s&szKey=%s", appKey, appSecret)
+	signStr := fmt.Sprintf("szAgentId=%s&szKey=%s", accountName, appSecret)
 	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
 
@@ -280,15 +311,12 @@ func (p *MishiPlatform) QueryBalance(ctx context.Context, accountID int64) (floa
 		return 0, fmt.Errorf("查询余额失败: %s", result.SzRtnCode)
 	}
 
-	// 解析余额
-	balance := result.FBalance
-
 	logger.Info("查询余额成功",
 		"account_id", accountID,
-		"balance", balance,
+		"balance", result.FBalance,
 	)
 
-	return balance, nil
+	return result.FBalance, nil
 }
 
 // MishiResponse 秘史平台响应

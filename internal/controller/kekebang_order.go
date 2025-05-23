@@ -14,6 +14,7 @@ import (
 	"recharge-go/pkg/signature"
 	"recharge-go/pkg/utils/response"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -213,13 +214,23 @@ func (c *KekebangOrderController) verifySign(req model.KekebangOrderRequest) boo
 
 // getISPFromOperatorID 根据运营商ID获取ISP
 func getISPFromOperatorID(operatorID string) int {
-	switch operatorID {
+	//中国移动
+	operatorName := strings.TrimPrefix(operatorID, "中国")
+	switch operatorName {
 	case "1":
 		return 1 // 移动
 	case "2":
-		return 2 // 联通
+		return 3 // 联通
 	case "3":
-		return 3 // 电信
+		return 2 // 电信
+	case "移动":
+		return 1 // 移动
+	case "联通":
+		return 3 // 联通
+	case "电信":
+		return 2 // 电信
+	case "虚拟":
+		return 4 // 虚拟
 	default:
 		return 0 // 未知
 	}
