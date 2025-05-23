@@ -37,8 +37,8 @@ func (p *MishiPlatform) GetName() string {
 
 // getAPIKeyAndSecret 获取API密钥和密钥
 func (p *MishiPlatform) getAPIKeyAndSecret(accountID int64) (string, string, string, error) {
-	accountIDStr := strconv.FormatInt(accountID, 10)
-	account, err := p.platformRepo.GetPlatformAccountByAccountName(accountIDStr)
+	// accountIDStr := strconv.FormatInt(accountID, 10)
+	account, err := p.platformRepo.GetPlatformAccountByID(accountID)
 	if err != nil {
 		return "", "", "", fmt.Errorf("获取平台账号信息失败: %v", err)
 	}
@@ -84,40 +84,44 @@ func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api
 		"order_number", order.OrderNumber,
 		"mobile", order.Mobile,
 	)
-
+	fmt.Printf("[mishi] api: %+v\n", api)
+	fmt.Printf("[mishi] 提交秘史订单apiParam: %+v\n", apiParam)
 	// 获取API密钥和密钥
 	_, appSecret, accountName, err := p.getAPIKeyAndSecret(api.AccountID)
 	if err != nil {
-		return fmt.Errorf("获取API密钥失败: %v", err)
+		return fmt.Errorf("meishi 获取API密钥失败!!!: %v", err)
 	}
 
 	// 构建请求参数
+	szTimeStamp := time.Now().Format("2006-01-02 15:04:05")
 	params := url.Values{}
 	params.Add("szAgentId", accountName)                                  // 客户id
 	params.Add("szOrderId", order.OrderNumber)                            // 订单号
 	params.Add("szPhoneNum", order.Mobile)                                // 充值手机号
-	params.Add("nMoney", strconv.FormatInt(int64(order.TotalPrice), 10))  // 充值金额
+	params.Add("nMoney", strconv.FormatInt(int64(order.Denom), 10))       // 充值金额
 	params.Add("nSortType", convertOperatorCode(strconv.Itoa(order.ISP))) // 运营商编码
 	params.Add("nProductClass", "1")                                      // 充值产品分类
 	params.Add("nProductType", "1")                                       // 充值产品类型
 	params.Add("szProductId", apiParam.ProductID)
+	params.Add("szTimeStamp", szTimeStamp)
 
 	// 生成签名
 	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nMoney=%s&nSortType=%s&nProductClass=%s&nProductType=%s&szTimeStamp=%s&szKey=%s",
-		accountName, order.OrderNumber, order.Mobile, strconv.FormatInt(int64(order.TotalPrice), 10),
-		convertOperatorCode(apiParam.ProductID), "1", "1", time.Now().Format("2006-01-02 15:04:05"), appSecret)
+		accountName, order.OrderNumber, order.Mobile, strconv.FormatInt(int64(order.Denom), 10),
+		convertOperatorCode(apiParam.ProductID), "1", "1", szTimeStamp, appSecret)
+	fmt.Printf("[mishi] 生成签名前: %s\n", signStr)
 	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
 
 	// 添加回调地址
 	params.Add("szNotifyUrl", api.CallbackURL)
-
+	fmt.Printf("[mishi] 发送请求: %+v\n", params)
 	// 发送请求
-	respStr, err := p.sendRequest(ctx, "http://ip.jikelab.com:5000/order/mishi", params)
+	respStr, err := p.sendRequest(ctx, api.URL+"/api/submitorder", params)
 	if err != nil {
 		return fmt.Errorf("发送请求失败: %v", err)
 	}
-
+	logger.Info("meishi 发送请求成功返回的参数: ", "respStr", respStr)
 	// 解析响应
 	var result MishiOrderResponseSubmit
 	if err := json.Unmarshal([]byte(respStr), &result); err != nil {
@@ -125,13 +129,14 @@ func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api
 	}
 
 	// 处理响应
-	if result.SzRtnCode != "success" {
+	if result.NRtn != 0 {
+		logger.Error("meishi 提交订单失败: NRtn %d szRtnCode：%s", result.NRtn, result.SzRtnCode)
 		return fmt.Errorf("提交订单失败: %s", result.SzRtnCode)
 	}
 
 	// 更新订单信息
-	order.APIOrderNumber = result.SzOrderId
-	order.APITradeNum = result.SzOrderId
+	// order.APIOrderNumber = result.SzOrderId
+	// order.APITradeNum = result.SzOrderId
 
 	logger.Info("提交订单成功",
 		"order_id", order.ID,
@@ -336,13 +341,9 @@ type MishiOrderResponseQuery struct {
 }
 
 type MishiOrderResponseSubmit struct {
-	SzAgentId     string `json:"szAgentId"`
-	SzRtnCode     string `json:"szRtnCode"`
-	SzOrderId     string `json:"SzOrderId"`
-	SzPhoneNum    string `json:"szPhoneNum"`
-	NMoney        string `json:"nMoney"`
-	NSortType     int    `json:"nSortType"`
-	NProductClass string `json:"nProductClass"`
-	NProductType  string `json:"nProductType"`
-	SzProductId   string `json:"szProductId"`
+	NRtn       int64   `json:"nRtn"`
+	SzRtnCode  string  `json:"szRtnCode"`
+	SzOrderId  string  `json:"SzOrderId"`
+	FSalePrice float64 `json:"fSalePrice"`
+	FNBalance  float64 `json:"fNBalance"`
 }

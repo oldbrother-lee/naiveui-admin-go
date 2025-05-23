@@ -29,6 +29,7 @@ func SetupRouter(
 	retryService *service.RetryService,
 	userRepo *repository.UserRepository,
 	statisticsController *controller.StatisticsController,
+	callbackController *controller.CallbackController,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -54,7 +55,11 @@ func SetupRouter(
 		RegisterExternalOrderRoutes(api)
 
 		// 回调路由 - 不需要认证
-		RegisterCallbackRoutes(api)
+		callback := api.Group("/callback")
+		{
+			callback.POST("/kekebang/:userid", callbackController.HandleKekebangCallback)
+			callback.POST("/mishi/:userid", callbackController.HandleMishiCallback)
+		}
 
 		// 重试路由 - 不需要认证
 		retryHandler := handler.NewRetryHandler(retryService)

@@ -185,25 +185,29 @@ func main() {
 	statisticsTask := service.NewStatisticsTask(statisticsService, logger.Log)
 	statisticsTask.Start()
 
+	// 创建 callbackController
+	callbackController := controller.NewCallbackController(rechargeService, platformRepo, orderRepo)
+
 	// 注册路由
 	engine := router.SetupRouter(
-		userController,               // userController
-		permissionController,         // permissionController
-		roleController,               // roleController
-		productController,            // productController
-		userService,                  // userService
-		phoneLocationController,      // phoneLocationController
-		productTypeController,        // productTypeController
-		platformController,           // platformController
-		platformAPIController,        // platformAPIController
-		platformAPIParamController,   // platformAPIParamController
-		productAPIRelationController, // productAPIRelationController
-		userLogController,            // userLogController
-		userGradeController,          // userGradeController
+		userController,
+		permissionController,
+		roleController,
+		productController,
+		userService,
+		phoneLocationController,
+		productTypeController,
+		platformController,
+		platformAPIController,
+		platformAPIParamController,
+		productAPIRelationController,
+		userLogController,
+		userGradeController,
 		rechargeHandler,
-		retryService, // retryService
-		userRepo,     // 新增，确保参数数量和类型一致
+		retryService,
+		userRepo,
 		statisticsController,
+		callbackController,
 	)
 
 	// 启动HTTP服务器

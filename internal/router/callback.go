@@ -5,22 +5,22 @@ import (
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/recharge"
-	"recharge-go/pkg/database"
 	"recharge-go/pkg/queue"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // RegisterCallbackRoutes 注册回调相关路由
-func RegisterCallbackRoutes(r *gin.RouterGroup) {
+func RegisterCallbackRoutes(r *gin.RouterGroup, db *gorm.DB) {
 	// 创建服务实例
-	orderRepo := repository.NewOrderRepository(database.DB)
-	platformRepo := repository.NewPlatformRepository(database.DB)
-	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
-	manager := recharge.NewManager(database.DB)
+	orderRepo := repository.NewOrderRepository(db)
+	platformRepo := repository.NewPlatformRepository(db)
+	callbackLogRepo := repository.NewCallbackLogRepository(db)
+	manager := recharge.NewManager(db)
 
 	// 创建通知仓库
-	notificationRepo := repository.NewNotificationRepository(database.DB)
+	notificationRepo := repository.NewNotificationRepository(db)
 
 	// 创建队列实例
 	queueInstance := queue.NewRedisQueue()
@@ -39,18 +39,18 @@ func RegisterCallbackRoutes(r *gin.RouterGroup) {
 		platformRepo,
 		manager,
 		callbackLogRepo,
-		database.DB,
+		db,
 		orderService,
-		repository.NewProductAPIRelationRepository(database.DB),
-		service.NewPlatformAPIParamService(repository.NewPlatformAPIParamRepository(database.DB)),
-		repository.NewRetryRepository(database.DB),
+		repository.NewProductAPIRelationRepository(db),
+		service.NewPlatformAPIParamService(repository.NewPlatformAPIParamRepository(db)),
+		repository.NewRetryRepository(db),
 	)
 
 	// 设置 orderService 的 rechargeService
 	orderService.SetRechargeService(rechargeService)
 
 	// 创建控制器
-	callbackController := controller.NewCallbackController(rechargeService, platformRepo)
+	callbackController := controller.NewCallbackController(rechargeService, platformRepo, orderRepo)
 
 	// 注册路由
 	callback := r.Group("/callback")
@@ -59,6 +59,12 @@ func RegisterCallbackRoutes(r *gin.RouterGroup) {
 		kekebangOrder := callback.Group("/kekebang/:userid")
 		{
 			kekebangOrder.POST("", callbackController.HandleKekebangCallback)
+		}
+
+		// 添加米师师回调路由
+		mishiOrder := callback.Group("/mishi/:userid")
+		{
+			mishiOrder.POST("", callbackController.HandleMishiCallback)
 		}
 	}
 }
