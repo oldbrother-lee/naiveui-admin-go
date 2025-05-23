@@ -109,6 +109,9 @@ func SetupRouter(
 			// 余额相关接口（仅管理员可访问）
 			RegisterBalanceRoutes(auth, database.DB, userRepo, userService)
 
+			// 平台余额查询接口（仅管理员可访问）
+			RegisterPlatformBalanceRoutes(auth, userService)
+
 			// 授信相关接口（仅管理员可访问）
 			creditLogRepo := repository.NewCreditLogRepository(database.DB)
 			creditService := service.NewCreditService(userRepo, creditLogRepo)

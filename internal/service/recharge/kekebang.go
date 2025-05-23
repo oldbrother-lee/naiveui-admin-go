@@ -160,7 +160,13 @@ func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (model.OrderStat
 		return 0, fmt.Errorf("query order status failed: %s", resp.Message)
 	}
 
-	status, _ := p.mapOrderState(resp.OrderState, order.ID, order.OrderNumber)
+	// 转换状态
+	status, err := strconv.Atoi(resp.Status)
+	if err != nil {
+		return 0, fmt.Errorf("invalid status: %s", resp.Status)
+	}
+
+	status, _ = p.mapOrderState(status, order.ID, order.OrderNumber)
 
 	logger.Info("【查询订单状态完成】order_id: %d, order_number: %s, status: %d",
 		order.ID, order.OrderNumber, status)
@@ -234,11 +240,11 @@ func (p *KekebangPlatform) sendRequest(ctx context.Context, url string, params m
 
 // KekebangResponse 可客帮响应
 type KekebangResponse struct {
-	Code       interface{} `json:"code"`
-	Message    string      `json:"message"`
-	OrderID    string      `json:"order_id"`
-	Status     string      `json:"status"`
-	OrderState int         `json:"order_state"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+	OrderID string `json:"order_id"`
+	Status  string `json:"status"`
+	Balance string `json:"balance"`
 }
 
 // KekebangCallbackResponse 可客帮回调响应
@@ -254,4 +260,59 @@ type KekebangCallbackResponse struct {
 	OrderState int     `json:"order_state"`
 	ErrorCode  int     `json:"error_code"`
 	Sign       string  `json:"sign"`
+}
+
+// QueryBalance 查询账户余额
+func (p *KekebangPlatform) QueryBalance(ctx context.Context, accountID int64) (float64, error) {
+	logger.Info("开始查询可客帮账户余额",
+		"account_id", accountID,
+	)
+
+	// 获取API密钥和密钥
+	appKey, appSecret, err := p.getAPIKeyAndSecret(accountID)
+	if err != nil {
+		return 0, fmt.Errorf("获取API密钥失败: %v", err)
+	}
+
+	// 获取平台API信息
+	api, err := p.platformRepo.GetPlatformByCode(ctx, "kekebang")
+	if err != nil {
+		return 0, fmt.Errorf("获取平台API信息失败: %v", err)
+	}
+
+	// 构建请求参数
+	params := map[string]interface{}{
+		"app_key":   appKey,
+		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+		"biz_code":  "2", // 查询余额
+	}
+
+	// 使用客帮帮平台的签名方法
+	sign := signature.GenerateKekebangSign(params, appSecret)
+	params["sign"] = sign
+
+	// 发送请求
+	resp, err := p.sendRequest(ctx, api.URL+"/query-balance", params)
+	if err != nil {
+		return 0, fmt.Errorf("查询余额失败: %v", err)
+	}
+
+	// 确保 Code 是字符串类型
+	code := fmt.Sprintf("%v", resp.Code)
+	if code != "00000" {
+		return 0, fmt.Errorf("查询余额失败: %s", resp.Message)
+	}
+
+	// 解析余额
+	balance, err := strconv.ParseFloat(resp.Balance, 64)
+	if err != nil {
+		return 0, fmt.Errorf("解析余额失败: %v", err)
+	}
+
+	logger.Info("查询余额成功",
+		"account_id", accountID,
+		"balance", balance,
+	)
+
+	return balance, nil
 }

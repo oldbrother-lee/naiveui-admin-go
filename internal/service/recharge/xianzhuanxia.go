@@ -333,3 +333,113 @@ func (p *XianzhuanxiaPlatform) ParseCallbackData(data []byte) (*model.CallbackDa
 		TransactionID: callback.OrderID,
 	}, nil
 }
+
+// QueryBalance 查询账户余额
+func (p *XianzhuanxiaPlatform) QueryBalance(ctx context.Context, accountID int64) (float64, error) {
+	logger.Info("开始查询闲赚侠账户余额",
+		"account_id", accountID,
+	)
+
+	// 获取API密钥和密钥
+	appKey, appSecret, accountName, err := p.getAPIKeyAndSecret(uint(accountID))
+	if err != nil {
+		return 0, fmt.Errorf("获取API密钥失败: %v", err)
+	}
+
+	// 获取平台API信息
+	api, err := p.platformRepo.GetPlatformByCode(ctx, "xianzhuanxia")
+	if err != nil {
+		return 0, fmt.Errorf("获取平台API信息失败: %v", err)
+	}
+
+	// 构建请求参数
+	params := map[string]string{
+		"user_id":   appSecret, // 使用SecretKey作为user_id
+		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+	}
+
+	// 生成签名
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, appKey, accountName)
+	if err != nil {
+		logger.Error("生成签名失败",
+			"error", err,
+			"params", params,
+		)
+		return 0, fmt.Errorf("生成签名失败: %v", err)
+	}
+
+	// 发送请求
+	jsonData, err := json.Marshal(params)
+	if err != nil {
+		logger.Error("序列化请求参数失败",
+			"error", err,
+			"params", params,
+		)
+		return 0, fmt.Errorf("序列化请求参数失败: %v", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", api.URL+"/query-balance", bytes.NewBuffer(jsonData))
+	if err != nil {
+		logger.Error("创建HTTP请求失败",
+			"error", err,
+			"url", api.URL+"/query-balance",
+		)
+		return 0, fmt.Errorf("创建HTTP请求失败: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Auth_Token", authToken)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Error("发送HTTP请求失败",
+			"error", err,
+			"url", req.URL.String(),
+		)
+		return 0, fmt.Errorf("发送HTTP请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Error("读取响应内容失败",
+			"error", err,
+			"status_code", resp.StatusCode,
+		)
+		return 0, fmt.Errorf("读取响应内容失败: %v", err)
+	}
+
+	// 解析响应
+	var result struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    struct {
+			Balance float64 `json:"balance"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		logger.Error("解析响应内容失败",
+			"error", err,
+			"body", string(body),
+		)
+		return 0, fmt.Errorf("解析响应内容失败: %v", err)
+	}
+
+	if result.Code != 0 {
+		logger.Error("查询余额失败",
+			"platform", "xianzhuanxia",
+			"account_id", accountID,
+			"error", result.Message,
+		)
+		return 0, fmt.Errorf("查询余额失败: %s", result.Message)
+	}
+
+	logger.Info("查询余额成功",
+		"account_id", accountID,
+		"balance", result.Data.Balance,
+	)
+
+	return result.Data.Balance, nil
+}

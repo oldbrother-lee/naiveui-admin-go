@@ -15,6 +15,8 @@ type Platform interface {
 	QueryOrderStatus(order *model.Order) (model.OrderStatus, error)
 	// ParseCallbackData 解析回调数据
 	ParseCallbackData(data []byte) (*model.CallbackData, error)
+	// QueryBalance 查询账户余额
+	QueryBalance(ctx context.Context, accountID int64) (float64, error)
 }
 
 // PlatformConfig 平台配置

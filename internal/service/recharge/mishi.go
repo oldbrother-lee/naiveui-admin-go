@@ -3,7 +3,6 @@ package recharge
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/signature"
 	"strconv"
 	"time"
 
@@ -36,12 +36,13 @@ func (p *MishiPlatform) GetName() string {
 }
 
 // getAPIKeyAndSecret 获取API密钥和密钥
-func (p *MishiPlatform) getAPIKeyAndSecret(accountID int64) (string, string, error) {
-	account, err := p.platformRepo.GetAccountByID(context.Background(), accountID)
+func (p *MishiPlatform) getAPIKeyAndSecret(accountID int64) (string, string, string, error) {
+	accountIDStr := strconv.FormatInt(accountID, 10)
+	account, err := p.platformRepo.GetPlatformAccountByAccountName(accountIDStr)
 	if err != nil {
-		return "", "", fmt.Errorf("获取平台账号信息失败: %v", err)
+		return "", "", "", fmt.Errorf("获取平台账号信息失败: %v", err)
 	}
-	return account.AppKey, account.AppSecret, nil
+	return account.AppKey, account.AppSecret, account.AccountName, nil
 }
 
 // SubmitOrder 提交订单
@@ -53,15 +54,15 @@ func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api
 	)
 
 	// 获取API密钥和密钥
-	appKey, appSecret, err := p.getAPIKeyAndSecret(api.AccountID)
+	appKey, appSecret, accountName, err := p.getAPIKeyAndSecret(api.AccountID)
 	if err != nil {
 		return fmt.Errorf("获取API密钥失败: %v", err)
 	}
 
 	// 构建请求参数
 	params := url.Values{}
-	params.Add("szAgentId", appKey)
-	params.Add("szOrderId", order.OutTradeNum)
+	params.Add("szAgentId", accountName)
+	params.Add("szOrderId", order.OrderNumber)
 	params.Add("szPhoneNum", order.Mobile)
 	params.Add("nMoney", strconv.FormatInt(int64(order.TotalPrice), 10))
 	params.Add("nSortType", "1")
@@ -69,38 +70,41 @@ func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api
 	params.Add("nProductType", "1")
 	params.Add("szProductId", apiParam.ProductID)
 
-	// 生成时间戳
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	params.Add("szTimeStamp", timestamp)
-
 	// 生成签名
-	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nMoney=%d&nSortType=%d&nProductClass=1&nProductType=1&szTimeStamp=%s&szKey=%s",
-		appKey, order.OutTradeNum, order.Mobile, int(order.TotalPrice), 1, timestamp, appSecret)
-	sign := fmt.Sprintf("%x", md5.Sum([]byte(signStr)))
+
+	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nMoney=%s&nSortType=%s&nProductClass=%s&nProductType=%s&szTimeStamp=%s&szKey=%s",
+		appKey, order.OrderNumber, order.Mobile, strconv.FormatInt(int64(order.TotalPrice), 10), "1", "1", "1", time.Now().Format("2006-01-02 15:04:05"), appSecret)
+	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
 
 	// 添加回调地址
 	params.Add("szNotifyUrl", api.CallbackURL)
 
 	// 发送请求
-	resp, err := p.sendRequest(ctx, api.URL, params)
+	respStr, err := p.sendRequest(ctx, api.URL, params)
 	if err != nil {
 		return fmt.Errorf("发送请求失败: %v", err)
 	}
 
+	// 解析响应
+	var result MishiOrderResponseSubmit
+	if err := json.Unmarshal([]byte(respStr), &result); err != nil {
+		return fmt.Errorf("解析响应失败: %v", err)
+	}
+
 	// 处理响应
-	if resp.Code != "0" {
-		return fmt.Errorf("提交订单失败: %s", resp.Message)
+	if result.SzRtnCode != "success" {
+		return fmt.Errorf("提交订单失败: %s", result.SzRtnCode)
 	}
 
 	// 更新订单信息
-	order.APIOrderNumber = resp.OrderID
-	order.APITradeNum = resp.OrderID
+	order.APIOrderNumber = result.SzOrderId
+	order.APITradeNum = result.SzOrderId
 
 	logger.Info("提交订单成功",
 		"order_id", order.ID,
 		"order_number", order.OrderNumber,
-		"api_order_id", resp.OrderID,
+		"api_order_id", result.SzOrderId,
 	)
 
 	return nil
@@ -111,7 +115,7 @@ func (p *MishiPlatform) QueryOrderStatus(order *model.Order) (model.OrderStatus,
 	logger.Info("开始查询秘史订单状态",
 		"order_id", order.ID,
 		"order_number", order.OrderNumber,
-		"api_order_id", order.APIOrderNumber,
+		"out_trade_num", order.OutTradeNum,
 	)
 
 	// 获取API密钥和密钥
@@ -123,32 +127,35 @@ func (p *MishiPlatform) QueryOrderStatus(order *model.Order) (model.OrderStatus,
 	// 构建请求参数
 	params := url.Values{}
 	params.Add("szAgentId", appKey)
-	params.Add("szOrderId", order.APIOrderNumber)
-
-	// 生成时间戳
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	params.Add("szTimeStamp", timestamp)
+	params.Add("szOrderId", order.OrderNumber)
 
 	// 生成签名
-	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szTimeStamp=%s&szKey=%s",
-		appKey, order.APIOrderNumber, timestamp, appSecret)
-	sign := fmt.Sprintf("%x", md5.Sum([]byte(signStr)))
+	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szKey=%s",
+		appKey, order.OrderNumber, appSecret)
+	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
+	params.Add("szFormat", "json")
 
 	// 发送请求
-	resp, err := p.sendRequest(context.Background(), order.PlatformURL+"/query", params)
+	respStr, err := p.sendRequest(context.Background(), order.PlatformURL+"/query", params)
 	if err != nil {
 		return 0, fmt.Errorf("查询订单状态失败: %v", err)
 	}
 
+	// 解析响应
+	var result MishiOrderResponseQuery
+	if err := json.Unmarshal([]byte(respStr), &result); err != nil {
+		return 0, fmt.Errorf("解析响应失败: %v", err)
+	}
+
 	// 处理响应
-	if resp.Code != "0" {
-		return 0, fmt.Errorf("查询订单状态失败: %s", resp.Message)
+	if result.SzRtnCode != "success" {
+		return 0, fmt.Errorf("查询订单状态失败: %s", result.SzRtnMsg)
 	}
 
 	// 转换状态
 	var status model.OrderStatus
-	switch resp.Status {
+	switch result.SzRtnMsg {
 	case "1":
 		status = model.OrderStatusProcessing
 	case "2":
@@ -202,11 +209,11 @@ func (p *MishiPlatform) ParseCallbackData(data []byte) (*model.CallbackData, err
 }
 
 // sendRequest 发送请求
-func (p *MishiPlatform) sendRequest(ctx context.Context, url string, params url.Values) (*MishiResponse, error) {
+func (p *MishiPlatform) sendRequest(ctx context.Context, url string, params url.Values) (string, error) {
 	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBufferString(params.Encode()))
 	if err != nil {
-		return nil, fmt.Errorf("创建请求失败: %v", err)
+		return "", fmt.Errorf("创建请求失败: %v", err)
 	}
 
 	// 设置请求头
@@ -216,23 +223,17 @@ func (p *MishiPlatform) sendRequest(ctx context.Context, url string, params url.
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("发送请求失败: %v", err)
+		return "", fmt.Errorf("发送请求失败: %v", err)
 	}
 	defer resp.Body.Close()
 
 	// 读取响应
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("读取响应失败: %v", err)
+		return "", fmt.Errorf("读取响应失败: %v", err)
 	}
+	return string(body), nil
 
-	// 解析响应
-	var result MishiResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("解析响应失败: %v", err)
-	}
-
-	return &result, nil
 }
 
 // QueryBalance 查询账户余额
@@ -247,31 +248,40 @@ func (p *MishiPlatform) QueryBalance(ctx context.Context, accountID int64) (floa
 		return 0, fmt.Errorf("获取API密钥失败: %v", err)
 	}
 
+	// 获取平台API信息
+	api, err := p.platformRepo.GetPlatformByCode(ctx, "mishi")
+	if err != nil {
+		return 0, fmt.Errorf("获取平台API信息失败: %v", err)
+	}
+
 	// 构建请求参数
 	params := url.Values{}
-	params.Add("szAgentId", appKey)
+	params.Add("szAgentId", strconv.FormatInt(accountID, 10))
 
 	// 生成签名
 	signStr := fmt.Sprintf("szAgentId=%s&szKey=%s", appKey, appSecret)
-	sign := fmt.Sprintf("%x", md5.Sum([]byte(signStr)))
+	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
 
 	// 发送请求
-	resp, err := p.sendRequest(ctx, "/api/old/queryBalance", params)
+	respStr, err := p.sendRequest(ctx, api.URL+"/api/old/queryBalance", params)
 	if err != nil {
 		return 0, fmt.Errorf("查询余额失败: %v", err)
 	}
 
+	// 解析响应
+	var result MishiResponse
+	if err := json.Unmarshal([]byte(respStr), &result); err != nil {
+		return 0, fmt.Errorf("解析响应失败: %v", err)
+	}
+
 	// 处理响应
-	if resp.Code != "0" {
-		return 0, fmt.Errorf("查询余额失败: %s", resp.Message)
+	if result.SzRtnCode != "success" {
+		return 0, fmt.Errorf("查询余额失败: %s", result.SzRtnCode)
 	}
 
 	// 解析余额
-	balance, err := strconv.ParseFloat(resp.Balance, 64)
-	if err != nil {
-		return 0, fmt.Errorf("解析余额失败: %v", err)
-	}
+	balance := result.FBalance
 
 	logger.Info("查询余额成功",
 		"account_id", accountID,
@@ -283,9 +293,28 @@ func (p *MishiPlatform) QueryBalance(ctx context.Context, accountID int64) (floa
 
 // MishiResponse 秘史平台响应
 type MishiResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	OrderID string `json:"order_id"`
-	Status  string `json:"status"`
-	Balance string `json:"balance"`
+	SzRtnCode string  `json:"szRtnCode"`
+	SzAgentId string  `json:"szAgentId"`
+	FBalance  float64 `json:"fBalance"`
+	FCredit   float64 `json:"fCredit"`
+	NRtn      int     `json:"nRtn"`
+}
+
+type MishiOrderResponseQuery struct {
+	SzRtnCode  string  `json:"szRtnCode"`
+	SzOrderId  string  `json:"szAgentId"`
+	FSalePrice float64 `json:"fBalance"`
+	SzRtnMsg   string  `json:"fCredit"`
+}
+
+type MishiOrderResponseSubmit struct {
+	SzAgentId     string `json:"szAgentId"`
+	SzRtnCode     string `json:"szRtnCode"`
+	SzOrderId     string `json:"SzOrderId"`
+	SzPhoneNum    string `json:"szPhoneNum"`
+	NMoney        string `json:"nMoney"`
+	NSortType     int    `json:"nSortType"`
+	NProductClass string `json:"nProductClass"`
+	NProductType  string `json:"nProductType"`
+	SzProductId   string `json:"szProductId"`
 }
