@@ -110,3 +110,5 @@ type PlatformAccountUpdateRequest struct {
 	Priority     *int     `json:"priority" binding:"min=0"`
 	Status       *int     `json:"status" binding:"omitempty,oneof=0 1"`
 }
+
+const PlatformCodeDayuanren = "dayuanren"

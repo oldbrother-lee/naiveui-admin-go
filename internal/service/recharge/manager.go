@@ -72,6 +72,8 @@ func (m *Manager) createPlatform(code string) (Platform, error) {
 		platform = NewKekebangPlatform(m.platformRepo.GetDB()) // 暂时使用可客帮平台的实现
 	case "mishi":
 		platform = NewMishiPlatform(m.platformRepo.GetDB())
+	case "dayuanren":
+		platform = NewDayuanrenPlatform(m.platformRepo.GetDB())
 	default:
 		return nil, fmt.Errorf("unsupported platform code: %s", code)
 	}

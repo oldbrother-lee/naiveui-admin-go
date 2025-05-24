@@ -53,13 +53,14 @@ func SetupRouter(
 
 		// 外部订单接口 - 不需要认证
 		RegisterExternalOrderRoutes(api)
-
+		RegisterCallbackRoutes(api, callbackController)
 		// 回调路由 - 不需要认证
-		callback := api.Group("/callback")
-		{
-			callback.POST("/kekebang/:userid", callbackController.HandleKekebangCallback)
-			callback.POST("/mishi/:userid", callbackController.HandleMishiCallback)
-		}
+		// callback := api.Group("/callback")
+		// {
+		// 	callback.POST("/kekebang/:userid", callbackController.HandleKekebangCallback)
+		// 	callback.POST("/mishi/:userid", callbackController.HandleMishiCallback)
+		// 	callback.POST("/dayuanren/:userid", callbackController.HandleDayuanrenCallback)
+		// }
 
 		// 重试路由 - 不需要认证
 		retryHandler := handler.NewRetryHandler(retryService)

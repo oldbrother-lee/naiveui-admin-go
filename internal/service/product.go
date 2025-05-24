@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 )
@@ -135,6 +136,8 @@ func (s *ProductService) Update(ctx context.Context, req *model.ProductUpdateReq
 	product.APIID = req.APIID
 	product.APIParamID = req.APIParamID
 	product.IsApi = req.IsApi
+
+	fmt.Println("更新商品分类ID：", req.CategoryID)
 
 	err = s.productRepo.Update(ctx, product)
 	if err != nil {

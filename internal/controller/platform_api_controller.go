@@ -103,10 +103,7 @@ func (c *PlatformAPIController) UpdateAPI(ctx *gin.Context) {
 		utils.Error(ctx, 400, "接口名称不能为空")
 		return
 	}
-	if api.Code == "" {
-		utils.Error(ctx, 400, "接口代码不能为空")
-		return
-	}
+
 	if api.URL == "" {
 		utils.Error(ctx, 400, "接口地址不能为空")
 		return
