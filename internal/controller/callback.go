@@ -139,7 +139,11 @@ func (c *CallbackController) HandleMishiCallback(ctx *gin.Context) {
 		return
 	}
 	// fmt.Printf("[mishi] 获取平台账号信息:  %+v\n", account)
-
+	//打印出所有 post 参数
+	for k, v := range ctx.Request.PostForm {
+		fmt.Printf("%s: %v\n", k, v)
+	}
+	fmt.Printf("[mishi] 所有 post 参数: %+v\n", ctx.Request.PostForm)
 	// 2. 解析回调参数
 	var req MishiCallbackRequest
 	if err := ctx.ShouldBind(&req); err != nil {
@@ -147,19 +151,19 @@ func (c *CallbackController) HandleMishiCallback(ctx *gin.Context) {
 		utils.ErrorWithStatus(ctx, 500, 400, "参数解析失败")
 		return
 	}
-
+	fmt.Printf("[mishi] 所有 post 参数222222: %+v\n", ctx.Request.PostForm)
 	// 4. 签名校验
 	signStr := fmt.Sprintf(
-		"szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nDemo=%v&fSalePrice=%.2f&nFlag=%d&szKey=%s",
+		"szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nDemo=%v&fSalePrice=%.1f&nFlag=%d&szKey=%s",
 		req.SzAgentId,
 		req.SzOrderId,
 		req.SzPhoneNum,
 		req.NDemo,      // 如果 nDemo 是 int，%v 没问题；如果是 float，建议 %.0f
-		req.FSalePrice, // 保留两位小数
+		req.FSalePrice, // 保留1位小数
 		req.NFlag,
 		account.AppSecret,
 	)
-
+	fmt.Printf("[mishi] 签名参数签字: %s\n", signStr)
 	fmt.Printf("[mishi] 请求的参数: %+v\n", req)
 	fmt.Printf("[mishi] 签名校验: %s\n", signature.GetMD5(signStr))
 	if signature.GetMD5(signStr) != req.SzVerifyString {

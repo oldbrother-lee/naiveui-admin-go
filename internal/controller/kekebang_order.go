@@ -88,7 +88,7 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 	}
 
 	// 记录原始请求数据
-	logger.Info("【收到可客帮订单请求】request: %+v", req)
+	logger.Info(fmt.Sprintf("【收到可客帮订单请求】request: %+v", req))
 	//先检查订单是否存在
 	order, err := c.orderService.GetOrderByOutTradeNum(ctx, strconv.FormatInt(req.UserOrderID, 10))
 	if err != nil && !errors.Is(err, repository.ErrOrderNotFound) {

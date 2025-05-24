@@ -108,14 +108,16 @@ func (p *MishiPlatform) SubmitOrder(ctx context.Context, order *model.Order, api
 	// 生成签名
 	signStr := fmt.Sprintf("szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nMoney=%s&nSortType=%s&nProductClass=%s&nProductType=%s&szTimeStamp=%s&szKey=%s",
 		accountName, order.OrderNumber, order.Mobile, strconv.FormatInt(int64(order.Denom), 10),
-		convertOperatorCode(apiParam.ProductID), "1", "1", szTimeStamp, appSecret)
-	fmt.Printf("[mishi] 生成签名前: %s\n", signStr)
+		convertOperatorCode(strconv.Itoa(order.ISP)), "1", "1", szTimeStamp, appSecret)
+
+	logger.Info("meishi 生成签名前: ", "signStr", signStr)
 	sign := signature.GetMD5(signStr)
 	params.Add("szVerifyString", sign)
 
 	// 添加回调地址
 	params.Add("szNotifyUrl", api.CallbackURL)
-	fmt.Printf("[mishi] 发送请求: %+v\n", params)
+
+	logger.Info("meishi 发送请求: ", "params", params)
 	// 发送请求
 	respStr, err := p.sendRequest(ctx, api.URL+"/api/submitorder", params)
 	if err != nil {
