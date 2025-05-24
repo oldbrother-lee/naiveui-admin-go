@@ -6,12 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
 	"recharge-go/pkg/logger"
 	"recharge-go/pkg/signature"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -132,82 +132,61 @@ func (c *CallbackController) HandleMishiCallback(ctx *gin.Context) {
 		return
 	}
 
-	//获取 appkey 等信息
+	// 获取 appkey 等信息
 	account, err := c.platformRepo.GetPlatformAccountByAccountName(userIDStr)
 	if err != nil {
 		logger.Error("返回：401 平台账号不存在", zap.Error(err))
 		utils.ErrorWithStatus(ctx, 401, 400, "平台账号不存在")
 		return
 	}
-	// fmt.Printf("[mishi] 获取平台账号信息:  %+v\n", account)
-	//打印出所有 post 参数
-	for k, v := range ctx.Request.PostForm {
-		fmt.Printf("%s: %v\n", k, v)
-	}
-	fmt.Printf("[mishi] 所有 post 参数: %+v\n", ctx.Request.PostForm)
-	// 2. 解析回调参数
-	var req MishiCallbackRequest
-	if err := ctx.ShouldBind(&req); err != nil {
-		logger.Error("参数解析失败", zap.Error(err))
-		utils.ErrorWithStatus(ctx, 500, 400, "参数解析失败")
+
+	// 读取原始请求体
+	body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		utils.Error(ctx, 400, "读取请求体失败")
 		return
 	}
-	fmt.Printf("[mishi] 所有 post 参数222222: %+v\n", ctx.Request.PostForm)
-	// 4. 签名校验
+
+	// 解析参数
+	form, err := url.ParseQuery(string(body))
+	if err != nil {
+		utils.Error(ctx, 400, "参数解析失败")
+		return
+	}
+	params := make(map[string]string)
+	for k, v := range form {
+		if len(v) > 0 {
+			params[k] = v[0]
+		}
+	}
+
+	// 签名校验
+	nDemo, _ := strconv.ParseFloat(params["nDemo"], 64)
+	fSalePrice, _ := strconv.ParseFloat(params["fSalePrice"], 64)
+	nFlag, _ := strconv.Atoi(params["nFlag"])
+
 	signStr := fmt.Sprintf(
 		"szAgentId=%s&szOrderId=%s&szPhoneNum=%s&nDemo=%v&fSalePrice=%.1f&nFlag=%d&szKey=%s",
-		req.SzAgentId,
-		req.SzOrderId,
-		req.SzPhoneNum,
-		req.NDemo,      // 如果 nDemo 是 int，%v 没问题；如果是 float，建议 %.0f
-		req.FSalePrice, // 保留1位小数
-		req.NFlag,
+		params["szAgentId"],
+		params["szOrderId"],
+		params["szPhoneNum"],
+		nDemo,
+		fSalePrice,
+		nFlag,
 		account.AppSecret,
 	)
-
-	if signature.GetMD5(signStr) != req.SzVerifyString {
+	if signature.GetMD5(signStr) != params["szVerifyString"] {
 		logger.Error("返回：401 签名校验失败")
 		utils.ErrorWithStatus(ctx, 401, 401, "签名校验失败")
 		return
 	}
 
-	// 5. 查询订单
-	order, err := c.orderRepo.GetByOrderNumber(ctx, req.SzOrderId)
-	if err != nil {
-		utils.Error(ctx, 404, "订单不存在")
+	// 业务处理交给 service
+	if err := c.rechargeService.HandleCallback(ctx, "mishi", body); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to process callback"})
 		return
 	}
-
-	// 6. 幂等性处理
-	if order.Status == model.OrderStatusSuccess || order.Status == model.OrderStatusFailed {
-		utils.Success(ctx, "订单状态已更新，请勿重复回调")
-		return
-	}
-
-	// 7. 更新订单状态
-	var newStatus model.OrderStatus
-	switch req.NFlag {
-	case 2:
-		newStatus = model.OrderStatusSuccess
-	case 3:
-		newStatus = model.OrderStatusFailed
-	default:
-		newStatus = model.OrderStatusProcessing
-	}
-	if err := c.orderRepo.UpdateStatus(ctx, order.ID, newStatus); err != nil {
-		utils.ErrorWithStatus(ctx, 500, 500, "订单状态更新失败")
-		return
-	}
-
-	// 8. 记录日志
-	logger.Info("秘史回调处理完成",
-		"order_id", order.ID,
-		"order_number", order.OrderNumber,
-		"status", newStatus,
-		"userid", userIDStr,
-	)
-
-	utils.Success(ctx, "success")
+	ctx.String(200, "success")
 }
 
 // HandleDayuanrenCallback 处理大猿人平台回调

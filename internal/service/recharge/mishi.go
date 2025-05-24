@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -207,43 +208,69 @@ func (p *MishiPlatform) QueryOrderStatus(order *model.Order) (model.OrderStatus,
 	return status, nil
 }
 
+// mapOrderState 返回本地订单状态码和字符串
+func (p *MishiPlatform) mapOrderState(nFlag string, orderID, orderNumber string) (int, string) {
+	var status int
+	var statusStr string
+	switch nFlag {
+	case "2":
+		status = int(model.OrderStatusSuccess)
+		statusStr = strconv.Itoa(status)
+		logger.Info("【秘史订单状态】充值成功", "order_id", orderID, "order_number", orderNumber)
+	case "3":
+		status = int(model.OrderStatusFailed)
+		statusStr = strconv.Itoa(status)
+		logger.Info("【秘史订单状态】充值失败", "order_id", orderID, "order_number", orderNumber)
+	default:
+		status = int(model.OrderStatusProcessing)
+		statusStr = strconv.Itoa(status)
+		logger.Info("【秘史订单状态】处理中", "order_id", orderID, "order_number", orderNumber, "nFlag", nFlag)
+	}
+	return status, statusStr
+}
+
 // ParseCallbackData 解析回调数据
 func (p *MishiPlatform) ParseCallbackData(data []byte) (*model.CallbackData, error) {
-	var callback struct {
-		OrderID   string  `json:"order_id"`
-		Status    string  `json:"status"`
-		Message   string  `json:"message"`
-		Amount    float64 `json:"amount"`
-		Sign      string  `json:"sign"`
-		Timestamp string  `json:"timestamp"`
+	// 先尝试 url.ParseQuery 解析表单格式
+	form, err := url.ParseQuery(string(data))
+	if err == nil && len(form) > 0 {
+		_, statusStr := p.mapOrderState(form["nFlag"][0], form["szOrderId"][0], form["szOrderId"][0])
+		callbackData := &model.CallbackData{
+			OrderID:     form["szOrderId"][0],
+			Status:      statusStr,
+			Message:     form["szRtnMsg"][0],
+			Amount:      form["fSalePrice"][0],
+			Sign:        form["szVerifyString"][0],
+			OrderNumber: form["szOrderId"][0],
+			Timestamp:   "",
+		}
+		logger.Info("mishi回调解析完成(form)", "callbackData", callbackData)
+		return callbackData, nil
 	}
-
-	if err := json.Unmarshal(data, &callback); err != nil {
-		return nil, fmt.Errorf("解析回调数据失败: %v", err)
+	// 如果不是表单格式，尝试 json 解析
+	var req struct {
+		SzOrderId      string `json:"szOrderId"`
+		NFlag          string `json:"nFlag"`
+		SzRtnMsg       string `json:"szRtnMsg"`
+		FSalePrice     string `json:"fSalePrice"`
+		SzVerifyString string `json:"szVerifyString"`
 	}
-
-	// 转换状态
-	var status string
-	switch callback.Status {
-	case "1":
-		status = "processing"
-	case "2":
-		status = "success"
-	case "3":
-		status = "failed"
-	default:
-		status = "processing"
+	if err := json.Unmarshal(data, &req); err != nil {
+		logger.Error("mishi回调参数解析失败", "error", err, "data", string(data))
+		return nil, errors.New("解析回调数据失败")
 	}
-
-	return &model.CallbackData{
-		OrderID:       callback.OrderID,
-		Status:        status,
-		Message:       callback.Message,
-		Amount:        strconv.FormatFloat(callback.Amount, 'f', 2, 64),
-		Sign:          callback.Sign,
-		Timestamp:     callback.Timestamp,
-		TransactionID: callback.OrderID,
-	}, nil
+	_, statusStr := p.mapOrderState(req.NFlag, req.SzOrderId, req.SzOrderId)
+	callbackData := &model.CallbackData{
+		OrderID:     req.SzOrderId,
+		Status:      statusStr,
+		Message:     req.SzRtnMsg,
+		Amount:      req.FSalePrice,
+		Sign:        req.SzVerifyString,
+		OrderNumber: req.SzOrderId,
+		Timestamp:   "",
+	}
+	logger.Info("mishi回调解析完成(json)", "callbackData", callbackData)
+	return callbackData, nil
 }
 
 // sendRequest 发送请求
