@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
 	"recharge-go/internal/utils"
 	"recharge-go/pkg/logger"
 	"recharge-go/pkg/signature"
-
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -227,65 +226,39 @@ func (c *CallbackController) HandleDayuanrenCallback(ctx *gin.Context) {
 		return
 	}
 
-	// 3. 解析表单参数
-	if err := ctx.Request.ParseForm(); err != nil {
-		utils.Error(ctx, 400, "参数解析失败")
+	// 3. 读取原始请求体
+	body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		utils.Error(ctx, 400, "读取请求体失败")
 		return
 	}
 
-	// 4. 签名校验
+	// 4. 解析表单参数
+	form, err := url.ParseQuery(string(body))
+	if err != nil {
+		utils.Error(ctx, 400, "解析参数失败")
+		return
+	}
 	params := make(map[string]string)
-	for k, v := range ctx.Request.PostForm {
+	for k, v := range form {
 		if len(v) > 0 {
 			params[k] = v[0]
 		}
 	}
+
+	// 5. 签名校验
 	if !signature.VerifyDayuanrenSign(params, account.AppSecret) {
-		utils.Error(ctx, 403, "签名校验失败")
+		utils.Error(ctx, 400, "签名校验失败")
 		return
 	}
 
-	// 5. 查询订单
-	outTradeNum := params["out_trade_num"]
-	order, err := c.orderRepo.GetByOrderNumber(ctx, outTradeNum)
+	// 6. 调用 service 层处理业务
+	err = c.rechargeService.HandleCallback(ctx, "dayuanren", body)
 	if err != nil {
-		utils.Error(ctx, 404, "订单不存在")
+		utils.Error(ctx, 500, err.Error())
 		return
 	}
 
-	// 6. 幂等性处理
-	if order.Status == model.OrderStatusSuccess || order.Status == model.OrderStatusFailed {
-		utils.Success(ctx, "success")
-		return
-	}
-
-	// 7. 更新订单状态
-	state, _ := strconv.Atoi(params["state"])
-	var newStatus model.OrderStatus
-	switch state {
-	case -1, 2:
-		newStatus = model.OrderStatusFailed
-	case 0:
-		newStatus = model.OrderStatusRecharging
-	case 1:
-		newStatus = model.OrderStatusSuccess
-	case 3:
-		newStatus = model.OrderStatusRecharging // 没有部分成功，暂用充值中
-	default:
-		newStatus = model.OrderStatusRecharging
-	}
-	if err := c.orderRepo.UpdateStatus(ctx, order.ID, newStatus); err != nil {
-		utils.Error(ctx, 500, "订单状态更新失败")
-		return
-	}
-
-	// 8. 记录日志
-	logger.Log.Info("大猿人回调处理完成",
-		zap.Int64("order_id", order.ID),
-		zap.String("order_number", order.OrderNumber),
-		zap.Any("status", newStatus),
-		zap.String("userid", userIDStr),
-	)
-
-	utils.Success(ctx, "success")
+	// 7. 返回成功
+	ctx.String(200, "success")
 }

@@ -19,11 +19,13 @@ import (
 
 type DayuanrenPlatform struct {
 	platformRepo repository.PlatformRepository
+	orderRepo    repository.OrderRepository
 }
 
 func NewDayuanrenPlatform(db *gorm.DB) *DayuanrenPlatform {
 	return &DayuanrenPlatform{
 		platformRepo: repository.NewPlatformRepository(db),
+		orderRepo:    repository.NewOrderRepository(db),
 	}
 }
 
@@ -239,11 +241,47 @@ func (p *DayuanrenPlatform) QueryOrderStatus(order *model.Order) (model.OrderSta
 	}
 }
 
+// dayuanren 平台订单状态映射
+func (p *DayuanrenPlatform) mapOrderState(state int, orderID string) (int, string) {
+	var status int
+	var statusStr string
+
+	switch state {
+	case -1:
+		status = int(model.OrderStatusFailed) // 失败
+		statusStr = strconv.Itoa(status)
+		logger.Info("【大猿人订单状态】失败", "order_id", orderID)
+	case 0:
+		status = int(model.OrderStatusProcessing) // 处理中
+		statusStr = strconv.Itoa(status)
+		logger.Info("【大猿人订单状态】处理中", "order_id", orderID)
+	case 1:
+		status = int(model.OrderStatusSuccess) // 成功
+		statusStr = strconv.Itoa(status)
+		logger.Info("【大猿人订单状态】成功", "order_id", orderID)
+	case 2:
+		status = int(model.OrderStatusFailed) // 失败
+		statusStr = strconv.Itoa(status)
+		logger.Info("【大猿人订单状态】失败", "order_id", orderID)
+	case 3:
+		status = int(model.OrderStatusProcessing) // 部分成功/处理中
+		statusStr = strconv.Itoa(status)
+		logger.Info("【大猿人订单状态】部分成功/处理中", "order_id", orderID)
+	default:
+		status = int(model.OrderStatusFailed) // 默认失败
+		statusStr = strconv.Itoa(status)
+		logger.Error("【大猿人订单状态】未知状态", "order_id", orderID, "state", state)
+	}
+	return status, statusStr
+}
+
 // ParseCallbackData 解析回调数据
 func (p *DayuanrenPlatform) ParseCallbackData(data []byte) (*model.CallbackData, error) {
+	logger.Info("开始解析大猿人回调数据", "data", string(data))
 	// 解析 url.Values
 	form, err := url.ParseQuery(string(data))
 	if err != nil {
+		logger.Error("大猿人回调参数解析失败", "error", err, "data", string(data))
 		return nil, errors.New("回调参数解析失败")
 	}
 	params := make(map[string]string)
@@ -252,34 +290,22 @@ func (p *DayuanrenPlatform) ParseCallbackData(data []byte) (*model.CallbackData,
 			params[k] = v[0]
 		}
 	}
-	apiSecret := params["api_secret"] // 你需要根据实际业务传递或查找
-	if !signature.VerifyDayuanrenSign(params, apiSecret) {
-		return nil, errors.New("签名校验失败")
-	}
+	logger.Info("大猿人回调参数", "params", params)
+
 	state, _ := strconv.Atoi(params["state"])
-	var status string
-	switch state {
-	case -1:
-		status = "failed"
-	case 0:
-		status = "processing"
-	case 1:
-		status = "success"
-	case 2:
-		status = "failed"
-	case 3:
-		status = "partial_success"
-	default:
-		status = "unknown"
+	_, statusStr := p.mapOrderState(state, params["out_trade_num"])
+
+	callbackData := &model.CallbackData{
+		OrderID:     params["out_trade_num"],
+		Status:      statusStr,
+		Message:     params["remark"],
+		Amount:      params["charge_amount"],
+		Sign:        params["sign"],
+		Timestamp:   params["otime"],
+		OrderNumber: params["out_trade_num"],
 	}
-	return &model.CallbackData{
-		OrderID:   params["out_trade_num"],
-		Status:    status,
-		Message:   params["remark"],
-		Amount:    params["charge_amount"],
-		Sign:      params["sign"],
-		Timestamp: params["otime"],
-	}, nil
+	logger.Info("大猿人回调解析完成", "callbackData", callbackData)
+	return callbackData, nil
 }
 
 // getAPIKeyAndSecret 获取API密钥和密钥

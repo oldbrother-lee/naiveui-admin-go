@@ -253,7 +253,7 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 	callbackData, err := s.manager.ParseCallbackData(platformName, data)
 	if err != nil {
 		logger.Error(fmt.Sprintf("解析回调数据失败: %v", err))
-		return fmt.Errorf("parse callback data failed: %v", err)
+		return fmt.Errorf("parse callback data failed service 层: %v", err)
 	}
 
 	// 2. 检查是否已处理过该回调
@@ -283,10 +283,11 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 	}
 
 	// 4.1 更新订单状态
+	fmt.Println(callbackData.Status, "callbackData.Status++++++++")
 	orderState, err := strconv.Atoi(callbackData.Status)
 	if err != nil {
 		tx.Rollback()
-		logger.Error("解析订单状态失败: %v", err)
+		logger.Error("解析订单状态失败1111: %v", err)
 		return fmt.Errorf("parse order status failed: %v", err)
 	}
 
