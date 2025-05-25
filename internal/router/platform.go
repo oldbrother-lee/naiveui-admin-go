@@ -19,7 +19,6 @@ func RegisterPlatformRoutes(r *gin.RouterGroup, platformController *controller.P
 			admin.POST("", platformController.CreatePlatform)
 			admin.PUT("/:id", platformController.UpdatePlatform)
 			admin.DELETE("/:id", platformController.DeletePlatform)
-			admin.GET("/account/list", platformController.ListPlatformAccounts)
 			admin.POST("/account", platformController.CreatePlatformAccount)
 			admin.PUT("/account/:id", platformController.UpdatePlatformAccount)
 			admin.DELETE("/account/:id", platformController.DeletePlatformAccount)

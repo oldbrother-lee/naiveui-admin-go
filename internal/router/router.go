@@ -132,8 +132,22 @@ func SetupRouter(
 
 			// 只允许管理员访问
 			RegisterDaichongOrderRoutes(auth)
+
+			// 平台账号相关接口
+			RegisterPlatformAccountRoutes(api)
 		}
 	}
 
 	return r
+}
+
+// 注册平台账号相关接口
+func RegisterPlatformAccountRoutes(r *gin.RouterGroup) {
+	// 这里直接初始化 repository/service/controller，实际项目可根据依赖注入优化
+	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+	platformAccountSvc := service.NewPlatformAccountService(platformAccountRepo)
+	platformAccountCtrl := controller.NewPlatformAccountController(platformAccountSvc)
+
+	r.POST("/platform/account/bind_user", platformAccountCtrl.BindUser)
+	r.GET("/platform/account/list", platformAccountCtrl.List)
 }

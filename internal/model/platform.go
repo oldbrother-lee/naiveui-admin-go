@@ -35,6 +35,8 @@ type PlatformAccount struct {
 	UpdatedAt    time.Time  `json:"updated_at" gorm:"autoUpdateTime"`                              // 更新时间
 	DeletedAt    *time.Time `json:"deleted_at" gorm:"index"`                                       // 删除时间
 	Platform     *Platform  `json:"platform,omitempty" gorm:"foreignKey:PlatformID"`               // 关联的平台信息
+	BindUserID   *int64     `json:"bind_user_id" gorm:"column:bind_user_id"`
+	BindUserName string     `json:"bind_user_name" gorm:"column:bind_user_name"`
 }
 
 // PlatformListRequest 平台列表请求
@@ -112,3 +114,8 @@ type PlatformAccountUpdateRequest struct {
 }
 
 const PlatformCodeDayuanren = "dayuanren"
+
+// TableName 返回表名
+func (PlatformAccount) TableName() string {
+	return "platform_accounts"
+}
