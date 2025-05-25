@@ -69,5 +69,6 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 		order.POST("/:id/cancel", orderController.ProcessOrderCancel)
 		order.POST("/:id/split", orderController.ProcessOrderSplit)
 		order.POST("/:id/partial", orderController.ProcessOrderPartial)
+		order.POST("/:id/delete", orderController.DeleteOrder)
 	}
 }

@@ -84,7 +84,7 @@ func (r *OrderRepositoryImpl) Create(ctx context.Context, order *model.Order) er
 // GetByID 根据ID获取订单
 func (r *OrderRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.Order, error) {
 	var order model.Order
-	if err := r.db.First(&order, id).Error; err != nil {
+	if err := r.db.Where("id = ? AND is_del = 0", id).First(&order).Error; err != nil {
 		return nil, err
 	}
 	return &order, nil
@@ -93,7 +93,7 @@ func (r *OrderRepositoryImpl) GetByID(ctx context.Context, id int64) (*model.Ord
 // GetByOrderNumber 根据订单号获取订单
 func (r *OrderRepositoryImpl) GetByOrderNumber(ctx context.Context, orderNumber string) (*model.Order, error) {
 	var order model.Order
-	if err := r.db.Where("order_number = ?", orderNumber).First(&order).Error; err != nil {
+	if err := r.db.Where("order_number = ? AND is_del = 0", orderNumber).First(&order).Error; err != nil {
 		return nil, err
 	}
 	return &order, nil
@@ -104,12 +104,12 @@ func (r *OrderRepositoryImpl) GetByCustomerID(ctx context.Context, customerID in
 	var orders []*model.Order
 	var total int64
 
-	if err := r.db.Model(&model.Order{}).Where("customer_id = ?", customerID).Count(&total).Error; err != nil {
+	if err := r.db.Model(&model.Order{}).Where("customer_id = ? AND is_del = 0", customerID).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	if err := r.db.Where("customer_id = ?", customerID).Offset(offset).Limit(pageSize).Find(&orders).Error; err != nil {
+	if err := r.db.Where("customer_id = ? AND is_del = 0", customerID).Offset(offset).Limit(pageSize).Find(&orders).Error; err != nil {
 		return nil, 0, err
 	}
 
@@ -158,7 +158,7 @@ func (r *OrderRepositoryImpl) Delete(ctx context.Context, id int64) error {
 // GetOrderByOutTradeNum 根据外部交易号获取订单
 func (r *OrderRepositoryImpl) GetOrderByOutTradeNum(ctx context.Context, outTradeNum string) (*model.Order, error) {
 	var order model.Order
-	if err := r.db.Where("out_trade_num = ?", outTradeNum).First(&order).Error; err != nil {
+	if err := r.db.Where("out_trade_num = ? AND is_del = 0", outTradeNum).First(&order).Error; err != nil {
 		return nil, ErrOrderNotFound
 	}
 	fmt.Println(order, "gggg")
@@ -170,7 +170,7 @@ func (r *OrderRepositoryImpl) GetOrders(ctx context.Context, params map[string]i
 	var orders []*model.Order
 	var total int64
 
-	query := r.db.Model(&model.Order{})
+	query := r.db.Model(&model.Order{}).Where("is_del = 0")
 
 	// 添加查询条件
 	for key, value := range params {

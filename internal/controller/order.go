@@ -363,3 +363,18 @@ func (c *OrderController) GetOrders(ctx *gin.Context) {
 		"total": total,
 	})
 }
+
+// DeleteOrder 删除订单（软删除）
+func (c *OrderController) DeleteOrder(ctx *gin.Context) {
+	id := ctx.Param("id")
+	if id == "" {
+		utils.Error(ctx, 400, "缺少订单ID")
+		return
+	}
+	if err := c.orderService.DeleteOrder(ctx, id); err != nil {
+		logger.Error("删除订单失败", "order_id", id, "error", err)
+		utils.Error(ctx, 500, "删除订单失败: "+err.Error())
+		return
+	}
+	utils.Success(ctx, "删除订单成功")
+}

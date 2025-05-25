@@ -47,6 +47,8 @@ type OrderService interface {
 	GetOrders(ctx context.Context, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error)
 	// SetRechargeService 设置充值服务
 	SetRechargeService(rechargeService RechargeService)
+	// DeleteOrder 删除订单（软删除）
+	DeleteOrder(ctx context.Context, id string) error
 }
 
 // orderService 订单服务实现
@@ -354,4 +356,16 @@ func generateOrderNumber() string {
 // SetRechargeService 设置充值服务
 func (s *orderService) SetRechargeService(rechargeService RechargeService) {
 	s.rechargeService = rechargeService
+}
+
+// DeleteOrder 删除订单（软删除）
+func (s *orderService) DeleteOrder(ctx context.Context, id string) error {
+	logger.Info("开始软删除订单", "order_id", id)
+	// 软删除：更新 is_del 字段为 1
+	if err := s.orderRepo.DB().Model(&model.Order{}).Where("id = ?", id).Update("is_del", 1).Error; err != nil {
+		logger.Error("软删除订单失败", "order_id", id, "error", err)
+		return fmt.Errorf("软删除订单失败: %v", err)
+	}
+	logger.Info("软删除订单成功", "order_id", id)
+	return nil
 }
