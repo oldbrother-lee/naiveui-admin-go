@@ -5,7 +5,6 @@ import (
 	"recharge-go/internal/repository"
 	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
-	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/queue"
 
@@ -14,11 +13,10 @@ import (
 
 // RegisterKekebangOrderRoutes 注册可客帮订单相关路由
 func RegisterKekebangOrderRoutes(r *gin.RouterGroup) {
-	// 创建服务实例
+	// 初始化仓库
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
 	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
-	manager := recharge.NewManager(database.DB)
 
 	// 创建通知仓库
 	notificationRepo := notificationRepo.NewRepository(database.DB)
@@ -34,17 +32,29 @@ func RegisterKekebangOrderRoutes(r *gin.RouterGroup) {
 		queueInstance,
 	)
 
-	// 创建充值服务
+	// 初始化充值服务
+	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+	userRepo := repository.NewUserRepository(database.DB)
+	balanceService := service.NewPlatformAccountBalanceService(
+		database.DB,
+		platformAccountRepo,
+		userRepo,
+	)
+	platformAPIRepo := repository.NewPlatformAPIRepository(database.DB)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
+	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
+	retryRepo := repository.NewRetryRepository(database.DB)
+
 	rechargeService := service.NewRechargeService(
+		database.DB,
 		orderRepo,
 		platformRepo,
-		manager,
+		platformAPIRepo,
+		retryRepo,
 		callbackLogRepo,
-		database.DB,
-		orderService,
-		repository.NewProductAPIRelationRepository(database.DB),
-		service.NewPlatformAPIParamService(repository.NewPlatformAPIParamRepository(database.DB)),
-		repository.NewRetryRepository(database.DB),
+		productAPIRelationRepo,
+		platformAPIParamRepo,
+		balanceService,
 	)
 
 	// 设置 orderService 的 rechargeService

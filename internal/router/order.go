@@ -5,7 +5,6 @@ import (
 	"recharge-go/internal/repository"
 	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
-	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/database"
 	"recharge-go/pkg/queue"
 
@@ -18,7 +17,6 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
 	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
-	manager := recharge.NewManager(database.DB)
 
 	// 创建通知仓库
 	notificationRepo := notificationRepo.NewRepository(database.DB)
@@ -35,16 +33,28 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 	)
 
 	// 创建充值服务
+	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+	userRepo := repository.NewUserRepository(database.DB)
+	balanceService := service.NewPlatformAccountBalanceService(
+		database.DB,
+		platformAccountRepo,
+		userRepo,
+	)
+	platformAPIRepo := repository.NewPlatformAPIRepository(database.DB)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
+	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
+	retryRepo := repository.NewRetryRepository(database.DB)
+
 	rechargeService := service.NewRechargeService(
+		database.DB,
 		orderRepo,
 		platformRepo,
-		manager,
+		platformAPIRepo,
+		retryRepo,
 		callbackLogRepo,
-		database.DB,
-		orderService,
-		repository.NewProductAPIRelationRepository(database.DB),
-		service.NewPlatformAPIParamService(repository.NewPlatformAPIParamRepository(database.DB)),
-		repository.NewRetryRepository(database.DB),
+		productAPIRelationRepo,
+		platformAPIParamRepo,
+		balanceService,
 	)
 
 	// 设置 orderService 的 rechargeService

@@ -259,9 +259,29 @@ func (s *orderService) ProcessOrderSuccess(ctx context.Context, orderID int64) e
 
 // ProcessOrderFail 处理订单失败
 func (s *orderService) ProcessOrderFail(ctx context.Context, orderID int64, remark string) error {
-	// 更新备注
-	err := s.orderRepo.UpdateRemark(ctx, orderID, remark)
+	// 获取订单信息
+	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
+		return err
+	}
+
+	// 如果订单已经支付，需要退还余额
+	if order.Status == model.OrderStatusPendingRecharge || order.Status == model.OrderStatusRecharging {
+		// 退还余额
+		if err := s.rechargeService.GetBalanceService().RefundBalance(ctx, nil, order.PlatformAccountID, order.Price, orderID, "订单失败退还余额"); err != nil {
+			logger.Error("退还余额失败",
+				"error", err,
+				"order_id", orderID,
+				"amount", order.Price)
+			return fmt.Errorf("refund balance failed: %v", err)
+		}
+		logger.Info("退还余额成功",
+			"order_id", orderID,
+			"amount", order.Price)
+	}
+
+	// 更新备注
+	if err := s.orderRepo.UpdateRemark(ctx, orderID, remark); err != nil {
 		return err
 	}
 

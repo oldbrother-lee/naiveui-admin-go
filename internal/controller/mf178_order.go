@@ -270,11 +270,20 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		zap.String("request_id", ctx.GetString("request_id")))
 
 	// 9. 创建充值任务
+	logger.Log.Info("【准备创建充值任务】",
+		zap.Int64("order_id", order.ID),
+		zap.String("order_number", order.OrderNumber))
+
 	if err := c.rechargeService.CreateRechargeTask(ctx, order.ID); err != nil {
-		logger.Log.Error("创建充值任务失败",
+		logger.Log.Error("【创建充值任务失败】",
 			zap.Int64("order_id", order.ID),
+			zap.String("order_number", order.OrderNumber),
 			zap.Error(err))
 		// 这里可以选择是否返回错误，因为订单已经创建成功
+	} else {
+		logger.Log.Info("【创建充值任务成功】",
+			zap.Int64("order_id", order.ID),
+			zap.String("order_number", order.OrderNumber))
 	}
 
 	// 10. 返回成功响应

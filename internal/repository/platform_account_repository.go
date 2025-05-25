@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"context"
+	"errors"
 	"recharge-go/internal/model"
 
 	"gorm.io/gorm"
@@ -53,9 +55,48 @@ func (r *PlatformAccountRepository) GetListWithUserName(req *model.PlatformAccou
 // 查询单个账号
 func (r *PlatformAccountRepository) GetByID(id int64) (*model.PlatformAccount, error) {
 	var account model.PlatformAccount
-	err := r.db.Where("id = ?", id).First(&account).Error
+	err := r.db.Preload("Platform").Where("id = ?", id).First(&account).Error
 	if err != nil {
 		return nil, err
 	}
 	return &account, nil
+}
+
+// GetByAccount 根据账号获取平台账号
+func (r *PlatformAccountRepository) GetByAccount(ctx context.Context, account string) (*model.PlatformAccount, error) {
+	var platformAccount model.PlatformAccount
+	if err := r.db.Where("account = ?", account).First(&platformAccount).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &platformAccount, nil
+}
+
+// UpdateBalance 更新平台账号余额
+func (r *PlatformAccountRepository) UpdateBalance(ctx context.Context, id int64, balance float64) error {
+	return r.db.Model(&model.PlatformAccount{}).Where("id = ?", id).
+		Update("balance", balance).Error
+}
+
+// Create 创建平台账号
+func (r *PlatformAccountRepository) Create(ctx context.Context, account *model.PlatformAccount) error {
+	return r.db.Create(account).Error
+}
+
+// List 获取平台账号列表
+func (r *PlatformAccountRepository) List(ctx context.Context, offset, limit int) ([]*model.PlatformAccount, int64, error) {
+	var accounts []*model.PlatformAccount
+	var total int64
+
+	if err := r.db.Model(&model.PlatformAccount{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	if err := r.db.Offset(offset).Limit(limit).Find(&accounts).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return accounts, total, nil
 }

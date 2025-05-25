@@ -119,16 +119,23 @@ func main() {
 	platformAPIParamService := service.NewPlatformAPIParamService(platformAPIParamRepo)
 
 	// 创建充值服务
+	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+	balanceService := service.NewPlatformAccountBalanceService(
+		database.DB,
+		platformAccountRepo,
+		userRepo,
+	)
+
 	rechargeService := service.NewRechargeService(
+		database.DB,
 		orderRepo,
 		platformRepo,
-		manager,
-		callbackLogRepo,
-		database.DB,
-		orderService,
-		productAPIRelationRepo,
-		platformAPIParamService,
+		platformAPIRepo,
 		repository.NewRetryRepository(database.DB),
+		callbackLogRepo,
+		productAPIRelationRepo,
+		platformAPIParamRepo,
+		balanceService,
 	)
 
 	// 设置 orderService 的 rechargeService
