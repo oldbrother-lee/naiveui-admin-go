@@ -18,14 +18,14 @@ func NewTaskConfigService(taskConfigRepo *repository.TaskConfigRepository) *Task
 }
 
 type Product struct {
-	ProductID int `json:"productId"`
+	ProductID string `json:"productId"`
 }
 
 type TaskConfigPayload struct {
 	ID               int64  `json:"id"`
 	ChannelID        int    `json:"channelId"`
 	ChannelName      string `json:"channelName"`
-	ProductID        int    `json:"ProductID"`
+	ProductID        string `json:"ProductID"`
 	ProductName      string `json:"ProductName"`
 	FaceValues       string `json:"FaceValues"`
 	MinSettleAmounts string `json:"MinSettleAmounts"`

@@ -7,6 +7,7 @@ import (
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service/platform"
 	"recharge-go/pkg/logger"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -110,19 +111,25 @@ func (s *TaskService) processTask() {
 	// 处理每个配置
 	for _, config := range configs {
 		channelID := int(config.ChannelID)
-		productID := int(config.ProductID)
+		productID := config.ProductID
 
-		logger.Info(fmt.Sprint("处理任务配置: ChannelID=%d, ProductID=%d", channelID, productID))
+		productIDInt, err := strconv.Atoi(productID)
+		if err != nil {
+			logger.Error(fmt.Sprintf("ProductID 转换为 int 失败: %v", err))
+			continue
+		}
+
+		logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s", channelID, productID))
 		fmt.Printf("处理任务配置11: %d\n", channelID)
 
 		// 1. 获取有效 token（自动复用/过期自动申请）
-		token, err := s.platformSvc.GetToken(channelID, productID, "", config.FaceValues, config.MinSettleAmounts)
+		token, err := s.platformSvc.GetToken(channelID, productIDInt, "", config.FaceValues, config.MinSettleAmounts)
 		if err != nil {
-			fmt.Printf("获取 token 失败: ChannelID=%d, ProductID=%d, error=%v\n", channelID, productID, err)
-			logger.Error("获取 token 失败: ChannelID=%d, ProductID=%d, error=%v", channelID, productID, err)
+			fmt.Printf("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v\n", channelID, productID, err)
+			logger.Error("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err)
 			continue
 		}
-		logger.Info(fmt.Sprintf("获取 token 成功: ChannelID=%d, ProductID=%d, token=%s", channelID, productID, token))
+		logger.Info(fmt.Sprintf("获取 token 成功: ChannelID=%d, ProductID=%s, token=%s", channelID, productID, token))
 
 		// 2. 查询任务结果
 		order, err := s.platformSvc.QueryTask(token)
@@ -145,7 +152,7 @@ func (s *TaskService) processTask() {
 		taskOrder := &model.TaskOrder{
 			OrderNumber:            order.OrderNumber,
 			ChannelID:              channelID,
-			ProductID:              productID,
+			ProductID:              productIDInt,
 			AccountNum:             order.AccountNum,
 			AccountLocation:        order.AccountLocation,
 			SettlementAmount:       order.SettlementAmount,

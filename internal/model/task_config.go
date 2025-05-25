@@ -9,7 +9,7 @@ type TaskConfig struct {
 	ID               int64     `json:"id" gorm:"primaryKey"`
 	ChannelID        int64     `json:"channel_id" gorm:"not null;comment:渠道ID"`
 	ChannelName      string    `json:"channel_name" gorm:"not null;comment:渠道名称"`
-	ProductID        int64     `json:"product_id" gorm:"not null;comment:产品ID"`
+	ProductID        string    `json:"product_id" gorm:"type:varchar(64);not null;comment:产品ID"`
 	ProductName      string    `json:"product_name" gorm:"not null;comment:产品名称"`
 	FaceValues       string    `json:"face_values" gorm:"type:text;not null;comment:面值列表"`
 	MinSettleAmounts string    `json:"min_settle_amounts" gorm:"type:text;not null;comment:最低结算价列表"`
