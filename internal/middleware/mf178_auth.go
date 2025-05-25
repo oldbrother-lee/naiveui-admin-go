@@ -1,21 +1,27 @@
 package middleware
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
+	"recharge-go/internal/repository"
 	"recharge-go/pkg/signature"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
+
+var platformRepo repository.PlatformRepository
+
+// InitMF178Auth 初始化MF178认证中间件
+func InitMF178Auth(db *gorm.DB) {
+	platformRepo = repository.NewPlatformRepository(db)
+}
 
 // MF178Auth MF178认证中间件
 func MF178Auth() gin.HandlerFunc {
@@ -79,7 +85,22 @@ func MF178Auth() gin.HandlerFunc {
 		}
 
 		// 验证签名
-		if !signature.VerifySign(req, sign, getAppSecret("1675958551")) {
+		userID := c.Param("userid")
+		if userID == "" {
+			userID = c.Query("userid")
+		}
+		if userID == "" {
+			fmt.Printf("userid 不能为空, 请求体: %+v\n", req)
+			response := gin.H{
+				"code":    "FAIL",
+				"message": "userid 不能为空",
+				"data":    gin.H{},
+			}
+			c.JSON(http.StatusOK, response)
+			c.Abort()
+			return
+		}
+		if !signature.VerifySign(req, sign, getAppSecret(userID)) {
 			fmt.Printf("签名验证失败, 请求体: %+v\n", req)
 			response := gin.H{
 				"code":    "FAIL",
@@ -109,93 +130,13 @@ func MF178Auth() gin.HandlerFunc {
 	}
 }
 
-// verifySign 验证签名
-func verifySign(params map[string]interface{}, sign string) bool {
-	// 1. 获取 app_key
-	appKey, ok := params["app_key"].(string)
-	if !ok {
-		fmt.Printf("验证签名失败: app_key 类型错误或不存在, params: %+v\n", params)
-		return false
-	}
-
-	// 2. 获取 timestamp 并验证时间戳
-	timestamp, ok := params["timestamp"].(float64)
-	if !ok {
-		fmt.Printf("验证签名失败: timestamp 类型错误或不存在, params: %+v\n", params)
-		return false
-	}
-
-	// 验证时间戳是否在有效期内（比如5分钟内）
-	now := time.Now().Unix()
-	if math.Abs(float64(now)-timestamp) > 300 { // 300秒 = 5分钟
-		fmt.Printf("验证签名失败: 时间戳过期, timestamp: %v, now: %v, diff: %v秒\n",
-			timestamp, now, math.Abs(float64(now)-timestamp))
-		return false
-	}
-
-	// 3. 获取 app_secret (从配置中获取)
-	appSecret := getAppSecret(appKey)
-	if appSecret == "" {
-		fmt.Printf("验证签名失败: 未找到对应的 app_secret, app_key: %s\n", appKey)
-		return false
-	}
-
-	// 4. 构建签名字符串
-	signStr := buildSignString(params, appSecret)
-	fmt.Printf("签名字符串: %s\n", signStr)
-
-	// 5. 计算签名
-	calculatedSign := calculateSign(signStr)
-	fmt.Printf("计算的签名: %s, 接收到的签名: %s\n", calculatedSign, sign)
-
-	// 6. 比对签名
-	if calculatedSign != sign {
-		fmt.Printf("验证签名失败: 签名不匹配\n计算签名: %s\n接收签名: %s\n", calculatedSign, sign)
-		return false
-	}
-
-	return true
-}
-
-// buildSignString 构建签名字符串
-func buildSignString(params map[string]interface{}, appSecret string) string {
-	// 1. 过滤掉 sign 字段
-
-	keys := make([]string, 0, len(params))
-	for k := range params {
-		if k != "sign" && k != "datas" {
-			keys = append(keys, k)
-		}
-	}
-	sort.Strings(keys)
-
-	// 3. 构建签名字符串
-	var signString strings.Builder
-	for _, k := range keys {
-		v := params[k]
-		// 将键和值都转换为字符串并拼接
-		signString.WriteString(k)
-		signString.WriteString(fmt.Sprint(v))
-	}
-
-	// 4. 添加 appSecret
-	signString.WriteString(appSecret)
-
-	return signString.String()
-}
-
-// calculateSign 计算签名
-func calculateSign(signStr string) string {
-	h := md5.New()
-	h.Write([]byte(signStr))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
 // getAppSecret 获取 app_secret
 func getAppSecret(appKey string) string {
-	// TODO: 从配置或数据库中获取 app_secret
-	appSecrets := map[string]string{
-		"1675958551": "3649c621b6945721", // 测试用例中的 app_secret
+	// 从数据库中获取 app_secret
+	account, err := platformRepo.GetPlatformAccountByAccountName(appKey)
+	if err != nil {
+		fmt.Printf("获取平台账号信息失败: %v\n", err)
+		return ""
 	}
-	return appSecrets[appKey]
+	return account.AppSecret
 }

@@ -2,6 +2,7 @@ package router
 
 import (
 	"recharge-go/internal/controller"
+	"recharge-go/internal/middleware"
 	"recharge-go/internal/repository"
 	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
@@ -89,7 +90,7 @@ func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 	mf178OrderController := controller.NewMF178OrderController(orderService, rechargeService)
 
 	// 注册路由
-	mf178Order := r.Group("/mf178/order/:userid")
+	mf178Order := r.Group("/mf178/order/:userid", middleware.MF178Auth())
 	{
 		mf178Order.POST("", mf178OrderController.CreateOrder)
 		mf178Order.POST("/query", mf178OrderController.QueryOrder)

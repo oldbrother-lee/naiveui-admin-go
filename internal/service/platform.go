@@ -200,7 +200,7 @@ func (s *PlatformService) SendNotification(ctx context.Context, order *model.Ord
 	// params := map[string]interface{}{
 	// 	"data": string(jsonData),
 	// }
-	// params["app_key"] = "1675958551"
+	// params["app_key"] = "xxxxx"
 	// params["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
 
 	// 3. 生成签名

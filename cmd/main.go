@@ -7,6 +7,7 @@ import (
 	"recharge-go/internal/config"
 	"recharge-go/internal/controller"
 	"recharge-go/internal/handler"
+	"recharge-go/internal/middleware"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/router"
 	"recharge-go/internal/service"
@@ -55,6 +56,9 @@ func main() {
 	if err := database.InitDB(); err != nil {
 		logger.Log.Fatal("初始化数据库失败", zap.Error(err))
 	}
+
+	// 初始化MF178认证中间件
+	middleware.InitMF178Auth(database.DB)
 
 	// 初始化Redis连接
 	if err := redis.InitRedis(
