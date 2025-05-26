@@ -54,3 +54,8 @@ func (r *BalanceLogRepository) SubBalance(ctx context.Context, userID int64, amo
 		return tx.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("balance", gorm.Expr("balance - ?", amount)).Error
 	})
 }
+
+// DeleteByOrderIDs 批量删除余额日志
+func (r *BalanceLogRepository) DeleteByOrderIDs(ctx context.Context, orderIDs []int64) error {
+	return r.db.Where("order_id IN ?", orderIDs).Delete(&model.BalanceLog{}).Error
+}

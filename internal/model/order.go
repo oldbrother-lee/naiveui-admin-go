@@ -59,6 +59,9 @@ type Order struct {
 	Denom             float64     `json:"denom" gorm:"type:decimal(10,2);comment:面值"`
 	TotalPrice        float64     `json:"total_price" gorm:"type:decimal(10,2);comment:总价"`
 	Price             float64     `json:"price" gorm:"type:decimal(10,2);comment:单价"`
+	OfficialPayment   float64     `json:"official_payment" gorm:"type:decimal(10,2);comment:官方支付金额"`
+	UserQuotePayment  float64     `json:"user_quote_payment" gorm:"type:decimal(10,2);comment:用户报价支付金额"`
+	UserPayment       float64     `json:"user_payment" gorm:"type:decimal(10,2);comment:用户支付金额"`
 	PayWay            int         `json:"pay_way" gorm:"comment:支付方式"`
 	SerialNumber      string      `json:"serial_number" gorm:"size:64;comment:支付流水号"`
 	IsPay             int         `json:"is_pay" gorm:"comment:是否支付"`

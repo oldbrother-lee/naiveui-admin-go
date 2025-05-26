@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"recharge-go/configs"
 	"recharge-go/internal/repository"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/redis"
 	"recharge-go/pkg/signature"
 	"strconv"
 	"time"
@@ -408,6 +410,15 @@ func (s *Service) GetOrderList(orderNumber string, orderStatus, settlementStatus
 
 // GetChannelList 查询所有渠道及对应运营商编码
 func (s *Service) GetChannelList() ([]Channel, error) {
+	cacheKey := "xzx:channel_list"
+	ctx := context.Background()
+	var cached []Channel
+	if val, err := redis.GetClient().Get(ctx, cacheKey).Result(); err == nil && val != "" {
+		if err := json.Unmarshal([]byte(val), &cached); err == nil {
+			return cached, nil
+		}
+	}
+
 	params := map[string]string{}
 	apiKey := "c362d30409744d7584abcbd3b58124c2"
 	userID := "558203"
@@ -454,6 +465,11 @@ func (s *Service) GetChannelList() ([]Channel, error) {
 
 	if result.Code != 0 {
 		return nil, fmt.Errorf("业务错误: %s", result.Msg)
+	}
+
+	// 写入 redis 缓存 1 小时
+	if bytes, err := json.Marshal(result.Result); err == nil {
+		_ = redis.GetClient().Set(ctx, cacheKey, bytes, time.Hour).Err()
 	}
 
 	return result.Result, nil

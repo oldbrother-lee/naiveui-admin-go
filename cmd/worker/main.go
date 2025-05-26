@@ -45,6 +45,9 @@ func main() {
 	retryRepo := repository.NewRetryRepository(db)
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(db)
 	notificationRepo := repository.NewNotificationRepository(db)
+	platformAccountRepo := repository.NewPlatformAccountRepository(db)
+	userRepo := repository.NewUserRepository(db)
+	balanceLogRepo := repository.NewBalanceLogRepository(db)
 
 	// 初始化平台管理器
 	platformManager := recharge.NewManager(db)
@@ -56,12 +59,11 @@ func main() {
 	queue := queue.NewRedisQueue()
 
 	// 初始化余额服务
-	platformAccountRepo := repository.NewPlatformAccountRepository(db)
-	userRepo := repository.NewUserRepository(db)
 	balanceService := service.NewPlatformAccountBalanceService(
 		db,
 		platformAccountRepo,
 		userRepo,
+		balanceLogRepo,
 	)
 
 	// 初始化平台API仓库
@@ -79,6 +81,8 @@ func main() {
 		productAPIRelationRepo,
 		platformAPIParamRepo,
 		balanceService,
+		notificationRepo,
+		queue,
 	)
 	productRepo := repository.NewProductRepository(db)
 	retryService := service.NewRetryService(retryRepo, orderRepo, platformRepo, productRepo, productAPIRelationRepo, rechargeService)

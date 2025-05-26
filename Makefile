@@ -2,7 +2,40 @@
 
 # 构建工作器
 build-worker:
-	go build -o bin/worker cmd/worker/main.go
+	go build -o bin/recharge cmd/worker/main.go
+
+build-server:
+	go build -o bin/server cmd/main.go
+
+build-notify:
+	go build -o bin/notify cmd/notification/main.go
+
+build-server-linux:
+	GOOS=linux GOARCH=amd64 go build -o bin/server-linux cmd/main.go
+
+build-server-windows:
+	GOOS=windows GOARCH=amd64 go build -o bin/server.exe cmd/main.go
+
+build-server-mac-arm64:
+	GOOS=darwin GOARCH=arm64 go build -o bin/server-mac-arm64 cmd/main.go
+
+build-worker-linux:
+	GOOS=linux GOARCH=amd64 go build -o bin/worker-linux cmd/worker/main.go
+
+build-worker-windows:
+	GOOS=windows GOARCH=amd64 go build -o bin/worker.exe cmd/worker/main.go
+
+build-worker-mac-arm64:
+	GOOS=darwin GOARCH=arm64 go build -o bin/worker-mac-arm64 cmd/worker/main.go
+
+build-notify-linux:
+	GOOS=linux GOARCH=amd64 go build -o bin/notify-linux cmd/notification/main.go
+
+build-notify-windows:
+	GOOS=windows GOARCH=amd64 go build -o bin/notify.exe cmd/notification/main.go
+
+build-notify-mac-arm64:
+	GOOS=darwin GOARCH=arm64 go build -o bin/notify-mac-arm64 cmd/notification/main.go
 
 # 运行工作器
 run-worker:

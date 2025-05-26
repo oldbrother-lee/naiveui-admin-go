@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
@@ -23,19 +22,24 @@ func NewTaskConfigController(taskConfigService *service.TaskConfigService) *Task
 
 // Create 创建任务配置
 func (c *TaskConfigController) Create(ctx *gin.Context) {
-	var config model.TaskConfig
-	if err := ctx.ShouldBindJSON(&config); err != nil {
-		fmt.Println(err)
+	var configs []model.TaskConfig
+	if err := ctx.ShouldBindJSON(&configs); err != nil {
 		utils.Error(ctx, http.StatusBadRequest, "无效的参数")
 		return
 	}
 
-	if err := c.taskConfigService.Create(ctx, &config); err != nil {
-		utils.Error(ctx, http.StatusInternalServerError, "创建任务配置失败")
+	// 转为 []*model.TaskConfig
+	configPtrs := make([]*model.TaskConfig, len(configs))
+	for i := range configs {
+		configPtrs[i] = &configs[i]
+	}
+
+	if err := c.taskConfigService.BatchCreate(ctx, configPtrs); err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, "批量创建任务配置失败")
 		return
 	}
 
-	utils.Success(ctx, config)
+	utils.Success(ctx, nil)
 }
 
 // Update 更新任务配置

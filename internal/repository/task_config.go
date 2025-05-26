@@ -84,3 +84,13 @@ func (r *TaskConfigRepository) Upsert(config *model.TaskConfig) error {
 	// 存在则更新
 	return r.db.Model(&existing).Updates(config).Error
 }
+
+// BatchCreate 批量创建任务配置
+func (r *TaskConfigRepository) BatchCreate(configs []*model.TaskConfig) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&configs).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}

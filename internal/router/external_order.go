@@ -36,10 +36,12 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 	// 初始化余额服务
 	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
 	userRepo := repository.NewUserRepository(database.DB)
+	balanceLogRepo := repository.NewBalanceLogRepository(database.DB)
 	balanceService := service.NewPlatformAccountBalanceService(
 		database.DB,
 		platformAccountRepo,
 		userRepo,
+		balanceLogRepo,
 	)
 	platformAPIRepo := repository.NewPlatformAPIRepository(database.DB)
 	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
@@ -57,6 +59,8 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 		productAPIRelationRepo,
 		platformAPIParamRepo,
 		balanceService,
+		notificationRepo,
+		queueInstance,
 	)
 
 	// 设置 orderService 的 rechargeService

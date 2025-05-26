@@ -120,10 +120,12 @@ func main() {
 
 	// 创建充值服务
 	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+	balanceLogRepo := repository.NewBalanceLogRepository(database.DB)
 	balanceService := service.NewPlatformAccountBalanceService(
 		database.DB,
 		platformAccountRepo,
 		userRepo,
+		balanceLogRepo,
 	)
 
 	rechargeService := service.NewRechargeService(
@@ -136,6 +138,8 @@ func main() {
 		productAPIRelationRepo,
 		platformAPIParamRepo,
 		balanceService,
+		notificationRepo,
+		queueInstance,
 	)
 
 	// 设置 orderService 的 rechargeService

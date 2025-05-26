@@ -79,12 +79,11 @@ func (c *CallbackController) HandleKekebangCallback(ctx *gin.Context) {
 
 	// 解析请求体
 	var data map[string]interface{}
-	fmt.Printf("kekebang【解析请求体】body: %+v\n", body)
+
 	if err := json.Unmarshal(body, &data); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "invalid request body"})
 		return
 	}
-	fmt.Printf("kekebang【解析请求体】jsonbody: %+v\n", body)
 	// 获取签名
 	sign, ok := data["sign"].(string)
 	if !ok {

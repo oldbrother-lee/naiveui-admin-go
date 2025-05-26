@@ -82,3 +82,8 @@ func (s *TaskConfigService) GetByID(ctx context.Context, id int64) (*model.TaskC
 func (s *TaskConfigService) List(ctx context.Context, page, pageSize int) ([]*model.TaskConfig, int64, error) {
 	return s.taskConfigRepo.List(page, pageSize)
 }
+
+// BatchCreate 批量创建任务配置
+func (s *TaskConfigService) BatchCreate(ctx context.Context, configs []*model.TaskConfig) error {
+	return s.taskConfigRepo.BatchCreate(configs)
+}

@@ -71,10 +71,10 @@ func (r *externalOrderLogRepository) GetLogs(ctx context.Context, req struct {
 		query = query.Where("status = ?", req.Status)
 	}
 	if req.StartTime != "" {
-		query = query.Where("created_at >= ?", req.StartTime)
+		query = query.Where("create_time >= ?", req.StartTime)
 	}
 	if req.EndTime != "" {
-		query = query.Where("created_at <= ?", req.EndTime)
+		query = query.Where("create_time <= ?", req.EndTime)
 	}
 
 	var total int64
@@ -85,7 +85,7 @@ func (r *externalOrderLogRepository) GetLogs(ctx context.Context, req struct {
 	var logs []*model.ExternalOrderLog
 	if err := query.Offset((req.Page - 1) * req.PageSize).
 		Limit(req.PageSize).
-		Order("created_at DESC").
+		Order("create_time DESC").
 		Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}

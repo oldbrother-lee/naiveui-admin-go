@@ -2,6 +2,7 @@ package router
 
 import (
 	"recharge-go/internal/controller"
+	"recharge-go/internal/middleware"
 	"recharge-go/internal/repository"
 	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
@@ -12,7 +13,7 @@ import (
 )
 
 // RegisterOrderRoutes 注册订单相关路由
-func RegisterOrderRoutes(r *gin.RouterGroup) {
+func RegisterOrderRoutes(r *gin.RouterGroup, userService *service.UserService) {
 	// 创建服务实例
 	orderRepo := repository.NewOrderRepository(database.DB)
 	platformRepo := repository.NewPlatformRepository(database.DB)
@@ -35,10 +36,12 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 	// 创建充值服务
 	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
 	userRepo := repository.NewUserRepository(database.DB)
+	balanceLogRepo := repository.NewBalanceLogRepository(database.DB)
 	balanceService := service.NewPlatformAccountBalanceService(
 		database.DB,
 		platformAccountRepo,
 		userRepo,
+		balanceLogRepo,
 	)
 	platformAPIRepo := repository.NewPlatformAPIRepository(database.DB)
 	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
@@ -55,6 +58,8 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 		productAPIRelationRepo,
 		platformAPIParamRepo,
 		balanceService,
+		notificationRepo,
+		queueInstance,
 	)
 
 	// 设置 orderService 的 rechargeService
@@ -80,5 +85,8 @@ func RegisterOrderRoutes(r *gin.RouterGroup) {
 		order.POST("/:id/split", orderController.ProcessOrderSplit)
 		order.POST("/:id/partial", orderController.ProcessOrderPartial)
 		order.POST("/:id/delete", orderController.DeleteOrder)
+
+		// 只允许管理员访问的订单清理接口
+		order.DELETE("/cleanup", middleware.CheckSuperAdmin(userService), orderController.CleanupOrders)
 	}
 }

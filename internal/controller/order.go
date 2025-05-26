@@ -378,3 +378,22 @@ func (c *OrderController) DeleteOrder(ctx *gin.Context) {
 	}
 	utils.Success(ctx, "删除订单成功")
 }
+
+// CleanupOrders 清理指定时间范围的订单及相关日志
+func (c *OrderController) CleanupOrders(ctx *gin.Context) {
+	start := ctx.Query("start")
+	end := ctx.Query("end")
+	if start == "" || end == "" {
+		utils.Error(ctx, 1, "请提供开始和结束时间")
+		return
+	}
+	count, err := c.orderService.CleanupOrders(ctx.Request.Context(), start, end)
+	if err != nil {
+		utils.Error(ctx, 1, "清理失败: "+err.Error())
+		return
+	}
+	utils.Success(ctx, gin.H{
+		"message": "清理成功",
+		"deleted": count,
+	})
+}

@@ -50,6 +50,10 @@ type OrderRepository interface {
 	UpdatePlatformID(ctx context.Context, orderID int64, platformID *model.PlatformAPI, ParamID int64) error
 	// DB 返回数据库连接
 	DB() *gorm.DB
+	// GetIDsByTimeRange 查询指定时间范围的订单ID
+	GetIDsByTimeRange(ctx context.Context, start, end string) ([]int64, error)
+	// DeleteByIDs 批量删除订单
+	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -248,4 +252,19 @@ func (r *OrderRepositoryImpl) UpdatePlatformID(ctx context.Context, orderID int6
 			"platform_name":    platformID.Name,
 			"platform_code":    platformID.Code,
 		}).Error
+}
+
+// GetIDsByTimeRange 查询指定时间范围的订单ID
+func (r *OrderRepositoryImpl) GetIDsByTimeRange(ctx context.Context, start, end string) ([]int64, error) {
+	var ids []int64
+	err := r.db.Model(&model.Order{}).
+		Where("create_time BETWEEN ? AND ?", start, end).
+		Pluck("id", &ids).Error
+	return ids, err
+}
+
+// DeleteByIDs 批量删除订单
+func (r *OrderRepositoryImpl) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
+	res := r.db.Where("id IN ?", ids).Delete(&model.Order{})
+	return res.RowsAffected, res.Error
 }

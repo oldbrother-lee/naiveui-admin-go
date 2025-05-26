@@ -104,7 +104,7 @@ func SetupRouter(
 			RegisterUserGradeRoutes(auth, userGradeController)
 
 			// Order routes
-			RegisterOrderRoutes(auth)
+			RegisterOrderRoutes(auth, userService)
 
 			// Recharge routes
 			recharge := auth.Group("/recharge")

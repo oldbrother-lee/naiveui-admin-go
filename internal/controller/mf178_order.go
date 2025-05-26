@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -34,6 +35,41 @@ func NewMF178OrderController(
 	}
 }
 
+// Int64String 支持字符串和数字类型的互转
+type Int64String int64
+
+// UnmarshalJSON 实现自定义 JSON 解析
+func (i *Int64String) UnmarshalJSON(data []byte) error {
+	var v interface{}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	switch value := v.(type) {
+	case float64:
+		*i = Int64String(value)
+	case string:
+		// 如果是字符串，尝试转换为 int64
+		if value == "" {
+			*i = 0
+			return nil
+		}
+		// 先尝试解析为 float64，再转换为 int64
+		floatVal, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return err
+		}
+		*i = Int64String(floatVal)
+	default:
+		*i = 0
+	}
+	return nil
+}
+
+// MarshalJSON 实现自定义 JSON 序列化
+func (i Int64String) MarshalJSON() ([]byte, error) {
+	return json.Marshal(int64(i))
+}
+
 // 定义请求结构体，完全匹配外部系统推送的数据格式
 type MF178OrderRequest struct {
 	AppKey      string `json:"app_key" binding:"required"`       // 应用密钥
@@ -43,17 +79,17 @@ type MF178OrderRequest struct {
 		ProvCode   string  `json:"prov_code"`   // 省份
 		Amount     float64 `json:"amount"`      // 金额
 	} `json:"datas" binding:"required"`
-	VenderID         int    `json:"vender_id" binding:"required"`          // 供应商ID
-	Target           string `json:"target" binding:"required"`             // 目标手机号
-	GoodsID          int64  `json:"goods_id" binding:"required"`           // 商品ID
-	GoodsName        string `json:"goods_name" binding:"required"`         // 商品名称
-	OuterGoodsCode   string `json:"outer_goods_code" binding:"required"`   // 外部商品编码
-	OfficialPayment  string `json:"official_payment" binding:"required"`   // 官方支付金额
-	UserQuoteType    int    `json:"user_quote_type" binding:"required"`    // 用户报价类型
-	UserQuotePayment string `json:"user_quote_payment" binding:"required"` // 用户报价支付金额，改为 string 类型
-	UserPayment      string `json:"user_payment" binding:"required"`       // 用户支付金额
-	Timestamp        int64  `json:"timestamp" binding:"required"`          // 时间戳
-	Sign             string `json:"sign" binding:"required"`               // 签名
+	VenderID         int         `json:"vender_id" binding:"required"`          // 供应商ID
+	Target           string      `json:"target" binding:"required"`             // 目标手机号
+	GoodsID          int64       `json:"goods_id" binding:"required"`           // 商品ID
+	GoodsName        string      `json:"goods_name" binding:"required"`         // 商品名称
+	OuterGoodsCode   string      `json:"outer_goods_code" binding:"required"`   // 外部商品编码
+	OfficialPayment  Int64String `json:"official_payment" binding:"required"`   // 官方支付金额
+	UserQuoteType    Int64String `json:"user_quote_type" binding:"required"`    // 用户报价类型
+	UserQuotePayment Int64String `json:"user_quote_payment" binding:"required"` // 用户报价支付金额，改为 string 类型
+	UserPayment      Int64String `json:"user_payment" binding:"required"`       // 用户支付金额
+	Timestamp        int64       `json:"timestamp" binding:"required"`          // 时间戳
+	Sign             string      `json:"sign" binding:"required"`               // 签名
 }
 
 // CreateOrder 创建订单
@@ -133,42 +169,42 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		return
 	}
 
-	// 4. 转换金额字段
-	officialPayment, err := strconv.ParseFloat(req.OfficialPayment, 64)
-	if err != nil {
-		logger.Log.Error("官方支付金额转换失败",
-			zap.Error(err),
-			zap.String("original_value", req.OfficialPayment),
-			zap.String("request_id", ctx.GetString("request_id")))
-		utils.Error(ctx, http.StatusBadRequest, "无效的官方支付金额")
-		return
-	}
-	logger.Log.Info("官方支付金额",
-		zap.Float64("amount", officialPayment),
-		zap.String("request_id", ctx.GetString("request_id")))
+	// // 4. 转换金额字段
+	// officialPayment, err := strconv.ParseFloat(req.OfficialPayment, 64)
+	// if err != nil {
+	// 	logger.Log.Error("官方支付金额转换失败",
+	// 		zap.Error(err),
+	// 		zap.String("original_value", req.OfficialPayment),
+	// 		zap.String("request_id", ctx.GetString("request_id")))
+	// 	utils.Error(ctx, http.StatusBadRequest, "无效的官方支付金额")
+	// 	return
+	// }
+	// logger.Log.Info("官方支付金额",
+	// 	zap.Float64("amount", officialPayment),
+	// 	zap.String("request_id", ctx.GetString("request_id")))
 
-	userPayment, err := strconv.ParseFloat(req.UserPayment, 64)
-	if err != nil {
-		logger.Log.Error("用户支付金额转换失败",
-			zap.Error(err),
-			zap.String("original_value", req.UserPayment),
-			zap.String("request_id", ctx.GetString("request_id")))
-		utils.Error(ctx, http.StatusBadRequest, "无效的用户支付金额")
-		return
-	}
+	// userPayment, err := strconv.ParseFloat(req.UserPayment, 64)
+	// if err != nil {
+	// 	logger.Log.Error("用户支付金额转换失败",
+	// 		zap.Error(err),
+	// 		zap.String("original_value", req.UserPayment),
+	// 		zap.String("request_id", ctx.GetString("request_id")))
+	// 	utils.Error(ctx, http.StatusBadRequest, "无效的用户支付金额")
+	// 	return
+	// }
 
-	// 转换用户报价支付金额
-	userQuotePayment, err := strconv.ParseFloat(req.UserQuotePayment, 64)
-	if err != nil {
-		logger.Log.Error("用户报价支付金额转换失败",
-			zap.Error(err),
-			zap.String("original_value", req.UserQuotePayment),
-			zap.String("request_id", ctx.GetString("request_id")))
-		utils.Error(ctx, http.StatusBadRequest, "无效的用户报价支付金额")
-		return
-	}
+	// // 转换用户报价支付金额
+	// userQuotePayment, err := strconv.ParseFloat(req.UserQuotePayment, 64)
+	// if err != nil {
+	// 	logger.Log.Error("用户报价支付金额转换失败",
+	// 		zap.Error(err),
+	// 		zap.String("original_value", req.UserQuotePayment),
+	// 		zap.String("request_id", ctx.GetString("request_id")))
+	// 	utils.Error(ctx, http.StatusBadRequest, "无效的用户报价支付金额")
+	// 	return
+	// }
 	// 将浮点数转换为整数
-	userQuotePaymentInt := int(userQuotePayment)
+	// userQuotePaymentInt := int(userQuotePayment)
 
 	// 5. 记录订单信息到日志文件
 	logger.Log.Info("收到新订单请求",
@@ -177,16 +213,16 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		zap.String("mobile", req.Target),
 		zap.String("outer_goods_code", req.OuterGoodsCode),
 		zap.String("operator_id", req.Datas.OperatorID),
-		zap.Float64("amount", officialPayment),
+		zap.Float64("amount", float64(req.OfficialPayment)),
 		zap.String("raw_data", string(body)),
 		zap.String("app_key", req.AppKey),
 		zap.Int("vender_id", req.VenderID),
 		zap.Int64("goods_id", req.GoodsID),
 		zap.String("goods_name", req.GoodsName),
-		zap.Float64("official_payment", officialPayment),
-		zap.Int("user_quote_type", req.UserQuoteType),
-		zap.Int("user_quote_payment", userQuotePaymentInt),
-		zap.Float64("user_payment", userPayment),
+		zap.Float64("official_payment", float64(req.OfficialPayment)),
+		zap.Int("user_quote_type", int(req.UserQuoteType)),
+		zap.Int("user_quote_payment", int(req.UserQuotePayment)),
+		zap.Float64("user_payment", float64(req.UserPayment)),
 		zap.Int64("timestamp", req.Timestamp))
 
 	// 6. 转换产品编码
@@ -236,7 +272,10 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		ProductID:         productID,
 		OutTradeNum:       strconv.FormatInt(req.UserOrderID, 10),
 		Denom:             req.Datas.Amount,
-		Price:             userPayment,
+		OfficialPayment:   float64(req.OfficialPayment),
+		UserQuotePayment:  float64(req.UserQuotePayment),
+		UserPayment:       float64(req.UserPayment),
+		Price:             float64(req.UserPayment),
 		Status:            model.OrderStatusPendingRecharge,
 		IsDel:             0,
 		Client:            3,   // 3代表MF178

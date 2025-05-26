@@ -177,7 +177,6 @@ func (p *KekebangPlatform) QueryOrderStatus(order *model.Order) (model.OrderStat
 func (p *KekebangPlatform) ParseCallbackData(data []byte) (*model.CallbackData, error) {
 	// 解析平台返回的数据
 	resp := &KekebangCallbackResponse{}
-	fmt.Printf("kekebang【解析回调数据】data: %+v\n", data)
 	if err := json.Unmarshal(data, resp); err != nil {
 		return nil, fmt.Errorf("parse callback data failed: %v", err)
 	}

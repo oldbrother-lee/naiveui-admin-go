@@ -13,6 +13,7 @@ func RegisterTaskConfigRoutes(r *gin.RouterGroup) {
 	svc := service.NewTaskConfigService(repo)
 	ctrl := controller.NewTaskConfigController(svc)
 
+	// 批量创建任务配置
 	r.POST("/task-config", ctrl.Create)
 	r.PUT("/task-config", ctrl.Update)
 	r.DELETE("/task-config/:id", ctrl.Delete)

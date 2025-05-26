@@ -49,6 +49,8 @@ type OrderService interface {
 	SetRechargeService(rechargeService RechargeService)
 	// DeleteOrder 删除订单（软删除）
 	DeleteOrder(ctx context.Context, id string) error
+	// CleanupOrders 清理指定时间范围的订单及相关日志
+	CleanupOrders(ctx context.Context, start, end string) (int64, error)
 }
 
 // orderService 订单服务实现
@@ -202,20 +204,13 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 		"new_status", status,
 	)
 
-	// 将通知记录添加到队列
-	if err := s.queue.Push(ctx, "notification_queue", notification); err != nil {
-		logger.Error("推送通知到队列失败",
-			"error", err,
-			"order_id", id,
-			"notification_id", notification.ID,
-			"queue_name", "notification_queue",
-		)
-		// 队列推送失败不影响订单状态更新
+	// 在订单状态更新后，添加日志记录通知推送的流程
+	logger.Info("准备推送通知到队列", "order_id", order.ID, "status", order.Status)
+	err = s.queue.Push(ctx, "notification_queue", notification)
+	if err != nil {
+		logger.Error("推送通知到队列失败", "order_id", order.ID, "error", err)
 	} else {
-		logger.Info("通知已推送到队列",
-			"order_id", id,
-			"notification_id", notification.ID,
-		)
+		logger.Info("推送通知到队列成功", "order_id", order.ID)
 	}
 
 	return nil
@@ -388,4 +383,26 @@ func (s *orderService) DeleteOrder(ctx context.Context, id string) error {
 	}
 	logger.Info("软删除订单成功", "order_id", id)
 	return nil
+}
+
+// CleanupOrders 清理指定时间范围的订单及相关日志
+func (s *orderService) CleanupOrders(ctx context.Context, start, end string) (int64, error) {
+	// 1. 查询要删除的订单ID
+	orderIDs, err := s.orderRepo.GetIDsByTimeRange(ctx, start, end)
+	if err != nil {
+		return 0, err
+	}
+	if len(orderIDs) == 0 {
+		return 0, nil
+	}
+	// 2. 删除 balance_logs
+	if err := s.rechargeService.GetBalanceService().DeleteByOrderIDs(ctx, orderIDs); err != nil {
+		return 0, err
+	}
+	// 3. 删除 orders
+	count, err := s.orderRepo.DeleteByIDs(ctx, orderIDs)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }

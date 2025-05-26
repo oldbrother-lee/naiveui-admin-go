@@ -258,14 +258,14 @@ func (r *distributionRepository) GetDistributorStatistics(userID int64) (*model.
 	var monthAmount float64
 
 	err = r.db.Model(&model.DistributionCommission{}).
-		Where("user_id = ? AND created_at >= ?", userID, startOfMonth).
+		Where("user_id = ? AND create_time >= ?", userID, startOfMonth).
 		Count(&monthOrders).Error
 	if err != nil {
 		return nil, err
 	}
 
 	err = r.db.Model(&model.DistributionCommission{}).
-		Where("user_id = ? AND status = ? AND created_at >= ?", userID, 1, startOfMonth).
+		Where("user_id = ? AND status = ? AND create_time >= ?", userID, 1, startOfMonth).
 		Select("COALESCE(SUM(commission), 0) as month_commission, COALESCE(SUM(amount), 0) as month_amount").
 		Row().Scan(&monthCommission, &monthAmount)
 	if err != nil {

@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"log"
 	"recharge-go/internal/model"
+	notificationModel "recharge-go/internal/model/notification"
 	"recharge-go/internal/repository"
+	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service/recharge"
 	"recharge-go/pkg/logger"
+	"recharge-go/pkg/queue"
 	"recharge-go/pkg/redis"
 	"strconv"
 	"sync"
@@ -66,6 +69,8 @@ type rechargeService struct {
 	redisClient            *redisV8.Client
 	processingOrders       map[int64]bool
 	processingOrdersMu     sync.Mutex
+	notificationRepo       notificationRepo.Repository
+	queue                  queue.Queue
 }
 
 // NewRechargeService 创建充值服务实例
@@ -79,6 +84,8 @@ func NewRechargeService(
 	productAPIRelationRepo repository.ProductAPIRelationRepository,
 	platformAPIParamRepo repository.PlatformAPIParamRepository,
 	balanceService *PlatformAccountBalanceService,
+	notificationRepo notificationRepo.Repository,
+	queue queue.Queue,
 ) *rechargeService {
 	return &rechargeService{
 		db:                     db,
@@ -93,6 +100,8 @@ func NewRechargeService(
 		manager:                recharge.NewManager(db),
 		redisClient:            redis.GetClient(),
 		processingOrders:       make(map[int64]bool),
+		notificationRepo:       notificationRepo,
+		queue:                  queue,
 	}
 }
 
@@ -332,6 +341,38 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 		logger.Error("更新订单状态失败: %v", err)
 		return fmt.Errorf("update order status failed: %v", err)
 	}
+
+	// 创建通知记录
+	notification := &notificationModel.NotificationRecord{
+		OrderID:          order.ID,
+		PlatformCode:     order.PlatformCode,
+		NotificationType: "order_status_changed",
+		Content:          fmt.Sprintf("订单状态已更新为: %d", orderState),
+		Status:           1, // 待处理
+	}
+
+	// 保存通知记录到数据库
+	if err := s.notificationRepo.Create(ctx, notification); err != nil {
+		tx.Rollback()
+		logger.Error("创建通知记录失败",
+			"error", err,
+			"order_id", order.ID,
+			"platform_code", order.PlatformCode,
+			"notification_type", notification.NotificationType,
+		)
+		return fmt.Errorf("create notification record failed: %v", err)
+	}
+
+	// 推送通知到队列
+	logger.Info("准备推送通知到队列", "order_id", order.ID, "status", orderState)
+	err = s.queue.Push(ctx, "notification_queue", notification)
+	if err != nil {
+		tx.Rollback()
+		logger.Error("推送通知到队列失败", "order_id", order.ID, "error", err)
+		return fmt.Errorf("push notification to queue failed: %v", err)
+	}
+	logger.Info("推送通知到队列成功", "order_id", order.ID)
+
 	fmt.Println("记录回调日志&&&&&&&&&")
 	// 5. 记录回调日志
 	log := &model.CallbackLog{

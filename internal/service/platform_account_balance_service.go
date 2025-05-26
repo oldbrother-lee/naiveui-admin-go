@@ -16,6 +16,7 @@ type PlatformAccountBalanceService struct {
 	db                  *gorm.DB
 	platformAccountRepo *repository.PlatformAccountRepository
 	userRepo            *repository.UserRepository
+	balanceLogRepo      *repository.BalanceLogRepository
 }
 
 // NewPlatformAccountBalanceService 创建平台账号余额服务实例
@@ -23,11 +24,13 @@ func NewPlatformAccountBalanceService(
 	db *gorm.DB,
 	platformAccountRepo *repository.PlatformAccountRepository,
 	userRepo *repository.UserRepository,
+	balanceLogRepo *repository.BalanceLogRepository,
 ) *PlatformAccountBalanceService {
 	return &PlatformAccountBalanceService{
 		db:                  db,
 		platformAccountRepo: platformAccountRepo,
 		userRepo:            userRepo,
+		balanceLogRepo:      balanceLogRepo,
 	}
 }
 
@@ -245,7 +248,7 @@ func (s *PlatformAccountBalanceService) GetBalanceLogs(ctx context.Context, acco
 
 	if err := s.db.Where("user_id = ?", userID).
 		Offset(offset).Limit(limit).
-		Order("created_at DESC").
+		Order("create_time DESC").
 		Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}
@@ -349,4 +352,9 @@ func (s *PlatformAccountBalanceService) AdjustBalance(ctx context.Context, accou
 		"balance_before", before,
 		"balance_after", user.Balance)
 	return nil
+}
+
+// DeleteByOrderIDs 批量删除指定订单ID的余额日志
+func (s *PlatformAccountBalanceService) DeleteByOrderIDs(ctx context.Context, orderIDs []int64) error {
+	return s.balanceLogRepo.DeleteByOrderIDs(ctx, orderIDs)
 }
