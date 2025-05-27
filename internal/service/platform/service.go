@@ -538,9 +538,9 @@ func (s *Service) GetStockInfo(channelID, productID int, provinces string) ([]St
 // 获取有效 token
 func (s *Service) GetToken(channelID int, productID, provinces, faceValues, minSettleAmounts string, apiKey, userID, apiURL string, taskConfigID int64) (string, error) {
 	tokenData, err := s.tokenRepo.Get(taskConfigID)
-	if err != nil || tokenData == nil || time.Since(tokenData.CreatedAt) >= 5*time.Minute {
-		// 申请新 token
-		logger.Info(fmt.Sprintf("申请新 token: ChannelID=%d, ProductID=%s, provinces=%s, faceValues=%s, minSettleAmounts=%s", channelID, productID, provinces, faceValues, minSettleAmounts))
+	if err != nil {
+		// 如果获取失败（记录不存在），申请新 token
+		logger.Info(fmt.Sprintf("token 不存在，申请新 token: ChannelID=%d, ProductID=%s", channelID, productID))
 		token, err := s.SubmitTask(channelID, productID, provinces, faceValues, minSettleAmounts, apiKey, userID, apiURL)
 		if err != nil {
 			return "", err
@@ -549,8 +549,20 @@ func (s *Service) GetToken(channelID int, productID, provinces, faceValues, minS
 		return token, nil
 	}
 
-	// 更新最后使用时间
+	// 检查 token 是否过期（5分钟）
+	if time.Since(tokenData.CreatedAt) >= 5*time.Minute {
+		logger.Info(fmt.Sprintf("token 已过期，申请新 token: ChannelID=%d, ProductID=%s", channelID, productID))
+		token, err := s.SubmitTask(channelID, productID, provinces, faceValues, minSettleAmounts, apiKey, userID, apiURL)
+		if err != nil {
+			return "", err
+		}
+		_ = s.tokenRepo.Save(taskConfigID, token)
+		return token, nil
+	}
+
+	// token 有效，更新最后使用时间
 	_ = s.tokenRepo.UpdateLastUsed(taskConfigID)
+	logger.Info(fmt.Sprintf("使用现有 token: ChannelID=%d, ProductID=%s, token=%s", channelID, productID, tokenData.Token))
 	return tokenData.Token, nil
 }
 
