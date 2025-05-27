@@ -4,9 +4,11 @@ import (
 	"recharge-go/internal/controller"
 	"recharge-go/internal/handler"
 	"recharge-go/internal/repository"
+	notificationRepo "recharge-go/internal/repository/notification"
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/platform"
 	"recharge-go/pkg/database"
+	"recharge-go/pkg/queue"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,6 +20,47 @@ func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 	taskConfigRepo := repository.NewTaskConfigRepository()
 	taskOrderRepo := repository.NewTaskOrderRepository()
 	daichongOrderRepo := repository.NewDaichongOrderRepository(db)
+	orderRepo := repository.NewOrderRepository(db)
+	notificationRepo := notificationRepo.NewRepository(db)
+	queueInstance := queue.NewRedisQueue()
+
+	// 创建充值服务
+	platformRepo := repository.NewPlatformRepository(db)
+	platformAPIRepo := repository.NewPlatformAPIRepository(db)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(db)
+	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(db)
+	retryRepo := repository.NewRetryRepository(db)
+	callbackLogRepo := repository.NewCallbackLogRepository(db)
+	platformAccountRepo := repository.NewPlatformAccountRepository(db)
+	userRepo := repository.NewUserRepository(db)
+	balanceLogRepo := repository.NewBalanceLogRepository(db)
+	balanceService := service.NewPlatformAccountBalanceService(
+		db,
+		platformAccountRepo,
+		userRepo,
+		balanceLogRepo,
+	)
+
+	rechargeService := service.NewRechargeService(
+		db,
+		orderRepo,
+		platformRepo,
+		platformAPIRepo,
+		retryRepo,
+		callbackLogRepo,
+		productAPIRelationRepo,
+		platformAPIParamRepo,
+		balanceService,
+		notificationRepo,
+		queueInstance,
+	)
+
+	orderService := service.NewOrderService(
+		orderRepo,
+		rechargeService,
+		notificationRepo,
+		queueInstance,
+	)
 
 	taskConfig := &service.TaskConfig{
 		Interval:      5 * time.Minute, // 每5分钟执行一次
@@ -35,8 +78,10 @@ func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 	taskSvc := service.NewTaskService(
 		taskConfigRepo,
 		taskOrderRepo,
+		orderRepo,
 		daichongOrderRepo,
 		platformSvc,
+		orderService,
 		taskConfig,
 	)
 

@@ -37,6 +37,13 @@ build-notify-windows:
 build-notify-mac-arm64:
 	GOOS=darwin GOARCH=arm64 go build -o bin/notify-mac-arm64 cmd/notification/main.go
 
+build-getorder-linux:
+	GOOS=linux GOARCH=amd64 go build -o bin/getorder-linux cmd/task/main.go
+
+build-getorder-windows:
+	GOOS=windows GOARCH=amd64 go build -o bin/task.exe cmd/task/main.go
+
+build-task-mac-arm64:
 # 运行工作器
 run-worker:
 	go run cmd/worker/main.go

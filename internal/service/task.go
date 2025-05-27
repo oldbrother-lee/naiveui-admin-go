@@ -138,17 +138,16 @@ func (s *TaskService) processTask() {
 				logger.Error(fmt.Sprintf("获取账号信息失败: %v", err))
 				return
 			}
-			fmt.Println("platformName$$$$$$$$$$$$", platform.Name, platform.Code)
 			logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s", channelID, productID, accountName))
-
-			token, err := s.platformSvc.GetToken(channelID, productID, "", cfg.FaceValues, cfg.MinSettleAmounts, appkey, accountName)
+			fmt.Println("appkey$$$$$$$$$$$$######", platform.ApiURL)
+			token, err := s.platformSvc.GetToken(channelID, productID, "", cfg.FaceValues, cfg.MinSettleAmounts, appkey, accountName, platform.ApiURL, cfg.ID)
 			if err != nil {
 				logger.Error("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err)
 				return
 			}
 			logger.Info(fmt.Sprintf("获取 token 成功: ChannelID=%d, ProductID=%s, token=%s", channelID, productID, token))
 
-			order, err := s.platformSvc.QueryTask(token)
+			order, err := s.platformSvc.QueryTask(token, platform.ApiURL)
 			if err != nil {
 				logger.Error(fmt.Sprintf("查询任务匹配状态失败: token=%s, error=%v", token, err))
 				return
@@ -161,7 +160,7 @@ func (s *TaskService) processTask() {
 			logger.Info(fmt.Sprintf("匹配到订单: OrderNumber=%s, AccountNum=%s, SettlementAmount=%.2f",
 				order.OrderNumber, order.AccountNum, order.SettlementAmount))
 
-			_ = s.platformSvc.InvalidateToken()
+			_ = s.platformSvc.InvalidateToken(cfg.ID)
 
 			taskOrder := &model.TaskOrder{
 				OrderNumber:            order.OrderNumber,

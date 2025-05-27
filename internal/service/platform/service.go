@@ -111,7 +111,7 @@ func NewService(tokenRepo *repository.PlatformTokenRepository, platformRepo repo
 }
 
 // SubmitTask 申请做单
-func (s *Service) SubmitTask(channelID int, productID string, provinces string, faceValues, minSettleAmounts string, apiKey, userID string) (string, error) {
+func (s *Service) SubmitTask(channelID int, productID string, provinces string, faceValues, minSettleAmounts string, apiKey, userID, apiURL string) (string, error) {
 	params := map[string]string{
 		"channelId":        strconv.Itoa(channelID),
 		"productIds":       productID,
@@ -125,10 +125,11 @@ func (s *Service) SubmitTask(channelID int, productID string, provinces string, 
 	if err != nil {
 		return "", fmt.Errorf("生成签名失败: %v", err)
 	}
-	url := fmt.Sprintf("%s/api/task/recharge/submit", "https://cusapitest.xianzhuanxia.com")
-	fmt.Printf("申请做单url: %s\n", url)
+	url := fmt.Sprintf("%s/api/task/recharge/submit", apiURL)
+
 	//添加请求头
 	// 创建请求体
+	logger.Info(fmt.Sprintf("申请做单url: %s", url))
 	jsonData, err := json.Marshal(params)
 	if err != nil {
 		return "", fmt.Errorf("创建请求体失败: %v", err)
@@ -140,7 +141,7 @@ func (s *Service) SubmitTask(channelID int, productID string, provinces string, 
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Auth_Token", authToken)
-
+	logger.Info(fmt.Sprintf("申请做单params: %s userid: %s", params, userID))
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -177,7 +178,7 @@ func (s *Service) SubmitTask(channelID int, productID string, provinces string, 
 }
 
 // QueryTask 查询申请做单是否匹配到订单
-func (s *Service) QueryTask(token string) (*PlatformOrder, error) {
+func (s *Service) QueryTask(token string, apiURL string) (*PlatformOrder, error) {
 	params := map[string]string{
 		"token": token,
 	}
@@ -192,8 +193,8 @@ func (s *Service) QueryTask(token string) (*PlatformOrder, error) {
 		return nil, err
 	}
 
-	// url := fmt.Sprintf("%s/api/task/recharge/query", "https://cusapitest.xianzhuanxia.com")
-	url := "http://ip.jikelab.com:5000/api/orders"
+	url := fmt.Sprintf("%s/api/task/recharge/query", apiURL)
+	// url := "http://ip.jikelab.com:5000/api/orders"
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %v", err)
@@ -535,24 +536,27 @@ func (s *Service) GetStockInfo(channelID, productID int, provinces string) ([]St
 }
 
 // 获取有效 token
-func (s *Service) GetToken(channelID int, productID, provinces, faceValues, minSettleAmounts string, apiKey, userID string) (string, error) {
-	tokenData, err := s.tokenRepo.Get()
+func (s *Service) GetToken(channelID int, productID, provinces, faceValues, minSettleAmounts string, apiKey, userID, apiURL string, taskConfigID int64) (string, error) {
+	tokenData, err := s.tokenRepo.Get(taskConfigID)
 	if err != nil || tokenData == nil || time.Since(tokenData.CreatedAt) >= 5*time.Minute {
 		// 申请新 token
 		logger.Info(fmt.Sprintf("申请新 token: ChannelID=%d, ProductID=%s, provinces=%s, faceValues=%s, minSettleAmounts=%s", channelID, productID, provinces, faceValues, minSettleAmounts))
-		token, err := s.SubmitTask(channelID, productID, provinces, faceValues, minSettleAmounts, apiKey, userID)
+		token, err := s.SubmitTask(channelID, productID, provinces, faceValues, minSettleAmounts, apiKey, userID, apiURL)
 		if err != nil {
 			return "", err
 		}
-		_ = s.tokenRepo.Save(token)
+		_ = s.tokenRepo.Save(taskConfigID, token)
 		return token, nil
 	}
+
+	// 更新最后使用时间
+	_ = s.tokenRepo.UpdateLastUsed(taskConfigID)
 	return tokenData.Token, nil
 }
 
 // 匹配到订单后让 token 失效
-func (s *Service) InvalidateToken() error {
-	return s.tokenRepo.Delete()
+func (s *Service) InvalidateToken(taskConfigID int64) error {
+	return s.tokenRepo.Delete(taskConfigID)
 }
 
 // PushToThirdParty 推送订单到第三方平台
