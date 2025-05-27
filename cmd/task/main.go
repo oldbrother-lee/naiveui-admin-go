@@ -10,6 +10,8 @@ import (
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/platform"
 	"recharge-go/pkg/database"
+	"recharge-go/pkg/queue"
+	"recharge-go/pkg/redis"
 	"syscall"
 	"time"
 )
@@ -24,13 +26,26 @@ func main() {
 		log.Fatalf("初始化配置失败: %v", err)
 	}
 
+	// 获取配置
+	cfg := configs.GetConfig()
+
+	// 初始化Redis连接（必须在所有依赖 Redis 的实例化之前）
+	if err := redis.InitRedis(
+		cfg.Redis.Host,
+		cfg.Redis.Port,
+		cfg.Redis.Password,
+		cfg.Redis.DB,
+	); err != nil {
+		log.Fatalf("初始化Redis失败: %v", err)
+	}
+
 	// 初始化数据库连接
 	if err := database.InitDB(); err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}
 
 	// 获取配置
-	cfg := configs.GetConfig()
+	cfg = configs.GetConfig()
 
 	// 创建任务配置
 	taskConfig := &service.TaskConfig{
@@ -47,17 +62,52 @@ func main() {
 	db := database.DB
 	taskConfigRepo := repository.NewTaskConfigRepository()
 	taskOrderRepo := repository.NewTaskOrderRepository()
-	tokenRepo := repository.NewPlatformTokenRepository()
+	orderRepo := repository.NewOrderRepository(db)
 	platformRepo := repository.NewPlatformRepository(db)
-	platformSvc := platform.NewService(tokenRepo, platformRepo)
+	platformAPIRepo := repository.NewPlatformAPIRepository(db)
+	callbackLogRepo := repository.NewCallbackLogRepository(db)
+	productAPIRelationRepo := repository.NewProductAPIRelationRepository(db)
+	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(db)
+	balanceLogRepo := repository.NewBalanceLogRepository(db)
+	userRepo := repository.NewUserRepository(db)
+	platformAccountRepo := repository.NewPlatformAccountRepository(db)
+	balanceService := service.NewPlatformAccountBalanceService(
+		db, platformAccountRepo, userRepo, balanceLogRepo,
+	)
+
+	notificationRepo := repository.NewNotificationRepository(db)
+	queueInstance := queue.NewRedisQueue()
+	rechargeService := service.NewRechargeService(
+		db,
+		orderRepo,
+		platformRepo,
+		platformAPIRepo,
+		repository.NewRetryRepository(db),
+		callbackLogRepo,
+		productAPIRelationRepo,
+		platformAPIParamRepo,
+		balanceService,
+		notificationRepo,
+		queueInstance,
+	)
+	orderService := service.NewOrderService(
+		orderRepo,
+		rechargeService,
+		notificationRepo,
+		queueInstance,
+	)
 	daichongOrderRepo := repository.NewDaichongOrderRepository(db)
+	tokenRepo := repository.NewPlatformTokenRepository()
+	platformSvc := platform.NewService(tokenRepo, platformRepo)
 
 	// 创建任务服务
 	taskSvc := service.NewTaskService(
 		taskConfigRepo,
 		taskOrderRepo,
+		orderRepo,
 		daichongOrderRepo,
 		platformSvc,
+		orderService,
 		taskConfig,
 	)
 

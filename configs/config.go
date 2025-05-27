@@ -6,6 +6,13 @@ import (
 	"github.com/spf13/viper"
 )
 
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+}
+
 type Config struct {
 	Server ServerConfig `mapstructure:"server"`
 	DB     DBConfig     `mapstructure:"database"`
@@ -13,6 +20,7 @@ type Config struct {
 	Log    LogConfig    `mapstructure:"log"`
 	Task   TaskConfig   `mapstructure:"task"`
 	API    APIConfig    `mapstructure:"api"`
+	Redis  RedisConfig  `mapstructure:"redis"`
 }
 
 type ServerConfig struct {

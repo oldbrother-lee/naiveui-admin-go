@@ -54,6 +54,10 @@ type OrderRepository interface {
 	GetIDsByTimeRange(ctx context.Context, start, end string) ([]int64, error)
 	// DeleteByIDs 批量删除订单
 	DeleteByIDs(ctx context.Context, ids []int64) (int64, error)
+	// FindProductByPriceAndISP 根据价格、ISP和状态获取产品
+	FindProductByPriceAndISP(price float64, isp int, status int) (*model.Product, error)
+	// FindProductByPriceAndISPWithTolerance 根据价格、ISP和状态获取产品，支持价格误差容忍
+	FindProductByPriceAndISPWithTolerance(price float64, isp int, status int, tolerance float64) (*model.Product, error)
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -267,4 +271,24 @@ func (r *OrderRepositoryImpl) GetIDsByTimeRange(ctx context.Context, start, end 
 func (r *OrderRepositoryImpl) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
 	res := r.db.Where("id IN ?", ids).Delete(&model.Order{})
 	return res.RowsAffected, res.Error
+}
+
+// FindProductByPriceAndISP 根据价格、ISP和状态获取产品
+func (r *OrderRepositoryImpl) FindProductByPriceAndISP(price float64, isp int, status int) (*model.Product, error) {
+	var product model.Product
+	err := r.db.Where("price = ? AND isp = ? AND status = ?", price, isp, status).First(&product).Error
+	if err != nil {
+		return nil, err
+	}
+	return &product, nil
+}
+
+// FindProductByPriceAndISPWithTolerance 根据价格、ISP和状态获取产品，支持价格误差容忍
+func (r *OrderRepositoryImpl) FindProductByPriceAndISPWithTolerance(price float64, isp int, status int, tolerance float64) (*model.Product, error) {
+	var product model.Product
+	err := r.db.Where("ABS(price - ?) < ? AND isp = ? AND status = ?", price, tolerance, isp, status).First(&product).Error
+	if err != nil {
+		return nil, err
+	}
+	return &product, nil
 }

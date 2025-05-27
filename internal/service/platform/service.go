@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"recharge-go/configs"
+	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/pkg/logger"
 	"recharge-go/pkg/redis"
@@ -602,10 +603,10 @@ func (s *Service) PushToThirdParty(order *PlatformOrder, notifyUrl string) error
 }
 
 // GetAPIKeyAndSecret 通过账号ID获取 appkey、appsecret、accountName
-func (s *Service) GetAPIKeyAndSecret(accountID int64) (appKey, appSecret, accountName string, err error) {
+func (s *Service) GetAPIKeyAndSecret(accountID int64) (appKey string, platform *model.Platform, accountName string, err error) {
 	account, err := s.platformRepo.GetPlatformAccountByID(accountID)
 	if err != nil {
-		return "", "", "", err
+		return "", nil, "", err
 	}
-	return account.AppKey, account.AppSecret, account.AccountName, nil
+	return account.AppKey, account.Platform, account.AccountName, nil
 }

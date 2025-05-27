@@ -6,6 +6,7 @@ import (
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service/platform"
+	"recharge-go/internal/utils"
 	"recharge-go/pkg/logger"
 	"strings"
 	"sync"
@@ -15,8 +16,10 @@ import (
 type TaskService struct {
 	taskConfigRepo    *repository.TaskConfigRepository
 	taskOrderRepo     *repository.TaskOrderRepository
+	orderRepo         repository.OrderRepository
 	daichongOrderRepo *repository.DaichongOrderRepository
 	platformSvc       *platform.Service
+	orderService      OrderService
 	config            *TaskConfig
 	ctx               context.Context
 	cancel            context.CancelFunc
@@ -38,16 +41,20 @@ type TaskConfig struct {
 func NewTaskService(
 	taskConfigRepo *repository.TaskConfigRepository,
 	taskOrderRepo *repository.TaskOrderRepository,
+	orderRepo repository.OrderRepository,
 	daichongOrderRepo *repository.DaichongOrderRepository,
 	platformSvc *platform.Service,
+	orderService OrderService,
 	config *TaskConfig,
 ) *TaskService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TaskService{
 		taskConfigRepo:    taskConfigRepo,
 		taskOrderRepo:     taskOrderRepo,
+		orderRepo:         orderRepo,
 		daichongOrderRepo: daichongOrderRepo,
 		platformSvc:       platformSvc,
+		orderService:      orderService,
 		config:            config,
 		ctx:               ctx,
 		cancel:            cancel,
@@ -107,95 +114,114 @@ func (s *TaskService) processTask() {
 	}
 	logger.Info(fmt.Sprintf("获取到 %d 个启用的任务配置", len(configs)))
 
-	// 处理每个配置
-	for _, config := range configs {
-		channelID := int(config.ChannelID)
-		productID := config.ProductID
-
-		// productIDInt, err := strconv.Atoi(productID)
-		// if err != nil {
-		// 	logger.Error(fmt.Sprintf("ProductID 转换为 int 失败: %v", err))
-		// 	continue
-		// }
-		//通过 AccountID 获取 appkey 和 appsecret
-		appkey, _, accountName, err := s.platformSvc.GetAPIKeyAndSecret(config.PlatformAccountID)
-		if err != nil {
-			logger.Error(fmt.Sprintf("获取账号信息失败: %v", err))
-			continue
-		}
-		logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s", channelID, productID, accountName))
-
-		// 1. 获取有效 token（自动复用/过期自动申请）
-		token, err := s.platformSvc.GetToken(channelID, productID, "", config.FaceValues, config.MinSettleAmounts, appkey, accountName)
-		if err != nil {
-			fmt.Printf("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v\n", channelID, productID, err)
-			logger.Error("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err)
-			continue
-		}
-		logger.Info(fmt.Sprintf("获取 token 成功: ChannelID=%d, ProductID=%s, token=%s", channelID, productID, token))
-
-		// 2. 查询任务结果
-		order, err := s.platformSvc.QueryTask(token)
-		if err != nil {
-			logger.Error(fmt.Sprintf("查询任务匹配状态失败: token=%s, error=%v", token, err))
-			continue
-		}
-		if order == nil {
-			logger.Info(fmt.Sprintf("未匹配到订单: token=%s", token))
-			continue
-		}
-
-		logger.Info(fmt.Sprintf("匹配到订单: OrderNumber=%s, AccountNum=%s, SettlementAmount=%.2f",
-			order.OrderNumber, order.AccountNum, order.SettlementAmount))
-
-		// 3. 匹配到订单后让 token 失效
-		_ = s.platformSvc.InvalidateToken()
-
-		// 4. 创建任务订单记录
-		taskOrder := &model.TaskOrder{
-			OrderNumber:            order.OrderNumber,
-			ChannelID:              channelID,
-			ProductID:              productID,
-			AccountNum:             order.AccountNum,
-			AccountLocation:        order.AccountLocation,
-			SettlementAmount:       order.SettlementAmount,
-			OrderStatus:            order.OrderStatus,
-			FaceValue:              order.FaceValue,
-			SettlementStatus:       1, // 待结算
-			CreateTime:             order.CreateTime.UnixMilli(),
-			ExpirationTime:         order.ExpirationTime.UnixMilli(),
-			SettlementTime:         order.SettlementTime.UnixMilli(),
-			ExpectedSettlementTime: order.ExpectedSettlementTime.UnixMilli(),
-		}
-
-		// 5. 保存任务订单
-		if err := s.taskOrderRepo.Create(taskOrder); err != nil {
-			logger.Error(fmt.Sprintf("保存任务订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
-			continue
-		}
-		// 6. 创建代充订单
-		daichongOrder := &model.DaichongOrder{
-			OrderID:     order.OrderNumber,
-			Account:     order.AccountNum,
-			Prov:        order.AccountLocation,
-			Yunying:     strings.Replace(order.ProductName, "中国", "", -1),
-			Denom:       order.FaceValue,
-			SettlePrice: 0,
-			CreateTime:  order.CreateTime.UnixMilli(),
-			Status:      model.OrderStatusPendingRecharge,
-			Way:         3,
-		}
-
-		// 7. 保存代充订单
-		if err := s.daichongOrderRepo.Create(daichongOrder); err != nil {
-			logger.Error(fmt.Sprintf("保存代充订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
-			continue
-		}
-
-		fmt.Printf("代充订单: %+v\n", daichongOrder)
-
-		logger.Info(fmt.Sprintf("保存任务订单成功: OrderNumber=%s", order.OrderNumber))
+	maxConcurrent := s.config.MaxConcurrent
+	if maxConcurrent <= 0 {
+		maxConcurrent = 5 // 默认最大并发数
 	}
+	sem := make(chan struct{}, maxConcurrent)
+	var wg sync.WaitGroup
 
+	for _, config := range configs {
+		sem <- struct{}{} // 占用一个并发槽
+		wg.Add(1)
+		go func(cfg *model.TaskConfig) {
+			defer func() {
+				<-sem // 释放并发槽
+				wg.Done()
+			}()
+
+			channelID := int(cfg.ChannelID)
+			productID := cfg.ProductID
+
+			appkey, platform, accountName, err := s.platformSvc.GetAPIKeyAndSecret(cfg.PlatformAccountID)
+			if err != nil {
+				logger.Error(fmt.Sprintf("获取账号信息失败: %v", err))
+				return
+			}
+			fmt.Println("platformName$$$$$$$$$$$$", platform.Name, platform.Code)
+			logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s", channelID, productID, accountName))
+
+			token, err := s.platformSvc.GetToken(channelID, productID, "", cfg.FaceValues, cfg.MinSettleAmounts, appkey, accountName)
+			if err != nil {
+				logger.Error("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err)
+				return
+			}
+			logger.Info(fmt.Sprintf("获取 token 成功: ChannelID=%d, ProductID=%s, token=%s", channelID, productID, token))
+
+			order, err := s.platformSvc.QueryTask(token)
+			if err != nil {
+				logger.Error(fmt.Sprintf("查询任务匹配状态失败: token=%s, error=%v", token, err))
+				return
+			}
+			if order == nil {
+				logger.Info(fmt.Sprintf("未匹配到订单: token=%s", token))
+				return
+			}
+
+			logger.Info(fmt.Sprintf("匹配到订单: OrderNumber=%s, AccountNum=%s, SettlementAmount=%.2f",
+				order.OrderNumber, order.AccountNum, order.SettlementAmount))
+
+			_ = s.platformSvc.InvalidateToken()
+
+			taskOrder := &model.TaskOrder{
+				OrderNumber:            order.OrderNumber,
+				ChannelID:              channelID,
+				ProductID:              productID,
+				AccountNum:             order.AccountNum,
+				AccountLocation:        order.AccountLocation,
+				SettlementAmount:       order.SettlementAmount,
+				OrderStatus:            order.OrderStatus,
+				FaceValue:              order.FaceValue,
+				SettlementStatus:       1, // 待结算
+				CreateTime:             order.CreateTime.UnixMilli(),
+				ExpirationTime:         order.ExpirationTime.UnixMilli(),
+				SettlementTime:         order.SettlementTime.UnixMilli(),
+				ExpectedSettlementTime: order.ExpectedSettlementTime.UnixMilli(),
+			}
+
+			if err := s.taskOrderRepo.Create(taskOrder); err != nil {
+				logger.Error(fmt.Sprintf("保存任务订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
+				return
+			}
+
+			// 7. 保存订单到 order 订单表
+			// productIDInt, _ := strconv.ParseInt(productID, 10, 64)
+			// 获取产品id 通过面值price 运营商isp 状态status 获取产品id
+			productIDInt, err := s.orderService.GetProductID(order.FaceValue, utils.ISPNameToCode(order.ProductName), 1)
+			if err != nil {
+				logger.Error(fmt.Sprintf("获取产品id失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
+				return
+			}
+			orderRecord := &model.Order{
+				Mobile:            order.AccountNum,
+				ProductID:         productIDInt,
+				Denom:             order.FaceValue,
+				OfficialPayment:   order.SettlementAmount,
+				UserQuotePayment:  order.SettlementAmount,
+				UserPayment:       order.SettlementAmount,
+				Price:             order.SettlementAmount,
+				Status:            model.OrderStatusPendingRecharge,
+				IsDel:             0,
+				Client:            3,
+				ISP:               utils.ISPNameToCode(order.ProductName),
+				Param1:            strings.Replace(order.ProductName, "中国", "", -1),
+				AccountLocation:   order.AccountLocation,
+				Param3:            order.ProductName,
+				CreateTime:        order.CreateTime.Time,
+				OutTradeNum:       order.OrderNumber,
+				PlatformAccountID: cfg.PlatformAccountID,
+				PlatformName:      platform.Name,
+				PlatformCode:      platform.Code,
+			}
+
+			if err := s.orderService.CreateOrder(s.ctx, orderRecord); err != nil {
+				logger.Error(fmt.Sprintf("保存订单失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
+				return
+			}
+
+			logger.Info(fmt.Sprintf("保存任务订单成功: OrderNumber=%s", order.OrderNumber))
+		}(&config)
+	}
+	wg.Wait()
 	// logger.Info("定时任务执行完成")
 }

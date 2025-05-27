@@ -51,6 +51,8 @@ type OrderService interface {
 	DeleteOrder(ctx context.Context, id string) error
 	// CleanupOrders 清理指定时间范围的订单及相关日志
 	CleanupOrders(ctx context.Context, start, end string) (int64, error)
+	// GetProductID 根据价格、ISP和状态获取产品ID
+	GetProductID(price float64, isp int, status int) (int64, error)
 }
 
 // orderService 订单服务实现
@@ -405,4 +407,26 @@ func (s *orderService) CleanupOrders(ctx context.Context, start, end string) (in
 		return 0, err
 	}
 	return count, nil
+}
+
+// GetProductID 根据价格、ISP和状态获取产品ID
+// 支持价格误差容忍（0.01），并输出详细日志
+func (s *orderService) GetProductID(price float64, isp int, status int) (int64, error) {
+	logger.Info("GetProductID called",
+		"price", price,
+		"isp", isp,
+		"status", status,
+	)
+	product, err := s.orderRepo.FindProductByPriceAndISPWithTolerance(price, isp, status, 0.01)
+	if err != nil {
+		logger.Error("未找到匹配的产品",
+			"price", price,
+			"isp", isp,
+			"status", status,
+			"error", err,
+		)
+		return 0, fmt.Errorf("未找到匹配的产品: price=%.2f, isp=%d, status=%d", price, isp, status)
+	}
+	logger.Info("匹配到产品", "product_id", product.ID, "price", product.Price, "isp", product.ISP, "status", product.Status)
+	return product.ID, nil
 }
