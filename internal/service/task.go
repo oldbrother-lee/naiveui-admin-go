@@ -7,7 +7,6 @@ import (
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service/platform"
 	"recharge-go/pkg/logger"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -113,17 +112,21 @@ func (s *TaskService) processTask() {
 		channelID := int(config.ChannelID)
 		productID := config.ProductID
 
-		productIDInt, err := strconv.Atoi(productID)
+		// productIDInt, err := strconv.Atoi(productID)
+		// if err != nil {
+		// 	logger.Error(fmt.Sprintf("ProductID 转换为 int 失败: %v", err))
+		// 	continue
+		// }
+		//通过 AccountID 获取 appkey 和 appsecret
+		appkey, _, accountName, err := s.platformSvc.GetAPIKeyAndSecret(config.PlatformAccountID)
 		if err != nil {
-			logger.Error(fmt.Sprintf("ProductID 转换为 int 失败: %v", err))
+			logger.Error(fmt.Sprintf("获取账号信息失败: %v", err))
 			continue
 		}
-
-		logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s", channelID, productID))
-		fmt.Printf("处理任务配置11: %d\n", channelID)
+		logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s", channelID, productID, accountName))
 
 		// 1. 获取有效 token（自动复用/过期自动申请）
-		token, err := s.platformSvc.GetToken(channelID, productIDInt, "", config.FaceValues, config.MinSettleAmounts)
+		token, err := s.platformSvc.GetToken(channelID, productID, "", config.FaceValues, config.MinSettleAmounts, appkey, accountName)
 		if err != nil {
 			fmt.Printf("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v\n", channelID, productID, err)
 			logger.Error("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err)
@@ -152,7 +155,7 @@ func (s *TaskService) processTask() {
 		taskOrder := &model.TaskOrder{
 			OrderNumber:            order.OrderNumber,
 			ChannelID:              channelID,
-			ProductID:              productIDInt,
+			ProductID:              productID,
 			AccountNum:             order.AccountNum,
 			AccountLocation:        order.AccountLocation,
 			SettlementAmount:       order.SettlementAmount,

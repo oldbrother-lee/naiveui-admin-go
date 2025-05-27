@@ -102,8 +102,16 @@ func (c *TaskConfigController) Get(ctx *gin.Context) {
 func (c *TaskConfigController) List(ctx *gin.Context) {
 	page, _ := strconv.Atoi(ctx.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(ctx.DefaultQuery("page_size", "10"))
+	platformAccountIDStr := ctx.Query("platform_account_id")
+	var platformAccountID *int64
+	if platformAccountIDStr != "" {
+		id, err := strconv.ParseInt(platformAccountIDStr, 10, 64)
+		if err == nil {
+			platformAccountID = &id
+		}
+	}
 
-	configs, total, err := c.taskConfigService.List(ctx, page, pageSize)
+	configs, total, err := c.taskConfigService.List(ctx, page, pageSize, platformAccountID)
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, "获取任务配置列表失败")
 		return

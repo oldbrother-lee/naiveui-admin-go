@@ -9,7 +9,7 @@ type TaskOrder struct {
 	OrderNumber            string    `gorm:"type:varchar(32);not null;uniqueIndex"` // 订单号
 	ChannelID              int       `gorm:"not null;index"`                        // 渠道ID
 	ChannelName            string    `gorm:"type:varchar(50)"`                      // 渠道名称
-	ProductID              int       `gorm:"not null;index"`                        // 运营商ID
+	ProductID              string    `gorm:"not null;index"`                        // 运营商ID
 	ProductName            string    `gorm:"type:varchar(50)"`                      // 运营商名称
 	FaceValue              float64   `gorm:"type:decimal(10,2);not null"`           // 面值
 	AccountNum             string    `gorm:"type:varchar(20);not null"`             // 充值账号

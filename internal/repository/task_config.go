@@ -43,19 +43,24 @@ func (r *TaskConfigRepository) GetByID(id int64) (*model.TaskConfig, error) {
 }
 
 // List 获取任务配置列表
-func (r *TaskConfigRepository) List(page, pageSize int) ([]*model.TaskConfig, int64, error) {
+func (r *TaskConfigRepository) List(page, pageSize int, platformAccountID *int64) ([]*model.TaskConfig, int64, error) {
 	var configs []*model.TaskConfig
 	var total int64
 
 	offset := (page - 1) * pageSize
 
+	db := r.db.Model(&model.TaskConfig{})
+	if platformAccountID != nil {
+		db = db.Where("platform_account_id = ?", *platformAccountID)
+	}
+
 	// 获取总数
-	if err := r.db.Model(&model.TaskConfig{}).Count(&total).Error; err != nil {
+	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 
 	// 获取分页数据
-	if err := r.db.Offset(offset).Limit(pageSize).Find(&configs).Error; err != nil {
+	if err := db.Offset(offset).Limit(pageSize).Find(&configs).Error; err != nil {
 		return nil, 0, err
 	}
 

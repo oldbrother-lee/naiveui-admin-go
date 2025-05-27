@@ -91,33 +91,35 @@ type PageResult struct {
 }
 
 type Service struct {
-	apiKey    string
-	userID    string
-	baseURL   string
-	tokenRepo *repository.PlatformTokenRepository
+	apiKey       string
+	userID       string
+	baseURL      string
+	tokenRepo    *repository.PlatformTokenRepository
+	platformRepo repository.PlatformRepository
 }
 
-func NewService(tokenRepo *repository.PlatformTokenRepository) *Service {
+func NewService(tokenRepo *repository.PlatformTokenRepository, platformRepo repository.PlatformRepository) *Service {
 	cfg := configs.GetConfig()
 	return &Service{
-		apiKey:    cfg.API.Key,
-		userID:    cfg.API.UserID,
-		baseURL:   cfg.API.BaseURL,
-		tokenRepo: tokenRepo,
+		apiKey:       cfg.API.Key,
+		userID:       cfg.API.UserID,
+		baseURL:      cfg.API.BaseURL,
+		tokenRepo:    tokenRepo,
+		platformRepo: platformRepo,
 	}
 }
 
 // SubmitTask 申请做单
-func (s *Service) SubmitTask(channelID int, productID int, provinces string, faceValues, minSettleAmounts string) (string, error) {
+func (s *Service) SubmitTask(channelID int, productID string, provinces string, faceValues, minSettleAmounts string, apiKey, userID string) (string, error) {
 	params := map[string]string{
 		"channelId":        strconv.Itoa(channelID),
-		"productIds":       strconv.Itoa(productID),
+		"productIds":       productID,
 		"provinces":        "",
 		"faceValues":       faceValues,
 		"minSettleAmounts": minSettleAmounts,
 	}
-	apiKey := "c362d30409744d7584abcbd3b58124c2"
-	userID := "558203"
+	// apiKey := "c362d30409744d7584abcbd3b58124c2"
+	// userID := "558203"
 	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, apiKey, userID)
 	if err != nil {
 		return "", fmt.Errorf("生成签名失败: %v", err)
@@ -532,12 +534,12 @@ func (s *Service) GetStockInfo(channelID, productID int, provinces string) ([]St
 }
 
 // 获取有效 token
-func (s *Service) GetToken(channelID, productID int, provinces, faceValues, minSettleAmounts string) (string, error) {
+func (s *Service) GetToken(channelID int, productID, provinces, faceValues, minSettleAmounts string, apiKey, userID string) (string, error) {
 	tokenData, err := s.tokenRepo.Get()
 	if err != nil || tokenData == nil || time.Since(tokenData.CreatedAt) >= 5*time.Minute {
 		// 申请新 token
-		logger.Info(fmt.Sprintf("申请新 token: ChannelID=%d, ProductID=%d, provinces=%s, faceValues=%s, minSettleAmounts=%s", channelID, productID, provinces, faceValues, minSettleAmounts))
-		token, err := s.SubmitTask(channelID, productID, provinces, faceValues, minSettleAmounts)
+		logger.Info(fmt.Sprintf("申请新 token: ChannelID=%d, ProductID=%s, provinces=%s, faceValues=%s, minSettleAmounts=%s", channelID, productID, provinces, faceValues, minSettleAmounts))
+		token, err := s.SubmitTask(channelID, productID, provinces, faceValues, minSettleAmounts, apiKey, userID)
 		if err != nil {
 			return "", err
 		}
@@ -597,4 +599,13 @@ func (s *Service) PushToThirdParty(order *PlatformOrder, notifyUrl string) error
 
 	// 可根据第三方返回内容做进一步处理
 	return nil
+}
+
+// GetAPIKeyAndSecret 通过账号ID获取 appkey、appsecret、accountName
+func (s *Service) GetAPIKeyAndSecret(accountID int64) (appKey, appSecret, accountName string, err error) {
+	account, err := s.platformRepo.GetPlatformAccountByID(accountID)
+	if err != nil {
+		return "", "", "", err
+	}
+	return account.AppKey, account.AppSecret, account.AccountName, nil
 }

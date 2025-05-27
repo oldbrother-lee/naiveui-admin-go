@@ -169,8 +169,7 @@ func (s *PlatformService) SendNotification(ctx context.Context, order *model.Ord
 	if err != nil {
 		return fmt.Errorf("获取平台配置失败: %w", err)
 	}
-	fmt.Printf("platform----------: %v\n", platform)
-	fmt.Printf("account----------: %v\n", account)
+
 	// 3. 构建通知参数
 	var params map[string]interface{}
 	switch platform.Code {
@@ -219,7 +218,7 @@ func (s *PlatformService) SendNotification(ctx context.Context, order *model.Ord
 			return fmt.Errorf("通知发送失败kekebang:code:%s, message:%s", resp.Code, resp.Message)
 		}
 	} else {
-		code, err := strconv.ParseInt(resp.Code, 10, 64)
+		code, err := strconv.ParseInt(string(resp.Code), 10, 64)
 		if err != nil {
 			return fmt.Errorf("解析响应码失败: %w", err)
 		}
@@ -247,8 +246,8 @@ func (s *PlatformService) convertOrderStatus(status model.OrderStatus) string {
 
 // sendRequest 发送HTTP请求
 func (s *PlatformService) sendRequest(ctx context.Context, url string, params map[string]interface{}) (*struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    model.StringOrNumber `json:"code"`
+	Message string               `json:"message"`
 }, error) {
 	// 1. 将参数转换为JSON
 	jsonData, err := json.Marshal(params)
@@ -284,8 +283,8 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 	fmt.Printf("原始响应: %s\n", string(body))
 	// 6. 解析响应
 	var result struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
+		Code    model.StringOrNumber `json:"code"`
+		Message string               `json:"message"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("解析响应失败: %w", err)
@@ -360,7 +359,7 @@ func (s *PlatformService) getPlatformStatus(orderStatus model.OrderStatus) int {
 	case model.OrderStatusSuccess:
 		return 9 // 米蜂成功状态码
 	case model.OrderStatusFailed:
-		return 5 // 米蜂失败状态码
+		return 8 // 米蜂失败状态码
 	// ... 其他状态映射
 	default:
 		return 0

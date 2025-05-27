@@ -79,8 +79,8 @@ func (s *TaskConfigService) GetByID(ctx context.Context, id int64) (*model.TaskC
 }
 
 // List 获取任务配置列表
-func (s *TaskConfigService) List(ctx context.Context, page, pageSize int) ([]*model.TaskConfig, int64, error) {
-	return s.taskConfigRepo.List(page, pageSize)
+func (s *TaskConfigService) List(ctx context.Context, page, pageSize int, platformAccountID *int64) ([]*model.TaskConfig, int64, error) {
+	return s.taskConfigRepo.List(page, pageSize, platformAccountID)
 }
 
 // BatchCreate 批量创建任务配置

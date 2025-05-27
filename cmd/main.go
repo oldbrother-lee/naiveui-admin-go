@@ -93,7 +93,7 @@ func main() {
 	// 创建平台管理器
 	manager := recharge.NewManager(database.DB)
 	tokenRepo := repository.NewPlatformTokenRepository()
-	platformSvc := platform.NewService(tokenRepo)
+	platformSvc := platform.NewService(tokenRepo, platformRepo)
 
 	// 从数据库加载平台配置
 	if err := manager.LoadPlatforms(); err != nil {

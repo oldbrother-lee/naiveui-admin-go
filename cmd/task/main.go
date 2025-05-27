@@ -48,7 +48,8 @@ func main() {
 	taskConfigRepo := repository.NewTaskConfigRepository()
 	taskOrderRepo := repository.NewTaskOrderRepository()
 	tokenRepo := repository.NewPlatformTokenRepository()
-	platformSvc := platform.NewService(tokenRepo)
+	platformRepo := repository.NewPlatformRepository(db)
+	platformSvc := platform.NewService(tokenRepo, platformRepo)
 	daichongOrderRepo := repository.NewDaichongOrderRepository(db)
 
 	// 创建任务服务
