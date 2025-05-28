@@ -2,6 +2,8 @@ package model
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // OrderStatus 订单状态
@@ -98,10 +100,14 @@ type Order struct {
 	PlatformName      string      `json:"platform_name" gorm:"size:255;comment:平台名称"`
 	PlatformCode      string      `json:"platform_code" gorm:"size:50;comment:平台代码"`
 	// 平台配置信息
-	PlatformAppKey      string `json:"platform_app_key" gorm:"size:255;comment:平台AppKey"`
-	PlatformSecretKey   string `json:"platform_secret_key" gorm:"size:255;comment:平台SecretKey"`
-	PlatformURL         string `json:"platform_url" gorm:"size:255;comment:平台URL"`
-	PlatformCallbackURL string `json:"platform_callback_url" gorm:"size:255;comment:平台回调URL"`
+	PlatformAppKey      string         `json:"platform_app_key" gorm:"size:255;comment:平台AppKey"`
+	PlatformSecretKey   string         `json:"platform_secret_key" gorm:"size:255;comment:平台SecretKey"`
+	PlatformURL         string         `json:"platform_url" gorm:"size:255;comment:平台URL"`
+	PlatformCallbackURL string         `json:"platform_callback_url" gorm:"size:255;comment:平台回调URL"`
+	APIID               int64          `json:"api_id" gorm:"index"`                          // 当前订单使用的 API ID
+	UsedAPIs            string         `json:"used_apis" gorm:"type:text;comment:已使用的API列表"` // 已使用的API列表，JSON格式
+	CreatedAt           time.Time      `json:"created_at" gorm:"index"`
+	DeletedAt           gorm.DeletedAt `json:"deleted_at" gorm:"index"`
 }
 
 // TableName 表名

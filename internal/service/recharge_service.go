@@ -63,6 +63,7 @@ type rechargeService struct {
 	retryRepo              repository.RetryRepository
 	callbackLogRepo        repository.CallbackLogRepository
 	productAPIRelationRepo repository.ProductAPIRelationRepository
+	productRepo            repository.ProductRepository
 	platformAPIParamRepo   repository.PlatformAPIParamRepository
 	balanceService         *PlatformAccountBalanceService
 	manager                *recharge.Manager
@@ -82,6 +83,7 @@ func NewRechargeService(
 	retryRepo repository.RetryRepository,
 	callbackLogRepo repository.CallbackLogRepository,
 	productAPIRelationRepo repository.ProductAPIRelationRepository,
+	productRepo repository.ProductRepository,
 	platformAPIParamRepo repository.PlatformAPIParamRepository,
 	balanceService *PlatformAccountBalanceService,
 	notificationRepo notificationRepo.Repository,
@@ -95,6 +97,7 @@ func NewRechargeService(
 		retryRepo:              retryRepo,
 		callbackLogRepo:        callbackLogRepo,
 		productAPIRelationRepo: productAPIRelationRepo,
+		productRepo:            productRepo,
 		platformAPIParamRepo:   platformAPIParamRepo,
 		balanceService:         balanceService,
 		manager:                recharge.NewManager(db),
@@ -161,13 +164,10 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 		}
 
 		retryCount := len(records)
-		// 设置重试时间：如果是第一次重试（RetryCount为0），立即执行；否则设置5分钟后重试
+		// 计算重试时间：首次切换平台立即重试，后续重试延迟5分钟
 		nextRetryTime := time.Now()
-		if retryCount > 0 {
+		if retryCount > 1 {
 			nextRetryTime = time.Now().Add(5 * time.Minute)
-			logger.Info("【设置重试时间】order_id: %d, retry_count: %d, 5分钟后重试", orderID, retryCount)
-		} else {
-			logger.Info("【设置重试时间】order_id: %d, retry_count: %d, 首次重试，立即执行", orderID, retryCount)
 		}
 
 		retryRecord := &model.OrderRetryRecord{
@@ -434,8 +434,35 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 		"order_number", order.OrderNumber,
 		"mobile", order.Mobile)
 
+	// 获取平台API信息
+	api, apiParam, err := s.GetPlatformAPIByOrderID(ctx, order.OrderNumber)
+	if err != nil {
+		logger.Error("【获取API信息失败】",
+			"error", err,
+			"order_id", order.ID)
+		return fmt.Errorf("get platform API failed: %v", err)
+	}
+	logger.Info("【获取API信息成功】",
+		"order_id", order.ID,
+		"api_id", api.ID,
+		"api_name", api.Name)
+
+	// 原子性锁定订单，防止并发重复处理
+	// 只有当前 api_id 对应的订单状态为 'pending_recharge' 时，才允许锁定
+	locked, err := s.orderRepo.UpdateStatusCAS(ctx, order.ID, model.OrderStatusPendingRecharge, model.OrderStatusProcessing, api.ID)
+	if err != nil {
+		logger.Error("【订单状态原子更新失败】",
+			"error", err,
+			"order_id", order.ID)
+		return err
+	}
+	if !locked {
+		logger.Info("【订单已被其他worker处理，跳过】", "order_id", order.ID)
+		return nil
+	}
+
 	// 获取订单信息
-	order, err := s.orderRepo.GetByID(ctx, order.ID)
+	order, err = s.orderRepo.GetByID(ctx, order.ID)
 	if err != nil {
 		logger.Error("【获取订单信息失败】",
 			"error", err,
@@ -475,87 +502,106 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 		"account_id", order.PlatformAccountID,
 		"amount", order.Price)
 
-	// 获取平台API信息
-	api, apiParam, err := s.GetPlatformAPIByOrderID(ctx, order.OrderNumber)
-	if err != nil {
-		logger.Error("【获取API信息失败】",
+	// 提交订单到平台
+	if err := s.SubmitOrder(ctx, order, api, apiParam); err != nil {
+		logger.Error("【提交订单到平台失败】",
 			"error", err,
 			"order_id", order.ID)
-		// 如果获取API信息失败，退还余额
-		if refundErr := s.balanceService.RefundBalance(ctx, nil, order.PlatformAccountID, order.Price, order.ID, "获取API信息失败退还"); refundErr != nil {
-			logger.Error("【退还余额失败】",
-				"error", refundErr,
-				"account_id", order.PlatformAccountID,
-				"amount", order.Price)
-		}
-		return fmt.Errorf("get platform API failed: %v", err)
-	}
-	logger.Info("【获取API信息成功】",
-		"order_id", order.ID,
-		"api_id", api.ID,
-		"api_name", api.Name)
 
-	// 提交订单到平台
-	logger.Info("【开始提交订单到平台】",
-		"order_id", order.ID,
-		"platform", api.PlatformID)
-	submitErr := s.manager.SubmitOrder(ctx, order, api, apiParam)
-	if submitErr != nil {
-		logger.Error("【提交订单到平台失败】",
-			"error", submitErr,
-			"order_id", order.ID)
-		// 如果提交失败，退还余额
-		if refundErr := s.balanceService.RefundBalance(ctx, nil, order.PlatformAccountID, order.Price, order.ID, "订单提交失败退还"); refundErr != nil {
-			logger.Error("【退还余额失败】",
-				"error", refundErr,
-				"account_id", order.PlatformAccountID,
-				"amount", order.Price)
+		// 获取所有可用的API关系
+		relations, err2 := s.productRepo.GetAPIRelationsByProductID(ctx, order.ProductID)
+		if err2 != nil {
+			logger.Error("【获取API关系失败】",
+				"error", err2,
+				"order_id", order.ID)
+			return fmt.Errorf("get API relations failed: %v", err2)
 		}
 
-		// 如果提交失败，尝试重试
-		retryCount := 0
-		nextRetryTime := time.Now().Add(5 * time.Minute)
-
-		// 记录重试信息
-		retryParams := map[string]interface{}{
-			"api_id":    api.ID,
-			"param_id":  apiParam.ID,
-			"platform":  api.PlatformID,
-			"order_id":  order.ID,
-			"retry_at":  time.Now(),
-			"next_at":   nextRetryTime,
-			"error_msg": submitErr.Error(),
+		// 解析已使用的API列表
+		var usedAPIs []map[string]interface{}
+		if order.UsedAPIs != "" {
+			if err := json.Unmarshal([]byte(order.UsedAPIs), &usedAPIs); err != nil {
+				logger.Error("【解析已使用API列表失败】",
+					"error", err,
+					"order_id", order.ID)
+				usedAPIs = []map[string]interface{}{}
+			}
 		}
-		retryParamsJSON, _ := json.Marshal(retryParams)
 
-		// 记录已使用的API
-		usedAPIs := []map[string]interface{}{
-			{
-				"api_id":    api.ID,
-				"param_id":  apiParam.ID,
-				"platform":  api.PlatformID,
-				"used_at":   time.Now(),
-				"error_msg": submitErr.Error(),
-			},
-		}
+		// 添加当前API到已使用列表
+		usedAPIs = append(usedAPIs, map[string]interface{}{
+			"api_id": api.ID,
+		})
 		usedAPIsJSON, _ := json.Marshal(usedAPIs)
 
-		// 创建重试记录
+		// 找到下一个可用的API
+		var nextAPIID, nextParamID int64
+		for _, relation := range relations {
+			// 检查API是否已使用
+			alreadyUsed := false
+			for _, usedAPI := range usedAPIs {
+				if usedAPI["api_id"] == relation.APIID {
+					alreadyUsed = true
+					break
+				}
+			}
+			if !alreadyUsed {
+				nextAPIID = relation.APIID
+				nextParamID = relation.ParamID
+				break
+			}
+		}
+
+		if nextAPIID == 0 {
+			logger.Error("【没有可用的API】",
+				"order_id", order.ID)
+			return fmt.Errorf("no available API")
+		}
+
+		fmt.Println("调用 UpdateStatusAndAPIID 之前")
+		if err2 := s.orderRepo.UpdateStatusAndAPIID(ctx, order.ID, model.OrderStatusPendingRecharge, nextAPIID, string(usedAPIsJSON)); err2 != nil {
+			fmt.Println("UpdateStatusAndAPIID 执行出错，err =", err2)
+			logger.Error("【更新订单状态和API ID失败】",
+				"error", err2,
+				"order_id", order.ID)
+			return fmt.Errorf("update order status and API ID failed: %v", err2)
+		}
+		fmt.Println("UpdateStatusAndAPIID 执行完毕")
+
+		fmt.Println("准备创建重试记录 retryParams")
+		submitErr := err // 保存 SubmitOrder 的错误
+		retryParams := map[string]interface{}{
+			"order_id":  order.ID,
+			"api_id":    nextAPIID,
+			"param_id":  nextParamID,
+			"platform":  api.PlatformID,
+			"retry_at":  time.Now(),
+			"next_at":   time.Now().Add(5 * time.Minute),
+			"error_msg": submitErr.Error(),
+		}
+		fmt.Println("retryParams =", retryParams)
+		retryParamsJSON, _ := json.Marshal(retryParams)
+
+		fmt.Println("准备创建 retryRecord")
+		// 计算重试时间：首次切换平台立即重试，后续重试延迟5分钟
+		nextRetryTime := time.Now()
+		if len(usedAPIs) > 1 {
+			nextRetryTime = time.Now().Add(5 * time.Minute)
+		}
+
 		retryRecord := &model.OrderRetryRecord{
 			OrderID:       order.ID,
-			APIID:         api.ID,
-			ParamID:       apiParam.ID,
+			APIID:         nextAPIID,
+			ParamID:       nextParamID,
 			RetryType:     1, // 1: 平台切换
-			RetryCount:    retryCount,
+			RetryCount:    len(usedAPIs),
 			LastError:     submitErr.Error(),
 			RetryParams:   string(retryParamsJSON),
 			UsedAPIs:      string(usedAPIsJSON),
 			Status:        0, // 0: 待处理
 			NextRetryTime: nextRetryTime,
 		}
-		logger.Info("【重试记录对象创建成功】",
-			"order_id", order.ID,
-			"retry_record", retryRecord)
+		fmt.Println("retryRecord =", retryRecord)
 
 		if s.retryRepo == nil {
 			logger.Error("【严重错误】retryRecordRepo 为空！",
@@ -585,7 +631,7 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 		logger.Info("【充值任务处理完成】",
 			"order_id", order.ID,
 			"order_number", order.OrderNumber)
-		return fmt.Errorf("submit order failed: %v", submitErr)
+		return fmt.Errorf("submit order failed: %v", err)
 	}
 
 	// 更新订单状态为充值中
@@ -664,13 +710,11 @@ func (s *rechargeService) GetPlatformAPIByOrderID(ctx context.Context, orderID s
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取订单信息失败: %v", err)
 	}
-	fmt.Println("order++++++++", order.ProductID)
 	//product_api_relations
 	r, err := s.productAPIRelationRepo.GetByProductID(ctx, order.ProductID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取商品接口关联信息失败: %v", err)
 	}
-	fmt.Println("r+++++++++++@@@@", r)
 
 	//获取api套餐 platform_api_params
 	apiParam, err := s.platformAPIParamRepo.GetByID(ctx, r.ParamID)

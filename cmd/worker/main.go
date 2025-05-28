@@ -71,6 +71,7 @@ func main() {
 
 	// 初始化服务
 	orderService := service.NewOrderService(orderRepo, nil, notificationRepo, queue)
+	productRepo := repository.NewProductRepository(db)
 	rechargeService := service.NewRechargeService(
 		db,
 		orderRepo,
@@ -79,13 +80,13 @@ func main() {
 		retryRepo,
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,
 		queue,
 	)
-	productRepo := repository.NewProductRepository(db)
-	retryService := service.NewRetryService(retryRepo, orderRepo, platformRepo, productRepo, productAPIRelationRepo, rechargeService)
+	retryService := service.NewRetryService(retryRepo, orderRepo, platformRepo, productRepo, productAPIRelationRepo, rechargeService, orderService)
 
 	// 设置充值服务
 	orderService.SetRechargeService(rechargeService)

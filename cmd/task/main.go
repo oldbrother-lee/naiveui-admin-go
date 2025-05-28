@@ -77,6 +77,7 @@ func main() {
 
 	notificationRepo := repository.NewNotificationRepository(db)
 	queueInstance := queue.NewRedisQueue()
+	productRepo := repository.NewProductRepository(db)
 	rechargeService := service.NewRechargeService(
 		db,
 		orderRepo,
@@ -85,6 +86,7 @@ func main() {
 		repository.NewRetryRepository(db),
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,

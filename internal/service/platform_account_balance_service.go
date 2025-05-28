@@ -42,6 +42,20 @@ func (s *PlatformAccountBalanceService) DeductBalance(ctx context.Context, accou
 		"order_id", orderID,
 		"remark", remark)
 
+	// 幂等性校验：同一用户、同一订单、同一扣款操作只允许扣款一次
+	var existCount int64
+	err := s.db.Model(&model.BalanceLog{}).
+		Where("order_id = ? AND platform_account_id = ? AND style = ?", orderID, accountID, model.BalanceStyleOrderDeduct).
+		Count(&existCount).Error
+	if err != nil {
+		logger.Error("幂等性校验失败", "error", err, "order_id", orderID)
+		return err
+	}
+	if existCount > 0 {
+		logger.Info("已存在扣款日志，跳过重复扣款", "order_id", orderID, "account_id", accountID)
+		return nil
+	}
+
 	// 1. 获取平台账号信息
 	account, err := s.platformAccountRepo.GetByID(accountID)
 	if err != nil {
@@ -108,6 +122,20 @@ func (s *PlatformAccountBalanceService) RefundBalance(ctx context.Context, tx *g
 		"amount", amount,
 		"order_id", orderID,
 		"remark", remark)
+
+	// 幂等性校验：同一用户、同一订单、同一退款操作只允许退款一次
+	var existCount int64
+	err := s.db.Model(&model.BalanceLog{}).
+		Where("order_id = ? AND platform_account_id = ? AND style = ?", orderID, accountID, model.BalanceStyleRefund).
+		Count(&existCount).Error
+	if err != nil {
+		logger.Error("[RefundBalance] 幂等性校验失败", "error", err, "order_id", orderID)
+		return err
+	}
+	if existCount > 0 {
+		logger.Info("[RefundBalance] 已存在退款日志，跳过重复退款", "order_id", orderID, "account_id", accountID)
+		return nil
+	}
 
 	// 如果没有传入事务，则新建事务
 	newTx := false

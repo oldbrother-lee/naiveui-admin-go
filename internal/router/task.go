@@ -22,7 +22,7 @@ func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 	daichongOrderRepo := repository.NewDaichongOrderRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
 	notificationRepo := notificationRepo.NewRepository(db)
-	queueInstance := queue.NewRedisQueue()
+	var queueInstance queue.Queue = queue.NewRedisQueue()
 
 	// 创建充值服务
 	platformRepo := repository.NewPlatformRepository(db)
@@ -41,6 +41,7 @@ func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 		balanceLogRepo,
 	)
 
+	productRepo := repository.NewProductRepository(db)
 	rechargeService := service.NewRechargeService(
 		db,
 		orderRepo,
@@ -49,6 +50,7 @@ func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 		retryRepo,
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,

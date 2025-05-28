@@ -47,6 +47,7 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 	retryRepo := repository.NewRetryRepository(database.DB)
+	productRepo := repository.NewProductRepository(database.DB)
 
 	// 创建充值服务
 	rechargeService := service.NewRechargeService(
@@ -57,6 +58,7 @@ func RegisterExternalOrderRoutes(r *gin.RouterGroup) {
 		retryRepo,
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,

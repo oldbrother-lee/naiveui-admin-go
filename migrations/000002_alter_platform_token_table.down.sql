@@ -1,6 +1,6 @@
 -- 回滚到旧表结构
 DROP TABLE IF EXISTS platform_token;
-
+ 
 CREATE TABLE platform_token (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     token VARCHAR(255) NOT NULL,

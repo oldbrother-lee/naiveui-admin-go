@@ -46,6 +46,7 @@ func RegisterKekebangOrderRoutes(r *gin.RouterGroup) {
 	productAPIRelationRepo := repository.NewProductAPIRelationRepository(database.DB)
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 	retryRepo := repository.NewRetryRepository(database.DB)
+	productRepo := repository.NewProductRepository(database.DB)
 
 	rechargeService := service.NewRechargeService(
 		database.DB,
@@ -55,6 +56,7 @@ func RegisterKekebangOrderRoutes(r *gin.RouterGroup) {
 		retryRepo,
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,

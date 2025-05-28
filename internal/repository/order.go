@@ -58,6 +58,10 @@ type OrderRepository interface {
 	FindProductByPriceAndISP(price float64, isp int, status int) (*model.Product, error)
 	// FindProductByPriceAndISPWithTolerance 根据价格、ISP和状态获取产品，支持价格误差容忍
 	FindProductByPriceAndISPWithTolerance(price float64, isp int, status int, tolerance float64) (*model.Product, error)
+	// UpdateStatusCAS 原子性地将订单状态从 oldStatus 更新为 newStatus，同时写入 api_id
+	UpdateStatusCAS(ctx context.Context, id int64, oldStatus, newStatus model.OrderStatus, apiID int64) (bool, error)
+	// UpdateStatusAndAPIID 更新订单状态和API ID
+	UpdateStatusAndAPIID(ctx context.Context, id int64, status model.OrderStatus, apiID int64, usedAPIs string) error
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -67,6 +71,9 @@ type OrderRepositoryImpl struct {
 
 // NewOrderRepository 创建订单仓库实例
 func NewOrderRepository(db *gorm.DB) OrderRepository {
+	if db == nil {
+		panic("db is nil in NewOrderRepository")
+	}
 	return &OrderRepositoryImpl{db: db}
 }
 
@@ -292,4 +299,33 @@ func (r *OrderRepositoryImpl) FindProductByPriceAndISPWithTolerance(price float6
 		return nil, err
 	}
 	return &product, nil
+}
+
+// UpdateStatusCAS 原子性地将订单状态从 oldStatus 更新为 newStatus，同时写入 api_id
+func (r *OrderRepositoryImpl) UpdateStatusCAS(ctx context.Context, id int64, oldStatus, newStatus model.OrderStatus, apiID int64) (bool, error) {
+	res := r.db.Model(&model.Order{}).
+		Where("id = ? AND status = ? AND (api_id = 0 OR api_id = ?)", id, oldStatus, apiID).
+		Updates(map[string]interface{}{
+			"status": newStatus,
+			"api_id": apiID,
+		})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected == 1, nil
+}
+
+// UpdateStatusAndAPIID 更新订单状态和API ID
+func (r *OrderRepositoryImpl) UpdateStatusAndAPIID(ctx context.Context, id int64, status model.OrderStatus, apiID int64, usedAPIs string) error {
+	fmt.Println("即将执行 Updates")
+	err := r.db.WithContext(ctx).
+		Model(&model.Order{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"status":    status,
+			"api_id":    apiID,
+			"used_apis": usedAPIs,
+		}).Error
+	fmt.Println("Updates 执行完毕，err =", err)
+	return err
 }

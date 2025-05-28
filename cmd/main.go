@@ -136,6 +136,7 @@ func main() {
 		repository.NewRetryRepository(database.DB),
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,

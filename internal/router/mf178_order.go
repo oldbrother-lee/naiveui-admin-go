@@ -47,6 +47,7 @@ func init() {
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 	retryRepo := repository.NewRetryRepository(database.DB)
 
+	productRepo := repository.NewProductRepository(database.DB)
 	rechargeService := service.NewRechargeService(
 		database.DB,
 		orderRepo,
@@ -55,6 +56,7 @@ func init() {
 		retryRepo,
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,
@@ -101,6 +103,7 @@ func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 	retryRepo := repository.NewRetryRepository(database.DB)
 
+	productRepo := repository.NewProductRepository(database.DB)
 	rechargeService := service.NewRechargeService(
 		database.DB,
 		orderRepo,
@@ -109,6 +112,7 @@ func RegisterMF178OrderRoutes(r *gin.RouterGroup) {
 		retryRepo,
 		callbackLogRepo,
 		productAPIRelationRepo,
+		productRepo,
 		platformAPIParamRepo,
 		balanceService,
 		notificationRepo,
