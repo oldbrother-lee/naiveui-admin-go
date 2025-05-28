@@ -100,3 +100,8 @@ func (r *PlatformAccountRepository) List(ctx context.Context, offset, limit int)
 
 	return accounts, total, nil
 }
+
+// GetDB 获取数据库连接
+func (r *PlatformAccountRepository) GetDB() *gorm.DB {
+	return r.db
+}

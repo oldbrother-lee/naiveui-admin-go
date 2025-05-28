@@ -207,6 +207,7 @@ func (t *NotificationTask) processNotifications(ctx context.Context) error {
 			"error", err,
 			"notification_id", record.ID,
 			"order_id", record.OrderID,
+			"order_number", order.OrderNumber,
 			"platform_code", record.PlatformCode,
 			"notification_type", record.NotificationType,
 			"retry_count", record.RetryCount,
@@ -285,11 +286,21 @@ func (t *NotificationTask) processNotifications(ctx context.Context) error {
 			)
 		}
 	} else {
+		logger.Info("发送通知成功",
+			"notification_id", record.ID,
+			"order_id", record.OrderID,
+			"order_number", order.OrderNumber,
+			"platform_code", record.PlatformCode,
+			"notification_type", record.NotificationType,
+			"retry_count", record.RetryCount,
+		)
 		// 更新通知状态为成功
 		if err := t.notificationService.UpdateNotificationStatus(ctx, record.ID, 3); err != nil {
 			logger.Error("更新通知状态失败",
 				"error", err,
 				"notification_id", record.ID,
+				"order_id", record.OrderID,
+				"order_number", order.OrderNumber,
 			)
 			return err
 		}
@@ -297,6 +308,7 @@ func (t *NotificationTask) processNotifications(ctx context.Context) error {
 		logger.Info("通知处理成功",
 			"notification_id", record.ID,
 			"order_id", record.OrderID,
+			"order_number", order.OrderNumber,
 			"platform_code", record.PlatformCode,
 			"notification_type", record.NotificationType,
 		)

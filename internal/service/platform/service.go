@@ -39,19 +39,19 @@ func (mt *MilliTime) UnmarshalJSON(b []byte) error {
 
 // PlatformOrder 平台返回的订单数据结构
 type PlatformOrder struct {
-	OrderNumber            string    `json:"orderNumber"`            // 订单号
-	ChannelName            string    `json:"channelName"`            // 渠道名称
-	ProductName            string    `json:"productName"`            // 产品名称
-	AccountNum             string    `json:"accountNum"`             // 充值账号
-	AccountLocation        string    `json:"accountLocation"`        // 归属地
-	SettlementAmount       float64   `json:"settlementAmount"`       // 结算金额
-	FaceValue              float64   `json:"faceValue"`              // 面值
-	OrderStatus            int       `json:"orderStatus"`            // 订单状态
-	SettlementStatus       int       `json:"settlementStatus"`       // 结算状态
-	CreateTime             MilliTime `json:"createTime"`             // 创建时间
-	ExpirationTime         MilliTime `json:"expirationTime"`         // 过期时间
-	SettlementTime         MilliTime `json:"settlementTime"`         // 结算时间
-	ExpectedSettlementTime MilliTime `json:"expectedSettlementTime"` // 预计结算时间
+	OrderNumber      string    `json:"orderNumber"`      // 订单号
+	ChannelName      string    `json:"channelName"`      // 渠道名称
+	ProductName      string    `json:"productName"`      // 产品名称
+	ChannelId        int       `json:"channelId"`        // 渠道ID
+	ProductId        int       `json:"productId"`        // 产品ID
+	AccountNum       string    `json:"accountNum"`       // 充值账号
+	AccountLocation  string    `json:"accountLocation"`  // 归属地
+	SettlementAmount float64   `json:"settlementAmount"` // 结算金额
+	FaceValue        float64   `json:"faceValue"`        // 面值
+	OrderStatus      int       `json:"orderStatus"`      // 订单状态
+	SettlementStatus int       `json:"settlementStatus"` // 结算状态
+	CreateTime       MilliTime `json:"createTime"`       // 创建时间
+	ExpirationTime   MilliTime `json:"expirationTime"`   // 过期时间
 }
 
 // Channel 渠道信息
@@ -178,12 +178,11 @@ func (s *Service) SubmitTask(channelID int, productID string, provinces string, 
 }
 
 // QueryTask 查询申请做单是否匹配到订单
-func (s *Service) QueryTask(token string, apiURL string) (*PlatformOrder, error) {
+func (s *Service) QueryTask(token string, apiURL string, apiKey, userID string) (*PlatformOrder, error) {
 	params := map[string]string{
 		"token": token,
 	}
-	apiKey := "c362d30409744d7584abcbd3b58124c2"
-	userID := "558203"
+
 	authToken, _, err := signature.GenerateXianzhuanxiaSignature(params, apiKey, userID)
 	if err != nil {
 		return nil, fmt.Errorf("生成签名失败: %v", err)
@@ -217,6 +216,7 @@ func (s *Service) QueryTask(token string, apiURL string) (*PlatformOrder, error)
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("请求失败: %s", string(body))
 	}
+	logger.Info(fmt.Sprintf("做单查询接口返回: %v\n", string(body)))
 
 	var result struct {
 		Code   int    `json:"code"`
@@ -574,18 +574,16 @@ func (s *Service) InvalidateToken(taskConfigID int64) error {
 // PushToThirdParty 推送订单到第三方平台
 func (s *Service) PushToThirdParty(order *PlatformOrder, notifyUrl string) error {
 	params := map[string]interface{}{
-		"orderNumber":            order.OrderNumber,
-		"channelName":            order.ChannelName,
-		"productName":            order.ProductName,
-		"accountNum":             order.AccountNum,
-		"accountLocation":        order.AccountLocation,
-		"settlementAmount":       order.SettlementAmount,
-		"orderStatus":            order.OrderStatus,
-		"settlementStatus":       order.SettlementStatus,
-		"createTime":             order.CreateTime.UnixMilli(),
-		"expirationTime":         order.ExpirationTime.UnixMilli(),
-		"settlementTime":         order.SettlementTime.UnixMilli(),
-		"expectedSettlementTime": order.ExpectedSettlementTime.UnixMilli(),
+		"orderNumber":      order.OrderNumber,
+		"channelName":      order.ChannelName,
+		"productName":      order.ProductName,
+		"accountNum":       order.AccountNum,
+		"accountLocation":  order.AccountLocation,
+		"settlementAmount": order.SettlementAmount,
+		"orderStatus":      order.OrderStatus,
+		"settlementStatus": order.SettlementStatus,
+		"createTime":       order.CreateTime.UnixMilli(),
+		"expirationTime":   order.ExpirationTime.UnixMilli(),
 	}
 	jsonData, err := json.Marshal(params)
 	if err != nil {

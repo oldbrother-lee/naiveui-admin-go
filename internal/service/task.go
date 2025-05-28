@@ -139,15 +139,14 @@ func (s *TaskService) processTask() {
 				return
 			}
 			logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s", channelID, productID, accountName))
-			fmt.Println("appkey$$$$$$$$$$$$######", platform.ApiURL)
 			token, err := s.platformSvc.GetToken(channelID, productID, "", cfg.FaceValues, cfg.MinSettleAmounts, appkey, accountName, platform.ApiURL, cfg.ID)
 			if err != nil {
-				logger.Error("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err)
+				logger.Error(fmt.Sprintf("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err))
 				return
 			}
 			logger.Info(fmt.Sprintf("获取 token 成功: ChannelID=%d, ProductID=%s, token=%s", channelID, productID, token))
 
-			order, err := s.platformSvc.QueryTask(token, platform.ApiURL)
+			order, err := s.platformSvc.QueryTask(token, platform.ApiURL, appkey, accountName)
 			if err != nil {
 				logger.Error(fmt.Sprintf("查询任务匹配状态失败: token=%s, error=%v", token, err))
 				return
@@ -163,19 +162,17 @@ func (s *TaskService) processTask() {
 			_ = s.platformSvc.InvalidateToken(cfg.ID)
 
 			taskOrder := &model.TaskOrder{
-				OrderNumber:            order.OrderNumber,
-				ChannelID:              channelID,
-				ProductID:              productID,
-				AccountNum:             order.AccountNum,
-				AccountLocation:        order.AccountLocation,
-				SettlementAmount:       order.SettlementAmount,
-				OrderStatus:            order.OrderStatus,
-				FaceValue:              order.FaceValue,
-				SettlementStatus:       1, // 待结算
-				CreateTime:             order.CreateTime.UnixMilli(),
-				ExpirationTime:         order.ExpirationTime.UnixMilli(),
-				SettlementTime:         order.SettlementTime.UnixMilli(),
-				ExpectedSettlementTime: order.ExpectedSettlementTime.UnixMilli(),
+				OrderNumber:      order.OrderNumber,
+				ChannelID:        channelID,
+				ProductID:        productID,
+				AccountNum:       order.AccountNum,
+				AccountLocation:  order.AccountLocation,
+				SettlementAmount: order.SettlementAmount,
+				OrderStatus:      order.OrderStatus,
+				FaceValue:        order.FaceValue,
+				SettlementStatus: 1, // 待结算
+				CreateTime:       order.CreateTime.UnixMilli(),
+				ExpirationTime:   order.ExpirationTime.UnixMilli(),
 			}
 
 			if err := s.taskOrderRepo.Create(taskOrder); err != nil {

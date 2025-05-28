@@ -343,7 +343,7 @@ func (c *OrderController) GetOrders(ctx *gin.Context) {
 
 	// 获取查询参数
 	params := make(map[string]interface{})
-	queryParams := []string{"order_number", "mobile", "status", "client", "start_time", "end_time"}
+	queryParams := []string{"order_number", "mobile", "status", "client", "platform_code", "start_time", "end_time"}
 	for _, param := range queryParams {
 		if value := ctx.Query(param); value != "" {
 			params[param] = value
@@ -383,8 +383,10 @@ func (c *OrderController) DeleteOrder(ctx *gin.Context) {
 func (c *OrderController) CleanupOrders(ctx *gin.Context) {
 	start := ctx.Query("start")
 	end := ctx.Query("end")
+
+	logger.Info("CleanupOrders", "start", start, "end", end)
 	if start == "" || end == "" {
-		utils.Error(ctx, 1, "请提供开始和结束时间")
+		utils.Error(ctx, 1, "请提供开始和结束时间!")
 		return
 	}
 	count, err := c.orderService.CleanupOrders(ctx.Request.Context(), start, end)

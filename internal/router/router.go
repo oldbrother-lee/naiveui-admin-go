@@ -6,6 +6,7 @@ import (
 	"recharge-go/internal/middleware"
 	"recharge-go/internal/repository"
 	"recharge-go/internal/service"
+	"recharge-go/internal/service/platform"
 	"recharge-go/pkg/database"
 
 	"github.com/gin-gonic/gin"
@@ -135,6 +136,9 @@ func SetupRouter(
 
 			// 平台账号相关接口
 			RegisterPlatformAccountRoutes(api)
+
+			// 推单状态相关接口
+			RegisterPushStatusRoutes(auth)
 		}
 	}
 
@@ -150,4 +154,19 @@ func RegisterPlatformAccountRoutes(r *gin.RouterGroup) {
 
 	r.POST("/platform/account/bind_user", platformAccountCtrl.BindUser)
 	r.GET("/platform/account/list", platformAccountCtrl.List)
+}
+
+// 注册推单状态相关接口
+func RegisterPushStatusRoutes(r *gin.RouterGroup) {
+	// 初始化依赖
+	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+	pushStatusService := platform.NewPushStatusService(platformAccountRepo)
+	pushStatusController := controller.NewPlatformPushStatusController(pushStatusService)
+
+	// 注册路由
+	pushStatus := r.Group("/platform/push-status")
+	{
+		pushStatus.GET("/:account_id", pushStatusController.GetPushStatus)
+		pushStatus.PUT("/:account_id", pushStatusController.UpdatePushStatus)
+	}
 }

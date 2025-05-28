@@ -187,7 +187,6 @@ func (r *OrderRepositoryImpl) GetOrders(ctx context.Context, params map[string]i
 		if !ok || strValue == "" {
 			continue
 		}
-
 		switch key {
 		case "client":
 			// 将字符串转换为整数
@@ -217,6 +216,8 @@ func (r *OrderRepositoryImpl) GetOrders(ctx context.Context, params map[string]i
 			query = query.Where("create_time >= ?", strValue)
 		case "end_time":
 			query = query.Where("create_time <= ?", strValue)
+		case "platform_code":
+			query = query.Where("platform_code = ?", strValue)
 		default:
 			// 对于其他字段，使用精确匹配
 			query = query.Where(key+" = ?", strValue)

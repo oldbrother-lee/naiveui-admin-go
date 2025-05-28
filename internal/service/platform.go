@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
+	"recharge-go/pkg/logger"
 	"recharge-go/pkg/signature"
 	"strconv"
 	"time"
@@ -140,6 +141,10 @@ func (s *PlatformService) UpdatePlatformAccount(ctx context.Context, id int64, r
 	}
 	if req.Status != nil {
 		updateMap["status"] = *req.Status
+
+	}
+	if req.PushStatus != nil {
+		updateMap["push_status"] = *req.PushStatus
 	}
 
 	if len(updateMap) == 0 {
@@ -177,6 +182,13 @@ func (s *PlatformService) SendNotification(ctx context.Context, order *model.Ord
 		params = s.buildMf178Params(order, account)
 	case "kekebang":
 		params = s.buildKekebangParams(order, account)
+	case "xianzhuanxia":
+		// 闲赚侠一般直接调用 ReportTask 方法，不需要拼接 URL
+		err := s.buildXianzhuanxiaParams(order, account, platform.ApiURL)
+		if err != nil {
+			return fmt.Errorf("上报订单结果失败: %w", err)
+		}
+		return nil
 	default:
 		return fmt.Errorf("不支持的平台: %s", platform.Code)
 	}
@@ -204,10 +216,19 @@ func (s *PlatformService) SendNotification(ctx context.Context, order *model.Ord
 
 	// 3. 生成签名
 	// params["sign"] = signature.GenerateSign(params, account.AppSecret)
-	fmt.Printf("params-----++++++++-----: %v\n", params)
 	// 4. 发送通知请求
-	// url := "http://test.shop.center.mf178.cn/userapi/sgd/updateStatus"
-	resp, err := s.sendRequest(ctx, platform.ApiURL, params)
+	var url string
+	switch platform.Code {
+	case "mifeng":
+		url = platform.ApiURL + "/userapi/sgd/updateStatus"
+	case "kekebang":
+		url = platform.ApiURL + "/openapi/suppler/v1/report-user"
+	case "xianzhuanxia":
+		url = platform.ApiURL + "/api/task/recharge/reported"
+	default:
+		return fmt.Errorf("不支持的平台: %s", platform.Code)
+	}
+	resp, err := s.sendRequest(ctx, url, params)
 	if err != nil {
 		return fmt.Errorf("发送通知请求失败: %w", err)
 	}
@@ -401,5 +422,77 @@ func (s *PlatformService) generateSign(platformCode string, params map[string]in
 		return signature.GenerateKekebangSign(params, account.AppSecret)
 	default:
 		return ""
+	}
+}
+
+func (s *PlatformService) buildXianzhuanxiaParams(order *model.Order, account *model.PlatformAccount, apiURL string) error {
+
+	params := map[string]interface{}{
+		"orderNumber": order.OutTradeNum,
+		"status":      s.getXianzhuanxiaStatus(order.Status),
+	}
+
+	// params["app_key"] = account.AppKey
+	authToken, _, err := signature.GenerateXianzhuanxiaSignature2(params, account.AppKey, account.AccountName)
+	if err != nil {
+		return fmt.Errorf("生成签名失败: %v", err)
+	}
+	jsonData, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/task/recharge/reported", apiURL)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Auth_Token", authToken)
+	// req.Header.Set("Query-Time", queryTime)
+	fmt.Printf("req: %v\n", req)
+	logger.Info(fmt.Sprintf("发送闲赚侠上报订单结果请求: %v\n", req))
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("发送请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("请求失败: %s", string(body))
+	}
+
+	var result struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("解析响应失败: %v", err)
+	}
+
+	if result.Code != 0 {
+		return fmt.Errorf("业务错误: %s", result.Msg)
+	}
+
+	return nil
+
+}
+
+func (s *PlatformService) getXianzhuanxiaStatus(orderStatus model.OrderStatus) int {
+	switch orderStatus {
+	case model.OrderStatusSuccess:
+		return 1 // 闲赚侠平台"成功"状态码
+	case model.OrderStatusFailed:
+		return 2 // 闲赚侠平台"失败"状态码
+	default:
+		return 0 // 未知或默认
 	}
 }

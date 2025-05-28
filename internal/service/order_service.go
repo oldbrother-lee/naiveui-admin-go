@@ -84,7 +84,15 @@ func (s *orderService) CreateOrder(ctx context.Context, order *model.Order) erro
 	order.OrderNumber = generateOrderNumber()
 	order.CreateTime = time.Now()
 	order.UpdatedAt = time.Now()
-	order.Status = model.OrderStatusPendingPayment
+
+	// 根据订单来源决定初始状态
+	// 如果是自动取单任务创建的订单(client=3)，直接进入待充值状态
+	if order.Client == 3 {
+		order.Status = model.OrderStatusPendingRecharge
+	} else {
+		order.Status = model.OrderStatusPendingPayment
+	}
+
 	order.IsDel = 0
 
 	if err := s.orderRepo.Create(ctx, order); err != nil {
@@ -214,7 +222,6 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 	} else {
 		logger.Info("推送通知到队列成功", "order_id", order.ID)
 	}
-
 	return nil
 }
 

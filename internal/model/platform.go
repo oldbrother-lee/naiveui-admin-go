@@ -37,6 +37,8 @@ type PlatformAccount struct {
 	Platform     *Platform  `json:"platform,omitempty" gorm:"foreignKey:PlatformID"`               // 关联的平台信息
 	BindUserID   *int64     `json:"bind_user_id" gorm:"column:bind_user_id"`
 	BindUserName string     `json:"bind_user_name" gorm:"column:bind_user_name"`
+	PushStatus   int        `gorm:"column:push_status;default:2" json:"push_status"` // 推单状态(1:开启；2:关闭)
+
 }
 
 // PlatformListRequest 平台列表请求
@@ -111,6 +113,7 @@ type PlatformAccountUpdateRequest struct {
 	Balance      *float64 `json:"balance" binding:"min=0"`
 	Priority     *int     `json:"priority" binding:"min=0"`
 	Status       *int     `json:"status" binding:"omitempty,oneof=0 1"`
+	PushStatus   *int     `json:"push_status"`
 }
 
 const PlatformCodeDayuanren = "dayuanren"
