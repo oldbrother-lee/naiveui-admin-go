@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/repository"
 	"recharge-go/pkg/logger"
@@ -34,7 +35,7 @@ func NewPlatformAccountBalanceService(
 	}
 }
 
-// DeductBalance 扣除余额
+// DeductBalance 扣除余额，支持授信额度
 func (s *PlatformAccountBalanceService) DeductBalance(ctx context.Context, accountID int64, amount float64, orderID int64, remark string) error {
 	logger.Info("开始扣除本地账号余额",
 		"platform_account_id", accountID,
@@ -75,13 +76,14 @@ func (s *PlatformAccountBalanceService) DeductBalance(ctx context.Context, accou
 		return err
 	}
 
-	// 3. 检查余额
-	if user.Balance < amount {
-		logger.Error("本地用户余额不足", "user_id", userID, "current_balance", user.Balance, "required_amount", amount)
-		return errors.New("本地用户余额不足")
+	// 3. 检查余额+授信额度
+	available := user.Balance + user.Credit
+	if available < amount {
+		logger.Error("余额和授信额度均不足", "user_id", userID, "current_balance", user.Balance, "credit", user.Credit, "required_amount", amount)
+		return errors.New("余额和授信额度均不足")
 	}
 
-	// 4. 扣减余额
+	// 4. 扣减余额（余额优先，余额不足自动用授信额度）
 	before := user.Balance
 	user.Balance -= amount
 	if err := s.userRepo.Update(ctx, user); err != nil {
@@ -89,7 +91,13 @@ func (s *PlatformAccountBalanceService) DeductBalance(ctx context.Context, accou
 		return err
 	}
 
-	// 5. 写用户余额变动日志
+	// 5. 计算本次用掉的授信额度
+	creditUsed := 0.0
+	if user.Balance < 0 {
+		creditUsed = -user.Balance
+	}
+
+	// 6. 写用户余额变动日志
 	userLog := &model.BalanceLog{
 		UserID:            userID,
 		OrderID:           orderID,
@@ -102,7 +110,7 @@ func (s *PlatformAccountBalanceService) DeductBalance(ctx context.Context, accou
 		Style:             model.BalanceStyleOrderDeduct,
 		Balance:           user.Balance,
 		BalanceBefore:     before,
-		Remark:            remark,
+		Remark:            fmt.Sprintf("%s（本次用掉授信额度：%.2f）", remark, creditUsed),
 		Operator:          "system",
 		CreatedAt:         time.Now(),
 	}
@@ -111,7 +119,7 @@ func (s *PlatformAccountBalanceService) DeductBalance(ctx context.Context, accou
 		return err
 	}
 
-	logger.Info("扣除本地账号余额成功", "user_id", userID, "amount", amount, "balance_before", before, "balance_after", user.Balance)
+	logger.Info("扣除本地账号余额成功", "user_id", userID, "amount", amount, "balance_before", before, "balance_after", user.Balance, "credit_used", creditUsed)
 	return nil
 }
 
