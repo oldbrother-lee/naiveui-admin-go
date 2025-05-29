@@ -53,6 +53,15 @@ type OrderService interface {
 	CleanupOrders(ctx context.Context, start, end string) (int64, error)
 	// GetProductID 根据价格、ISP和状态获取产品ID
 	GetProductID(price float64, isp int, status int) (int64, error)
+	// GetOrderStatistics 按 customer_id 统计今日订单总数、成功订单数、失败订单数、今日成交金额（Denom 字段）
+	GetOrderStatistics(ctx context.Context, customerID int64) (*OrderStatistics, error)
+}
+
+type OrderStatistics struct {
+	TotalCount    int64   `json:"total_count"`
+	SuccessCount  int64   `json:"success_count"`
+	FailedCount   int64   `json:"failed_count"`
+	SuccessAmount float64 `json:"success_amount"`
 }
 
 // orderService 订单服务实现
@@ -436,4 +445,29 @@ func (s *orderService) GetProductID(price float64, isp int, status int) (int64, 
 	}
 	logger.Info("匹配到产品", "product_id", product.ID, "price", product.Price, "isp", product.ISP, "status", product.Status)
 	return product.ID, nil
+}
+
+// GetOrderStatistics 按 customer_id 统计今日订单总数、成功订单数、失败订单数、今日成交金额（Denom 字段）
+func (s *orderService) GetOrderStatistics(ctx context.Context, customerID int64) (*OrderStatistics, error) {
+	today := time.Now().Format("2006-01-02")
+	loc := time.Local
+	startTime, _ := time.ParseInLocation("2006-01-02", today, loc)
+	endTime := startTime.Add(24 * time.Hour)
+
+	var totalCount, successCount, failedCount int64
+	var successAmount float64
+
+	db := s.orderRepo.DB().WithContext(ctx).Model(&model.Order{})
+	db = db.Where("customer_id = ? AND created_at >= ? AND created_at < ?", customerID, startTime, endTime)
+	db.Count(&totalCount)
+	db.Where("status = ?", model.OrderStatusSuccess).Count(&successCount)
+	db.Where("status = ?", model.OrderStatusFailed).Count(&failedCount)
+	db.Select("SUM(denom)").Where("status = ?", model.OrderStatusSuccess).Scan(&successAmount)
+
+	return &OrderStatistics{
+		TotalCount:    totalCount,
+		SuccessCount:  successCount,
+		FailedCount:   failedCount,
+		SuccessAmount: successAmount,
+	}, nil
 }

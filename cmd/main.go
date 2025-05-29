@@ -208,6 +208,9 @@ func main() {
 	// 创建 MF178OrderController 实例
 	mf178OrderController := controller.NewMF178OrderController(orderService, rechargeService)
 
+	// 创建 OrderController 实例
+	orderController := controller.NewOrderController(orderService)
+
 	// 注册路由
 	engine := router.SetupRouter(
 		userController,
@@ -229,6 +232,7 @@ func main() {
 		statisticsController,
 		callbackController,
 		mf178OrderController,
+		orderController,
 	)
 
 	// 启动HTTP服务器

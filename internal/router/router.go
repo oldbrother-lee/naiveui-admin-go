@@ -32,6 +32,7 @@ func SetupRouter(
 	statisticsController *controller.StatisticsController,
 	callbackController *controller.CallbackController,
 	mf178OrderController *controller.MF178OrderController,
+	orderController *controller.OrderController,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -139,7 +140,22 @@ func SetupRouter(
 			RegisterPlatformAccountRoutes(api)
 
 			// 推单状态相关接口
-			RegisterPushStatusRoutes(auth)
+			platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+			pushStatusService := platform.NewPushStatusService(platformAccountRepo)
+			pushStatusController := controller.NewPlatformPushStatusController(pushStatusService)
+
+			// 注册路由
+			pushStatus := r.Group("/platform/push-status")
+			{
+				pushStatus.GET("/:account_id", pushStatusController.GetPushStatus)
+				pushStatus.PUT("/:account_id", pushStatusController.UpdatePushStatus)
+			}
+
+			// 订单相关路由
+			orderGroup := auth.Group("/orders")
+			{
+				orderGroup.GET("/statistics", orderController.GetOrderStatistics)
+			}
 		}
 	}
 
