@@ -15,6 +15,8 @@ func RegisterStatisticsRoutes(r *gin.RouterGroup, statisticsController *controll
 			order.GET("/operator", statisticsController.GetOperatorStatistics)
 			order.GET("/daily", statisticsController.GetDailyStatistics)
 			order.GET("/trend", statisticsController.GetTrendStatistics)
+			order.GET("/realtime", statisticsController.GetOrderRealtimeStatistics)
+			order.GET("/isp-count", statisticsController.GetOperatorOrderCount)
 			order.POST("/trigger", statisticsController.TriggerStatistics)
 		}
 	}

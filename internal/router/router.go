@@ -31,6 +31,7 @@ func SetupRouter(
 	userRepo *repository.UserRepository,
 	statisticsController *controller.StatisticsController,
 	callbackController *controller.CallbackController,
+	mf178OrderController *controller.MF178OrderController,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -47,7 +48,7 @@ func SetupRouter(
 		api.POST("/user/login", userController.Login)
 
 		// MF178订单接口
-		RegisterMF178OrderRoutes(api)
+		RegisterMF178OrderRoutes(api, mf178OrderController)
 
 		// 可客帮订单接口 - 不需要认证
 		RegisterKekebangOrderRoutes(api)

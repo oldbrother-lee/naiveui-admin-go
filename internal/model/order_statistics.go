@@ -78,3 +78,9 @@ type OrderStatisticsTrend struct {
 	CostAmount    float64   `json:"costAmount"`    // 成本金额
 	ProfitAmount  float64   `json:"profitAmount"`  // 盈利金额
 }
+
+// 按运营商分组统计订单总数结构体
+type OperatorOrderCount struct {
+	Operator int   `json:"operator"`
+	Total    int64 `json:"total"`
+}

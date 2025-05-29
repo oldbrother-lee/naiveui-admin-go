@@ -38,29 +38,16 @@ func (c *StatisticsController) GetOrderOverview(ctx *gin.Context) {
 
 // GetOperatorStatistics 获取运营商统计
 // @Summary 获取运营商统计
-// @Description 获取各运营商的订单统计信息
+// @Description 获取各运营商的订单统计信息（当天）
 // @Tags 订单统计
 // @Accept json
 // @Produce json
-// @Param startDate query string true "开始日期"
-// @Param endDate query string true "结束日期"
 // @Success 200 {array} model.OrderStatisticsOperator
 // @Router /api/v1/statistics/order/operator [get]
 func (c *StatisticsController) GetOperatorStatistics(ctx *gin.Context) {
-	startDate := ctx.Query("startDate")
-	endDate := ctx.Query("endDate")
-
-	start, err := time.Parse("2006-01-02", startDate)
-	if err != nil {
-		utils.Error(ctx, http.StatusBadRequest, "Invalid start date format")
-		return
-	}
-
-	end, err := time.Parse("2006-01-02", endDate)
-	if err != nil {
-		utils.Error(ctx, http.StatusBadRequest, "Invalid end date format")
-		return
-	}
+	today := time.Now()
+	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+	end := start.Add(24 * time.Hour).Add(-time.Nanosecond)
 
 	result, err := c.statisticsSvc.GetOperatorStatistics(ctx, start, end)
 	if err != nil {
@@ -150,4 +137,42 @@ func (c *StatisticsController) TriggerStatistics(ctx *gin.Context) {
 	utils.Success(ctx, gin.H{
 		"message": "Statistics update triggered successfully",
 	})
+}
+
+// GetOrderRealtimeStatistics 获取实时订单统计
+// @Summary 获取实时订单统计
+// @Description 实时获取订单统计概览
+// @Tags 订单统计
+// @Accept json
+// @Produce json
+// @Success 200 {object} model.OrderStatisticsOverview
+// @Router /api/v1/statistics/order/realtime [get]
+func (c *StatisticsController) GetOrderRealtimeStatistics(ctx *gin.Context) {
+	result, err := c.statisticsSvc.GetOrderRealtimeStatistics(ctx)
+	if err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	utils.Success(ctx, result)
+}
+
+// GetOperatorOrderCount 获取各运营商订单总数
+// @Summary 获取各运营商订单总数
+// @Description 获取各运营商订单总数（当天）
+// @Tags 订单统计
+// @Accept json
+// @Produce json
+// @Success 200 {array} object
+// @Router /api/v1/statistics/order/isp-count [get]
+func (c *StatisticsController) GetOperatorOrderCount(ctx *gin.Context) {
+	today := time.Now()
+	start := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+	end := start.Add(24 * time.Hour).Add(-time.Nanosecond)
+
+	result, err := c.statisticsSvc.GetOperatorOrderCount(ctx, start, end)
+	if err != nil {
+		utils.Error(ctx, http.StatusInternalServerError, err.Error())
+		return
+	}
+	utils.Success(ctx, result)
 }

@@ -170,11 +170,12 @@ func main() {
 	// 创建重试服务
 	retryService := service.NewRetryService(
 		repository.NewRetryRepository(database.DB),
-		repository.NewOrderRepository(database.DB),
-		repository.NewPlatformRepository(database.DB),
-		repository.NewProductRepository(database.DB),
+		orderRepo,
+		platformRepo,
+		productRepo,
 		productAPIRelationRepo,
 		rechargeService,
+		orderService,
 	)
 
 	// 创建处理器实例
@@ -204,6 +205,9 @@ func main() {
 	// 创建 callbackController
 	callbackController := controller.NewCallbackController(rechargeService, platformRepo, orderRepo)
 
+	// 创建 MF178OrderController 实例
+	mf178OrderController := controller.NewMF178OrderController(orderService, rechargeService)
+
 	// 注册路由
 	engine := router.SetupRouter(
 		userController,
@@ -224,6 +228,7 @@ func main() {
 		userRepo,
 		statisticsController,
 		callbackController,
+		mf178OrderController,
 	)
 
 	// 启动HTTP服务器

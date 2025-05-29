@@ -62,6 +62,12 @@ type OrderRepository interface {
 	UpdateStatusCAS(ctx context.Context, id int64, oldStatus, newStatus model.OrderStatus, apiID int64) (bool, error)
 	// UpdateStatusAndAPIID 更新订单状态和API ID
 	UpdateStatusAndAPIID(ctx context.Context, id int64, status model.OrderStatus, apiID int64, usedAPIs string) error
+	// GetOrderRealtimeStatistics 获取实时统计
+	GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error)
+	// GetOperatorRealtimeStatistics 获取运营商实时统计
+	GetOperatorRealtimeStatistics(ctx context.Context, start, end time.Time) ([]model.OrderStatisticsOperator, error)
+	// GetOperatorOrderCount 按运营商分组统计订单总数
+	GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error)
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -328,4 +334,103 @@ func (r *OrderRepositoryImpl) UpdateStatusAndAPIID(ctx context.Context, id int64
 		}).Error
 	fmt.Println("Updates 执行完毕，err =", err)
 	return err
+}
+
+// GetOrderRealtimeStatistics 获取实时统计
+func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error) {
+	var overview model.OrderStatisticsOverview
+
+	// 总订单数
+	err := r.db.WithContext(ctx).Model(&model.Order{}).
+		Select("COUNT(*) as total").
+		Scan(&overview.Total.Total).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 昨日订单数
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	err = r.db.WithContext(ctx).Model(&model.Order{}).
+		Where("DATE(create_time) = ?", yesterday).
+		Select("COUNT(*) as yesterday").
+		Scan(&overview.Total.Yesterday).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 今日订单数
+	today := time.Now().Format("2006-01-02")
+	err = r.db.WithContext(ctx).Model(&model.Order{}).
+		Where("DATE(create_time) = ?", today).
+		Select("COUNT(*) as today").
+		Scan(&overview.Total.Today).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 订单状态统计（充值中、成功、失败）
+	err = r.db.WithContext(ctx).Model(&model.Order{}).
+		Where("DATE(create_time) = ?", today).
+		Select(
+			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as processing", model.OrderStatusRecharging),
+			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as success", model.OrderStatusSuccess),
+			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as failed", model.OrderStatusFailed),
+		).
+		Scan(&overview.Status).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 盈利统计（成本、利润）
+	err = r.db.WithContext(ctx).Model(&model.Order{}).
+		Where("DATE(create_time) = ?", today).
+		Select(
+			"COALESCE(SUM(denom), 0) as cost_amount",
+			"COALESCE(SUM(user_quote_payment - denom), 0) as profit_amount",
+		).
+		Scan(&overview.Profit).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &overview, nil
+}
+
+// GetOperatorRealtimeStatistics 获取运营商实时统计
+func (r *OrderRepositoryImpl) GetOperatorRealtimeStatistics(ctx context.Context, start, end time.Time) ([]model.OrderStatisticsOperator, error) {
+	var stats []model.OrderStatisticsOperator
+	sql := fmt.Sprintf(`products.isp as operator, 
+		COUNT(*) as total_orders, 
+		SUM(CASE WHEN orders.status = %d THEN 1 ELSE 0 END) as success_orders, 
+		SUM(CASE WHEN orders.status = %d THEN 1 ELSE 0 END) as failed_orders, 
+		COALESCE(SUM(orders.denom), 0) as cost_amount, 
+		COALESCE(SUM(orders.user_quote_payment - orders.denom), 0) as profit_amount`,
+		model.OrderStatusSuccess, model.OrderStatusFailed)
+	err := r.db.Table("orders").
+		Select(sql).
+		Joins("JOIN products ON orders.product_id = products.id").
+		Where("DATE(orders.create_time) BETWEEN ? AND ?", start.Format("2006-01-02"), end.Format("2006-01-02")).
+		Group("products.isp").
+		Scan(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+	for i := range stats {
+		if stats[i].TotalOrders > 0 {
+			stats[i].SuccessRate = float64(stats[i].SuccessOrders) / float64(stats[i].TotalOrders) * 100
+		}
+	}
+	return stats, nil
+}
+
+// GetOperatorOrderCount 按运营商分组统计订单总数
+func (r *OrderRepositoryImpl) GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error) {
+	var result []model.OperatorOrderCount
+	err := r.db.Table("orders").
+		Select("products.isp as operator, COUNT(*) as total").
+		Joins("JOIN products ON orders.product_id = products.id").
+		Where("DATE(orders.create_time) BETWEEN ? AND ?", start.Format("2006-01-02"), end.Format("2006-01-02")).
+		Group("products.isp").
+		Scan(&result).Error
+	return result, err
 }

@@ -9,12 +9,20 @@ import (
 	"gorm.io/gorm"
 )
 
+// 定义专用类型
+type OperatorOrderCount struct {
+	Operator int   `json:"operator"`
+	Total    int64 `json:"total"`
+}
+
 type StatisticsService interface {
 	GetOrderOverview(ctx context.Context) (*model.OrderStatisticsOverview, error)
 	GetOperatorStatistics(ctx context.Context, startDate, endDate time.Time) ([]model.OrderStatisticsOperator, error)
 	GetDailyStatistics(ctx context.Context, startDate, endDate time.Time) ([]model.OrderStatisticsDaily, error)
 	GetTrendStatistics(ctx context.Context, startDate, endDate time.Time, operator string) ([]model.OrderStatisticsTrend, error)
 	UpdateStatistics(ctx context.Context) error
+	GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error)
+	GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error)
 }
 
 type statisticsService struct {
@@ -37,7 +45,7 @@ func (s *statisticsService) GetOrderOverview(ctx context.Context) (*model.OrderS
 }
 
 func (s *statisticsService) GetOperatorStatistics(ctx context.Context, startDate, endDate time.Time) ([]model.OrderStatisticsOperator, error) {
-	return s.orderStatsRepo.GetOperatorStats(ctx, startDate, endDate)
+	return s.orderRepo.GetOperatorRealtimeStatistics(ctx, startDate, endDate)
 }
 
 func (s *statisticsService) GetDailyStatistics(ctx context.Context, startDate, endDate time.Time) ([]model.OrderStatisticsDaily, error) {
@@ -137,4 +145,12 @@ func (s *statisticsService) UpdateStatistics(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *statisticsService) GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error) {
+	return s.orderRepo.GetOrderRealtimeStatistics(ctx)
+}
+
+func (s *statisticsService) GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error) {
+	return s.orderRepo.GetOperatorOrderCount(ctx, start, end)
 }

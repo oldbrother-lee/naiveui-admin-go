@@ -18,11 +18,11 @@ import (
 
 func main() {
 	// 解析命令行参数
-	env := flag.String("env", "dev", "运行环境: dev, test, prod")
+	configPath := flag.String("config", "configs/config.yaml", "配置文件路径")
 	flag.Parse()
 
 	// 初始化配置
-	if err := configs.Init(*env); err != nil {
+	if err := configs.Init(*configPath); err != nil {
 		log.Fatalf("初始化配置失败: %v", err)
 	}
 
