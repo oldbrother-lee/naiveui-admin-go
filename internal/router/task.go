@@ -85,6 +85,7 @@ func RegisterTaskRoutes(r *gin.RouterGroup, platformSvc *platform.Service) {
 		platformSvc,
 		orderService,
 		taskConfig,
+		platformAccountRepo,
 	)
 
 	// 启动自动取单任务

@@ -14,18 +14,19 @@ import (
 )
 
 type TaskService struct {
-	taskConfigRepo    *repository.TaskConfigRepository
-	taskOrderRepo     *repository.TaskOrderRepository
-	orderRepo         repository.OrderRepository
-	daichongOrderRepo *repository.DaichongOrderRepository
-	platformSvc       *platform.Service
-	orderService      OrderService
-	config            *TaskConfig
-	ctx               context.Context
-	cancel            context.CancelFunc
-	wg                sync.WaitGroup
-	mu                sync.Mutex
-	isRunning         bool
+	taskConfigRepo      *repository.TaskConfigRepository
+	taskOrderRepo       *repository.TaskOrderRepository
+	orderRepo           repository.OrderRepository
+	daichongOrderRepo   *repository.DaichongOrderRepository
+	platformSvc         *platform.Service
+	orderService        OrderService
+	config              *TaskConfig
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	wg                  sync.WaitGroup
+	mu                  sync.Mutex
+	isRunning           bool
+	platformAccountRepo *repository.PlatformAccountRepository
 }
 
 type TaskConfig struct {
@@ -46,18 +47,20 @@ func NewTaskService(
 	platformSvc *platform.Service,
 	orderService OrderService,
 	config *TaskConfig,
+	platformAccountRepo *repository.PlatformAccountRepository,
 ) *TaskService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &TaskService{
-		taskConfigRepo:    taskConfigRepo,
-		taskOrderRepo:     taskOrderRepo,
-		orderRepo:         orderRepo,
-		daichongOrderRepo: daichongOrderRepo,
-		platformSvc:       platformSvc,
-		orderService:      orderService,
-		config:            config,
-		ctx:               ctx,
-		cancel:            cancel,
+		taskConfigRepo:      taskConfigRepo,
+		taskOrderRepo:       taskOrderRepo,
+		orderRepo:           orderRepo,
+		daichongOrderRepo:   daichongOrderRepo,
+		platformSvc:         platformSvc,
+		orderService:        orderService,
+		config:              config,
+		ctx:                 ctx,
+		cancel:              cancel,
+		platformAccountRepo: platformAccountRepo,
 	}
 }
 
@@ -138,6 +141,14 @@ func (s *TaskService) processTask() {
 				logger.Error(fmt.Sprintf("获取账号信息失败: %v", err))
 				return
 			}
+			//获取平台账号信息
+			platformAccount, err := s.platformAccountRepo.GetByID(cfg.PlatformAccountID)
+			if err != nil {
+				logger.Error(fmt.Sprintf("获取平台账号信息失败: OrderNumber=%s, error=%+v", err))
+				return
+			}
+
+			fmt.Printf("userid %d platformAccount++++++++!!!!!!!!%+v", *platformAccount.BindUserID, platformAccount)
 			logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s", channelID, productID, accountName))
 			token, err := s.platformSvc.GetToken(channelID, productID, "", cfg.FaceValues, cfg.MinSettleAmounts, appkey, accountName, platform.ApiURL, cfg.ID)
 			if err != nil {
@@ -188,13 +199,7 @@ func (s *TaskService) processTask() {
 				logger.Error(fmt.Sprintf("获取产品id失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
 				return
 			}
-			//获取平台账号信息
-			platformAccount, err := s.platformAccountRepo.GetPlatformAccountByID(cfg.PlatformAccountID)
-			if err != nil {
-				logger.Error(fmt.Sprintf("获取平台账号信息失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
-				return
-			}
-			fmt.Println(platformAccount, "platformAccount++++++++")
+
 			orderRecord := &model.Order{
 				Mobile:            order.AccountNum,
 				ProductID:         productIDInt,
@@ -213,9 +218,9 @@ func (s *TaskService) processTask() {
 				CreateTime:        order.CreateTime.Time,
 				OutTradeNum:       order.OrderNumber,
 				PlatformAccountID: cfg.PlatformAccountID,
-
-				PlatformName: platform.Name,
-				PlatformCode: platform.Code,
+				CustomerID:        *platformAccount.BindUserID,
+				PlatformName:      platform.Name,
+				PlatformCode:      platform.Code,
 			}
 
 			if err := s.orderService.CreateOrder(s.ctx, orderRecord); err != nil {

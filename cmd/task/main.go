@@ -111,6 +111,7 @@ func main() {
 		platformSvc,
 		orderService,
 		taskConfig,
+		platformAccountRepo,
 	)
 
 	// 启动任务
