@@ -156,6 +156,7 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 		Remark:            fmt.Sprintf("可客帮订单，商品ID：%s", req.GoodsID),
 		AccountLocation:   req.Datas.ProvCode,
 		PlatformAccountID: account.ID,
+		CustomerID:        *account.BindUserID,
 		PlatformId:        platform.ID,
 		PlatformCode:      platform.Code,
 		PlatformName:      platform.Name,

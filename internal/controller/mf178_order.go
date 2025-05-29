@@ -284,6 +284,7 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		AccountLocation:   req.Datas.ProvCode,
 		Param3:            req.GoodsName,
 		PlatformAccountID: account.ID,
+		CustomerID:        *account.BindUserID,
 		PlatformId:        platform.ID,
 		PlatformCode:      platform.Code,
 		PlatformName:      platform.Name,

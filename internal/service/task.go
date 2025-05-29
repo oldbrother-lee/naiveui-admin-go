@@ -188,6 +188,13 @@ func (s *TaskService) processTask() {
 				logger.Error(fmt.Sprintf("获取产品id失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
 				return
 			}
+			//获取平台账号信息
+			platformAccount, err := s.platformAccountRepo.GetPlatformAccountByID(cfg.PlatformAccountID)
+			if err != nil {
+				logger.Error(fmt.Sprintf("获取平台账号信息失败: OrderNumber=%s, error=%v", order.OrderNumber, err))
+				return
+			}
+			fmt.Println(platformAccount, "platformAccount++++++++")
 			orderRecord := &model.Order{
 				Mobile:            order.AccountNum,
 				ProductID:         productIDInt,
@@ -206,8 +213,9 @@ func (s *TaskService) processTask() {
 				CreateTime:        order.CreateTime.Time,
 				OutTradeNum:       order.OrderNumber,
 				PlatformAccountID: cfg.PlatformAccountID,
-				PlatformName:      platform.Name,
-				PlatformCode:      platform.Code,
+
+				PlatformName: platform.Name,
+				PlatformCode: platform.Code,
 			}
 
 			if err := s.orderService.CreateOrder(s.ctx, orderRecord); err != nil {
