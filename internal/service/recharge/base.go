@@ -47,7 +47,6 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 		"order_id", order.ID,
 		"order_number", order.OrderNumber,
 		"amount", order.Price)
-	fmt.Println("order+++++++++++++++++++", order)
 	// 1. 检查平台账号余额
 	account, err := s.platformAccountRepo.GetByID(order.PlatformAccountID)
 	if err != nil {

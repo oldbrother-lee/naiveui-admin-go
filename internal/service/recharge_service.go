@@ -713,26 +713,62 @@ func (s *rechargeService) GetPlatformAPIByOrderID(ctx context.Context, orderID s
 	//product_api_relations
 	r, err := s.productAPIRelationRepo.GetByProductID(ctx, order.ProductID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("获取商品接口关联信息失败: %v", err)
+		// 将订单设置为失败状态
+		if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusFailed); err != nil {
+			logger.Error("【更新订单状态失败】",
+				"error", err,
+				"order_id", order.ID)
+		}
+		// 更新订单备注
+		if err := s.orderRepo.UpdateRemark(ctx, order.ID, "商品未绑定接口"); err != nil {
+			logger.Error("【更新订单备注失败】",
+				"error", err,
+				"order_id", order.ID)
+		}
+		return nil, nil, fmt.Errorf("商品未绑定接口: %v", err)
 	}
 
 	//获取api套餐 platform_api_params
 	apiParam, err := s.platformAPIParamRepo.GetByID(ctx, r.ParamID)
 	if err != nil {
+		if errors.Is(err, repository.ErrNoAPIForProduct) {
+			// 将订单设置为失败状态
+			if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusFailed); err != nil {
+				logger.Error("【更新订单状态失败】",
+					"error", err,
+					"order_id", order.ID)
+			}
+			// 更新订单备注
+			if err := s.orderRepo.UpdateRemark(ctx, order.ID, "商品未绑定接口"); err != nil {
+				logger.Error("【更新订单备注失败】",
+					"error", err,
+					"order_id", order.ID)
+			}
+			return nil, nil, fmt.Errorf("商品未绑定接口")
+		}
 		return nil, nil, fmt.Errorf("获取API参数信息失败: %v", err)
 	}
 
 	// 获取平台API信息 PlatformAPI
 	api, err := s.platformRepo.GetAPIByID(ctx, r.APIID)
 	if err != nil {
+		if errors.Is(err, repository.ErrNoAPIForProduct) {
+			// 将订单设置为失败状态
+			if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusFailed); err != nil {
+				logger.Error("【更新订单状态失败】",
+					"error", err,
+					"order_id", order.ID)
+			}
+			// 更新订单备注
+			if err := s.orderRepo.UpdateRemark(ctx, order.ID, "商品未绑定接口"); err != nil {
+				logger.Error("【更新订单备注失败】",
+					"error", err,
+					"order_id", order.ID)
+			}
+			return nil, nil, fmt.Errorf("商品未绑定接口")
+		}
 		return nil, nil, fmt.Errorf("获取平台API信息失败: %v", err)
 	}
-
-	// 创建一个空的 ProductAPIRelation 对象
-	// relation := &model.ProductAPIRelation{
-	// 	APIID: api.ID,
-	// }
-	// fmt.Println(api, "api++++++++")
 
 	return api, apiParam, nil
 }

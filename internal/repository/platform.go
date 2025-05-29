@@ -3,11 +3,12 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"recharge-go/internal/model"
 
 	"gorm.io/gorm"
 )
+
+var ErrNoAPIForProduct = errors.New("商品未绑定接口")
 
 // PlatformRepository 平台仓库接口
 type PlatformRepository interface {
@@ -267,11 +268,10 @@ func (r *PlatformRepositoryImpl) GetAccountsByPlatformID(ctx context.Context, pl
 // GetAPIByID 根据API ID获取平台 API 信息
 func (r *PlatformRepositoryImpl) GetAPIByID(ctx context.Context, apiID int64) (*model.PlatformAPI, error) {
 	var api model.PlatformAPI
-	if err := r.db.WithContext(ctx).
-		Where("id = ? AND status = 1", apiID).
-		First(&api).Error; err != nil {
+	err := r.db.WithContext(ctx).First(&api, apiID).Error
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("no active API found for ID %d", apiID)
+			return nil, ErrNoAPIForProduct
 		}
 		return nil, err
 	}
@@ -292,6 +292,9 @@ func (r *PlatformRepositoryImpl) GetAPIParamByID(ctx context.Context, id int64) 
 	var param model.PlatformAPIParam
 	err := r.db.WithContext(ctx).First(&param, id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNoAPIForProduct
+		}
 		return nil, err
 	}
 	return &param, nil
