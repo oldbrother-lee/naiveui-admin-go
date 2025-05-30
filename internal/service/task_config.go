@@ -64,6 +64,9 @@ func (s *TaskConfigService) UpdatePartial(ctx context.Context, req *model.Update
 	if req.Status != nil {
 		config.Status = *req.Status
 	}
+	if req.ChannelID != nil {
+		config.ChannelID = *req.ChannelID
+	}
 
 	return s.taskConfigRepo.Update(config)
 }

@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"recharge-go/pkg/logger"
 	"sort"
 	"strings"
 )
@@ -58,7 +59,8 @@ func GenerateKekebangSign(params map[string]interface{}, secretKey string) strin
 	// 拼接签名明文
 	plainText := strings.Join(keyValueList, "&")
 	plainText += "&secret=" + secretKey
-	fmt.Println("MD5签名前串:", plainText)
+	// fmt.Println("MD5签名前串:", plainText)
+	logger.Info(fmt.Sprintf("kekebang MD5签名前串: %s", plainText))
 	// 计算MD5签名
 	hasher := md5.New()
 	hasher.Write([]byte(plainText))
@@ -68,4 +70,37 @@ func GenerateKekebangSign(params map[string]interface{}, secretKey string) strin
 // VerifyKekebangSign 验证客帮帮平台签名
 func VerifyKekebangSign(params map[string]interface{}, sign string, secretKey string) bool {
 	return GenerateKekebangSign(params, secretKey) == sign
+}
+
+// GenerateKekebangNotifySign 生成客帮通知签名
+func GenerateKekebangNotifySign(params map[string]interface{}, secretKey string) string {
+	// 1. 升序排序 key
+	keys := make([]string, 0, len(params))
+	for k := range params {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// 2. 过滤 value 为空字符串的项，拼接 key=value
+	var keyValueList []string
+	for _, k := range keys {
+		v := params[k]
+		// 只保留非空字符串
+		if v != nil && fmt.Sprintf("%v", v) != "" {
+			keyValueList = append(keyValueList, k+"="+fmt.Sprintf("%v", v))
+		}
+	}
+
+	// 3. 拼接明文
+	plainText := strings.Join(keyValueList, "&")
+	plainText += "&secret=" + secretKey
+
+	fmt.Println("MD5签名前串:", plainText)
+
+	// 4. 计算 MD5 并转小写
+	hasher := md5.New()
+	hasher.Write([]byte(plainText))
+	md5Sign := strings.ToLower(hex.EncodeToString(hasher.Sum(nil)))
+	fmt.Println("MD5签名后:", md5Sign)
+	return md5Sign
 }

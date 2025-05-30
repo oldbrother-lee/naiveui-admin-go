@@ -22,9 +22,10 @@ import (
 
 func main() {
 	// 初始化日志
-	if err := logger.InitLogger(); err != nil {
+	if err := logger.InitLogger("notification"); err != nil {
 		panic(fmt.Sprintf("初始化日志失败: %v", err))
 	}
+	defer logger.Close()
 
 	// 加载配置
 	cfg, err := config.LoadConfig("configs/config.yaml")

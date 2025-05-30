@@ -135,6 +135,9 @@ func (s *TaskService) processTask() {
 
 			channelID := int(cfg.ChannelID)
 			productID := cfg.ProductID
+			provinces := cfg.Provinces
+			faceValues := cfg.FaceValues
+			minSettleAmounts := cfg.MinSettleAmounts
 
 			appkey, platform, accountName, err := s.platformSvc.GetAPIKeyAndSecret(cfg.PlatformAccountID)
 			if err != nil {
@@ -149,7 +152,7 @@ func (s *TaskService) processTask() {
 			}
 
 			fmt.Printf("userid %d platformAccount++++++++!!!!!!!!%+v", *platformAccount.BindUserID, platformAccount)
-			logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s", channelID, productID, accountName))
+			logger.Info(fmt.Sprintf("处理任务配置: ChannelID=%d, ProductID=%s accountName=%s provinces=%s faceValues=%s minSettleAmounts=%s", channelID, productID, accountName, provinces, faceValues, minSettleAmounts))
 			token, err := s.platformSvc.GetToken(channelID, productID, "", cfg.FaceValues, cfg.MinSettleAmounts, appkey, accountName, platform.ApiURL, cfg.ID)
 			if err != nil {
 				logger.Error(fmt.Sprintf("获取 token 失败: ChannelID=%d, ProductID=%s, error=%v", channelID, productID, err))

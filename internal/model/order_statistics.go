@@ -26,6 +26,16 @@ func (OrderStatistics) TableName() string {
 	return "order_statistics"
 }
 
+// OrderStatusStat 订单状态统计
+type OrderStatusStat struct {
+	Processing          int64 `json:"processing"`           // 充值中订单数
+	Success             int64 `json:"success"`              // 成功订单数
+	Failed              int64 `json:"failed"`               // 失败订单数
+	YesterdayProcessing int64 `json:"yesterday_processing"` // 昨日充值中订单数
+	YesterdaySuccess    int64 `json:"yesterday_success"`    // 昨日成功订单数
+	YesterdayFailed     int64 `json:"yesterday_failed"`     // 昨日失败订单数
+}
+
 // OrderStatisticsOverview 订单统计概览
 type OrderStatisticsOverview struct {
 	Total struct {
@@ -34,11 +44,7 @@ type OrderStatisticsOverview struct {
 		Today     int64 `json:"today"`     // 今日订单数
 	} `json:"total"`
 
-	Status struct {
-		Processing int64 `json:"processing"` // 充值中订单数
-		Success    int64 `json:"success"`    // 成功订单数
-		Failed     int64 `json:"failed"`     // 失败订单数
-	} `json:"status"`
+	Status OrderStatusStat `json:"status"`
 
 	Profit struct {
 		CostAmount   float64 `json:"costAmount"`   // 成本价格

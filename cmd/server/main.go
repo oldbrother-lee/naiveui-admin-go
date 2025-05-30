@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// 初始化日志
-	if err := logger.InitLogger(); err != nil {
+	if err := logger.InitLogger("server"); err != nil {
 		panic(err)
 	}
 	defer logger.Close()

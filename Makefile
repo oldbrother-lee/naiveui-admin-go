@@ -47,3 +47,9 @@ build-task-mac-arm64:
 # 运行工作器
 run-worker:
 	go run cmd/worker/main.go
+
+all:
+	make build-worker-linux
+	make build-server-linux
+	make build-notify-linux
+	make build-getorder-linux

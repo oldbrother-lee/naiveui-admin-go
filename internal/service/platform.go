@@ -228,6 +228,7 @@ func (s *PlatformService) SendNotification(ctx context.Context, order *model.Ord
 	default:
 		return fmt.Errorf("不支持的平台: %s", platform.Code)
 	}
+	fmt.Printf("最外层params: %+v\n", params)
 	resp, err := s.sendRequest(ctx, url, params)
 	if err != nil {
 		return fmt.Errorf("发送通知请求失败: %w", err)
@@ -270,6 +271,7 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 	Code    model.StringOrNumber `json:"code"`
 	Message string               `json:"message"`
 }, error) {
+	logger.Info(fmt.Sprintf("发送通知发送请求params: %+v", params))
 	// 1. 将参数转换为JSON
 	jsonData, err := json.Marshal(params)
 	if err != nil {
@@ -289,6 +291,7 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
+	logger.Info(fmt.Sprintf("发送通知发送请求: %+v", req))
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("发送请求失败1: %w", err)
@@ -301,6 +304,7 @@ func (s *PlatformService) sendRequest(ctx context.Context, url string, params ma
 		return nil, fmt.Errorf("读取响应失败: %w", err)
 	}
 	// 打印原始响应
+	logger.Info(fmt.Sprintf("发送通知返回原始响应: %s\n", string(body)))
 	fmt.Printf("原始响应: %s\n", string(body))
 	// 6. 解析响应
 	var result struct {
@@ -324,33 +328,35 @@ func (s *PlatformService) GetPlatformAccountByAccountName(accountName string) (*
 }
 
 func (s *PlatformService) buildKekebangParams(order *model.Order, account *model.PlatformAccount) map[string]interface{} {
-	// return map[string]interface{}{
-	// 	"app_key":   account.AppKey,
-	// 	"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
-	// 	"data": map[string]interface{}{
+	data := map[string]interface{}{
+		"user_order_id": order.OutTradeNum,
+		"status":        s.getKekebangStatus(order.Status),
+	}
+	jsonStr, err := json.Marshal(data)
+	if err != nil {
+		fmt.Println(err)
+	}
+	return map[string]interface{}{
+		"app_key":   account.AppKey,
+		"timestamp": strconv.FormatInt(time.Now().Unix(), 10),
+		"data":      string(jsonStr),
+	}
+	// data:= map[string]interface{}{
 	// 		"user_order_id": order.OutTradeNum,
 	// 		"status":        s.getKekebangStatus(order.Status),
 	// 		"rsp_info":      s.getStatusText(order.Status),
 	// 		"voucher":       "",
-	// 	},
-	// }
-	data := map[string]interface{}{
-		"user_order_id": order.OutTradeNum,
-		"status":        s.getKekebangStatus(order.Status),
-		"rsp_info":      s.getStatusText(order.Status),
-		"voucher":       "",
-	}
+	// },
 
-	jsonData, err := json.Marshal(data["data"])
-	if err != nil {
-		fmt.Println(err)
-	}
-	params := map[string]interface{}{
-		"data": string(jsonData),
-	}
-	params["app_key"] = account.AppKey
-	params["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
-	return params
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
+	// params["data"] = data
+	// params["app_key"] = account.AppKey
+	// params["timestamp"] = strconv.FormatInt(time.Now().Unix(), 10)
+	// fmt.Printf("kekebang params: %+v\n", params)
+	// return params
 }
 
 func (s *PlatformService) buildMf178Params(order *model.Order, account *model.PlatformAccount) map[string]interface{} {
@@ -419,7 +425,7 @@ func (s *PlatformService) generateSign(platformCode string, params map[string]in
 	case "mifeng":
 		return signature.GenerateSign(params, account.AppSecret)
 	case "kekebang":
-		return signature.GenerateKekebangSign(params, account.AppSecret)
+		return signature.GenerateKekebangNotifySign(params, account.AppSecret)
 	default:
 		return ""
 	}

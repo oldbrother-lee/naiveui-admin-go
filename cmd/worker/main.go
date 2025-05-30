@@ -22,7 +22,7 @@ func main() {
 	cfg := config.GetConfig()
 
 	// 初始化日志
-	if err := logger.InitLogger(); err != nil {
+	if err := logger.InitLogger("recharge"); err != nil {
 		panic(err)
 	}
 

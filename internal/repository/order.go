@@ -361,20 +361,25 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*
 	// 今日订单数
 	today := time.Now().Format("2006-01-02")
 	err = r.db.WithContext(ctx).Model(&model.Order{}).
-		Where("DATE(create_time) = ?", today).
-		Select("COUNT(*) as today").
-		Scan(&overview.Total.Today).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 订单状态统计（充值中、成功、失败）
-	err = r.db.WithContext(ctx).Model(&model.Order{}).
+		Debug().
 		Where("DATE(create_time) = ?", today).
 		Select(
 			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as processing", model.OrderStatusRecharging),
 			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as success", model.OrderStatusSuccess),
 			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as failed", model.OrderStatusFailed),
+		).
+		Scan(&overview.Status).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 统计昨日 充值中、成功、失败）
+	err = r.db.WithContext(ctx).Model(&model.Order{}).
+		Where("DATE(create_time) = ?", yesterday).
+		Select(
+			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_processing", model.OrderStatusRecharging),
+			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_success", model.OrderStatusSuccess),
+			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_failed", model.OrderStatusFailed),
 		).
 		Scan(&overview.Status).Error
 	if err != nil {

@@ -41,7 +41,7 @@ import (
 // @name Authorization
 func main() {
 	// 初始化日志
-	if err := logger.InitLogger(); err != nil {
+	if err := logger.InitLogger("servie"); err != nil {
 		panic(fmt.Sprintf("初始化日志失败: %v", err))
 	}
 	defer logger.Close()

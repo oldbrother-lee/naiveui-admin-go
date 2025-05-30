@@ -4,7 +4,9 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -15,16 +17,22 @@ var (
 )
 
 // InitLogger 初始化日志
-func InitLogger() error {
+func InitLogger(serviceName ...string) error {
 	// 创建日志目录
 	logDir := "logs"
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return err
 	}
 
+	// 确定日志文件名
+	logFileName := "app.log"
+	if len(serviceName) > 0 && serviceName[0] != "" {
+		logFileName = serviceName[0] + ".log"
+	}
+
 	// 配置日志轮转
 	logFile := &lumberjack.Logger{
-		Filename:   filepath.Join(logDir, "app.log"),
+		Filename:   filepath.Join(logDir, logFileName),
 		MaxSize:    100,  // 单个文件最大100MB
 		MaxBackups: 30,   // 保留30个备份
 		MaxAge:     30,   // 保留30天
@@ -173,4 +181,43 @@ func NewLogger() *zap.Logger {
 	// 创建logger
 	logger := zap.New(core, zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel))
 	return logger
+}
+
+// GinLogger 返回一个 gin 的日志中间件
+func GinLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		path := c.Request.URL.Path
+		query := c.Request.URL.RawQuery
+
+		c.Next()
+
+		cost := time.Since(start)
+		Log.Info("gin request",
+			zap.Int("status", c.Writer.Status()),
+			zap.String("method", c.Request.Method),
+			zap.String("path", path),
+			zap.String("query", query),
+			zap.String("ip", c.ClientIP()),
+			zap.String("user-agent", c.Request.UserAgent()),
+			zap.String("errors", c.Errors.ByType(gin.ErrorTypePrivate).String()),
+			zap.Duration("cost", cost),
+		)
+	}
+}
+
+// GinRecovery 返回一个 gin 的恢复中间件
+func GinRecovery() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				Log.Error("gin panic recovered",
+					zap.Any("error", err),
+					zap.String("path", c.Request.URL.Path),
+				)
+				c.AbortWithStatus(500)
+			}
+		}()
+		c.Next()
+	}
 }

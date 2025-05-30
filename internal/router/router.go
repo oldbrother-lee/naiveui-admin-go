@@ -8,6 +8,7 @@ import (
 	"recharge-go/internal/service"
 	"recharge-go/internal/service/platform"
 	"recharge-go/pkg/database"
+	"recharge-go/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,12 +35,12 @@ func SetupRouter(
 	mf178OrderController *controller.MF178OrderController,
 	orderController *controller.OrderController,
 ) *gin.Engine {
-	r := gin.Default()
+	r := gin.New()
 
 	// Global middleware
 	r.Use(middleware.CORS())
-	r.Use(middleware.Logger())
-	r.Use(middleware.Recovery())
+	r.Use(logger.GinLogger())
+	r.Use(logger.GinRecovery())
 
 	// API routes
 	api := r.Group("/api/v1")
@@ -138,6 +139,7 @@ func SetupRouter(
 
 			// 平台账号相关接口
 			RegisterPlatformAccountRoutes(api)
+			//通知路由
 
 			// 推单状态相关接口
 			platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
