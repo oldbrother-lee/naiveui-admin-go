@@ -117,7 +117,7 @@ func GenerateKekebangNotifySign(params map[string]interface{}, secretKey string)
 		sb += k + fmt.Sprintf("%v", params[k])
 	}
 	sb += secretKey
-
+	logger.Info(fmt.Sprintf("kekebang Notify MD5签名前串: %s", sb))
 	// 计算MD5
 	return md5Sum(sb)
 }

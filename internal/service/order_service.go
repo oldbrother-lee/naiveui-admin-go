@@ -58,10 +58,11 @@ type OrderService interface {
 }
 
 type OrderStatistics struct {
-	TotalCount    int64   `json:"total_count"`
-	SuccessCount  int64   `json:"success_count"`
-	FailedCount   int64   `json:"failed_count"`
-	SuccessAmount float64 `json:"success_amount"`
+	TotalCount      int64   `json:"total_count"`
+	SuccessCount    int64   `json:"success_count"`
+	FailedCount     int64   `json:"failed_count"`
+	ProcessingCount int64   `json:"processing_count"`
+	SuccessAmount   float64 `json:"success_amount"`
 }
 
 // orderService 订单服务实现
@@ -454,20 +455,27 @@ func (s *orderService) GetOrderStatistics(ctx context.Context, customerID int64)
 	startTime, _ := time.ParseInLocation("2006-01-02", today, loc)
 	endTime := startTime.Add(24 * time.Hour)
 
-	var totalCount, successCount, failedCount int64
-	var successAmount float64
+	var (
+		totalCount      int64
+		successCount    int64
+		failedCount     int64
+		processingCount int64
+		successAmount   float64
+	)
 
 	db := s.orderRepo.DB().WithContext(ctx).Model(&model.Order{})
-	db = db.Where("customer_id = ? AND created_at >= ? AND created_at < ?", customerID, startTime, endTime)
+	db = db.Where("customer_id = ? AND created_at >= ? AND created_at < ?", customerID, startTime, endTime).Debug()
 	db.Count(&totalCount)
 	db.Where("status = ?", model.OrderStatusSuccess).Count(&successCount)
 	db.Where("status = ?", model.OrderStatusFailed).Count(&failedCount)
-	db.Select("SUM(denom)").Where("status = ?", model.OrderStatusSuccess).Scan(&successAmount)
+	db.Where("status = ?", model.OrderStatusRecharging).Count(&processingCount)
+	db.Select("SUM(price)").Where("status = ?", model.OrderStatusSuccess).Scan(&successAmount)
 
 	return &OrderStatistics{
-		TotalCount:    totalCount,
-		SuccessCount:  successCount,
-		FailedCount:   failedCount,
-		SuccessAmount: successAmount,
+		TotalCount:      totalCount,
+		SuccessCount:    successCount,
+		FailedCount:     failedCount,
+		ProcessingCount: processingCount,
+		SuccessAmount:   successAmount,
 	}, nil
 }

@@ -100,7 +100,7 @@ func (s *PushStatusService) UpdatePushStatus(account *model.PlatformAccount, sta
 	var url string
 	var sign string
 
-	data := map[string]interface{}{
+	data := map[string]int{
 		"status": status,
 	}
 	dataStr, err := json.Marshal(data)
@@ -124,7 +124,9 @@ func (s *PushStatusService) UpdatePushStatus(account *model.PlatformAccount, sta
 			"data":      string(dataStr),
 			"timestamp": time.Now().Unix(),
 		}
-		sign = signature.GenerateKekebangSign(params, account.AppSecret)
+		logger.Info(fmt.Sprintf("kekebang Notify params: %+v", params))
+		logger.Info(fmt.Sprintf("kekebang Notify appSecret: %s", account.AppSecret))
+		sign = signature.GenerateKekebangNotifySign(params, account.AppSecret)
 		url = fmt.Sprintf("%s/openapi/suppler/v1/edit-supply-switch-status", account.Platform.ApiURL)
 	default:
 		return fmt.Errorf("unsupported platform type: %s", account.Platform.Code)

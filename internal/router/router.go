@@ -150,7 +150,7 @@ func SetupRouter(
 			pushStatusController := controller.NewPlatformPushStatusController(pushStatusService)
 
 			// 注册路由
-			pushStatus := r.Group("/platform/push-status")
+			pushStatus := api.Group("/platform/push-status")
 			{
 				pushStatus.GET("/:account_id", pushStatusController.GetPushStatus)
 				pushStatus.PUT("/:account_id", pushStatusController.UpdatePushStatus)
@@ -179,16 +179,16 @@ func RegisterPlatformAccountRoutes(r *gin.RouterGroup) {
 }
 
 // 注册推单状态相关接口
-func RegisterPushStatusRoutes(r *gin.RouterGroup) {
-	// 初始化依赖
-	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
-	pushStatusService := platform.NewPushStatusService(platformAccountRepo)
-	pushStatusController := controller.NewPlatformPushStatusController(pushStatusService)
+// func RegisterPushStatusRoutes(r *gin.RouterGroup) {
+// 	// 初始化依赖
+// 	platformAccountRepo := repository.NewPlatformAccountRepository(database.DB)
+// 	pushStatusService := platform.NewPushStatusService(platformAccountRepo)
+// 	pushStatusController := controller.NewPlatformPushStatusController(pushStatusService)
 
-	// 注册路由
-	pushStatus := r.Group("/platform/push-status")
-	{
-		pushStatus.GET("/:account_id", pushStatusController.GetPushStatus)
-		pushStatus.PUT("/:account_id", pushStatusController.UpdatePushStatus)
-	}
-}
+// 	// 注册路由
+// 	pushStatus := r.Group("/platform/push-status")
+// 	{
+// 		pushStatus.GET("/:account_id", pushStatusController.GetPushStatus)
+// 		pushStatus.PUT("/:account_id", pushStatusController.UpdatePushStatus)
+// 	}
+// }
