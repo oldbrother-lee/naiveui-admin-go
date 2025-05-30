@@ -240,7 +240,8 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		zap.String("request_id", ctx.GetString("request_id")))
 
 	// 7. 验证产品是否存在
-	if err := c.verifyProductExists(productID); err != nil {
+	product, err := c.verifyProductExists(productID)
+	if err != nil {
 		logger.Log.Error("产品验证失败",
 			zap.Error(err),
 			zap.Int64("product_id", productID),
@@ -253,6 +254,7 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, response)
 		return
 	}
+	fmt.Printf("product-------: %+v", product)
 	logger.Log.Info("产品验证通过",
 		zap.Int64("product_id", productID),
 		zap.String("request_id", ctx.GetString("request_id")))
@@ -275,7 +277,7 @@ func (c *MF178OrderController) CreateOrder(ctx *gin.Context) {
 		OfficialPayment:   float64(req.OfficialPayment),
 		UserQuotePayment:  float64(req.UserQuotePayment),
 		UserPayment:       float64(req.UserPayment),
-		Price:             float64(req.UserPayment),
+		Price:             product.Price,
 		Status:            model.OrderStatusPendingRecharge,
 		IsDel:             0,
 		Client:            3,   // 3代表MF178
@@ -454,26 +456,21 @@ func (c *MF178OrderController) QueryOrder(ctx *gin.Context) {
 }
 
 // verifyProductExists 验证产品是否存在
-func (c *MF178OrderController) verifyProductExists(productID int64) error {
+func (c *MF178OrderController) verifyProductExists(productID int64) (*model.Product, error) {
 	fmt.Printf("[MF178Order] 开始验证产品是否存在, 产品ID: %d\n", productID)
 
-	var count int64
+	var product model.Product
 	err := database.DB.Model(&model.Product{}).
 		Where("id = ?", productID).
-		Count(&count).Error
+		First(&product).Error
 
 	if err != nil {
 		fmt.Printf("[MF178Order] 验证产品失败: %v\n", err)
-		return err
-	}
-
-	if count == 0 {
-		fmt.Printf("[MF178Order] 产品不存在, 产品ID: %d\n", productID)
-		return errors.New("product not found")
+		return nil, err
 	}
 
 	fmt.Printf("[MF178Order] 产品验证通过, 产品ID: %d\n", productID)
-	return nil
+	return &product, nil
 }
 
 // getOrderStatusAndInfo 根据订单状态获取状态码和描述

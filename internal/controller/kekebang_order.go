@@ -35,26 +35,21 @@ func NewKekebangOrderController(orderService service.OrderService, rechargeServi
 	}
 }
 
-func (c *KekebangOrderController) verifyProductExists(productID int64) error {
+func (c *KekebangOrderController) verifyProductExists(productID int64) (*model.Product, error) {
 	fmt.Printf("[kekebang] 开始验证产品是否存在, 产品ID: %d\n", productID)
 
-	var count int64
+	var product model.Product
 	err := database.DB.Model(&model.Product{}).
 		Where("id = ?", productID).
-		Count(&count).Error
+		First(&product).Error
 
 	if err != nil {
 		fmt.Printf("[kekebang] 验证产品失败: %v\n", err)
-		return err
-	}
-
-	if count == 0 {
-		fmt.Printf("[kekebang] 产品不存在, 产品ID: %d\n", productID)
-		return errors.New("product not found")
+		return nil, err
 	}
 
 	fmt.Printf("[kekebang] 产品验证通过, 产品ID: %d\n", productID)
-	return nil
+	return &product, nil
 }
 
 // CreateOrder 创建订单
@@ -122,7 +117,8 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 		utils.Error(ctx, 500, "产品编码转换失败")
 		return
 	}
-	if err := c.verifyProductExists(productID); err != nil {
+	product, err := c.verifyProductExists(productID)
+	if err != nil {
 		logger.Log.Error("产品验证失败",
 			zap.Error(err),
 			zap.Int64("product_id", productID),
@@ -146,6 +142,7 @@ func (c *KekebangOrderController) CreateOrder(ctx *gin.Context) {
 	order = &model.Order{
 		Mobile:            req.Target,
 		Denom:             req.Datas.Amount,
+		Price:             product.Price,
 		ProductID:         productID, // 需要根据 OuterGoodsCode 查询对应的商品ID
 		Status:            model.OrderStatusPendingRecharge,
 		OutTradeNum:       strconv.FormatInt(req.UserOrderID, 10),     // 外部交易号
