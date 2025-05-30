@@ -75,32 +75,55 @@ func VerifyKekebangSign(params map[string]interface{}, sign string, secretKey st
 // GenerateKekebangNotifySign 生成客帮通知签名
 func GenerateKekebangNotifySign(params map[string]interface{}, secretKey string) string {
 	// 1. 升序排序 key
+	// keys := make([]string, 0, len(params))
+	// for k := range params {
+	// 	keys = append(keys, k)
+	// }
+	// sort.Strings(keys)
+
+	// // 2. 过滤 value 为空字符串的项，拼接 key=value
+	// var keyValueList []string
+	// for _, k := range keys {
+	// 	v := params[k]
+	// 	// 只保留非空字符串
+	// 	if v != nil && fmt.Sprintf("%v", v) != "" {
+	// 		keyValueList = append(keyValueList, k+"="+fmt.Sprintf("%v", v))
+	// 	}
+	// }
+
+	// // 3. 拼接明文
+	// plainText := strings.Join(keyValueList, "&")
+	// plainText += "&secret=" + secretKey
+
+	// fmt.Println("MD5签名前串:", plainText)
+
+	// // 4. 计算 MD5 并转小写
+	// hasher := md5.New()
+	// hasher.Write([]byte(plainText))
+	// md5Sign := strings.ToLower(hex.EncodeToString(hasher.Sum(nil)))
+	// fmt.Println("MD5签名后:", md5Sign)
+	// return md5Sign
 	keys := make([]string, 0, len(params))
 	for k := range params {
-		keys = append(keys, k)
+		if k != "sign" {
+			keys = append(keys, k)
+		}
 	}
 	sort.Strings(keys)
 
-	// 2. 过滤 value 为空字符串的项，拼接 key=value
-	var keyValueList []string
+	// 构建签名字符串
+	var sb string
 	for _, k := range keys {
-		v := params[k]
-		// 只保留非空字符串
-		if v != nil && fmt.Sprintf("%v", v) != "" {
-			keyValueList = append(keyValueList, k+"="+fmt.Sprintf("%v", v))
-		}
+		sb += k + fmt.Sprintf("%v", params[k])
 	}
+	sb += secretKey
 
-	// 3. 拼接明文
-	plainText := strings.Join(keyValueList, "&")
-	plainText += "&secret=" + secretKey
+	// 计算MD5
+	return md5Sum(sb)
+}
 
-	fmt.Println("MD5签名前串:", plainText)
-
-	// 4. 计算 MD5 并转小写
-	hasher := md5.New()
-	hasher.Write([]byte(plainText))
-	md5Sign := strings.ToLower(hex.EncodeToString(hasher.Sum(nil)))
-	fmt.Println("MD5签名后:", md5Sign)
-	return md5Sign
+// md5Sum 函数用于计算MD5哈希值
+func md5Sum(text string) string {
+	hash := md5.Sum([]byte(text))
+	return hex.EncodeToString(hash[:])
 }

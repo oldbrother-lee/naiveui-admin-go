@@ -20,6 +20,9 @@ import (
 	"syscall"
 
 	"go.uber.org/zap"
+
+	// 新增通知服务包导入
+	notificationService "recharge-go/internal/service/notification"
 )
 
 // @title Recharge Go API
@@ -90,6 +93,16 @@ func main() {
 	platformAPIParamRepo := repository.NewPlatformAPIParamRepository(database.DB)
 	callbackLogRepo := repository.NewCallbackLogRepository(database.DB)
 
+	// 创建通知仓储
+	notificationRepo := repository.NewNotificationRepository(database.DB)
+
+	// 创建通知服务
+	queueInstance := queue.NewRedisQueue()
+	notificationService := notificationService.NewNotificationService(notificationRepo, queueInstance)
+
+	// 创建通知 handler
+	notificationHandler := handler.NewNotificationHandler(notificationService)
+
 	// 创建平台管理器
 	manager := recharge.NewManager(database.DB)
 	tokenRepo := repository.NewPlatformTokenRepository()
@@ -102,10 +115,7 @@ func main() {
 	}
 
 	// 创建队列实例
-	queueInstance := queue.NewRedisQueue()
-
-	// 创建通知仓储
-	notificationRepo := repository.NewNotificationRepository(database.DB)
+	queueInstance = queue.NewRedisQueue()
 
 	// 创建订单服务
 	orderService := service.NewOrderService(
@@ -233,6 +243,7 @@ func main() {
 		callbackController,
 		mf178OrderController,
 		orderController,
+		notificationHandler,
 	)
 
 	// 启动HTTP服务器
@@ -255,4 +266,8 @@ func main() {
 	}
 
 	logger.Log.Info("服务已关闭")
+
+	for _, ri := range engine.Routes() {
+		fmt.Println(ri.Method, ri.Path)
+	}
 }

@@ -57,7 +57,7 @@ func main() {
 	queueInstance := queue.NewRedisQueue()
 
 	// 创建服务实例
-	notificationService := notificationService.NewNotificationService(recordRepo)
+	notificationService := notificationService.NewNotificationService(recordRepo, queueInstance)
 	platformService := service.NewPlatformService(platformRepo, orderRepo)
 
 	// 创建通知任务处理器

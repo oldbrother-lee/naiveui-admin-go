@@ -34,6 +34,7 @@ func SetupRouter(
 	callbackController *controller.CallbackController,
 	mf178OrderController *controller.MF178OrderController,
 	orderController *controller.OrderController,
+	notificationHandler *handler.NotificationHandler,
 ) *gin.Engine {
 	r := gin.New()
 
@@ -48,6 +49,8 @@ func SetupRouter(
 		// Public routes
 		api.POST("/user/register", userController.Register)
 		api.POST("/user/login", userController.Login)
+		// 通知路由
+		notificationHandler.RegisterRoutes(api)
 
 		// MF178订单接口
 		RegisterMF178OrderRoutes(api, mf178OrderController)

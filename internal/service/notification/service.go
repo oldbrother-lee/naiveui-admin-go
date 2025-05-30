@@ -4,6 +4,7 @@ import (
 	"context"
 	"recharge-go/internal/model/notification"
 	notificationRepo "recharge-go/internal/repository/notification"
+	"recharge-go/pkg/queue"
 	"time"
 )
 
@@ -26,12 +27,14 @@ type NotificationService interface {
 // notificationService 通知服务实现
 type notificationService struct {
 	recordRepo notificationRepo.Repository
+	queue      queue.Queue
 }
 
 // NewNotificationService 创建通知服务实例
-func NewNotificationService(recordRepo notificationRepo.Repository) NotificationService {
+func NewNotificationService(recordRepo notificationRepo.Repository, queue queue.Queue) NotificationService {
 	return &notificationService{
 		recordRepo: recordRepo,
+		queue:      queue,
 	}
 }
 
@@ -62,7 +65,16 @@ func (s *notificationService) RetryFailedNotification(ctx context.Context, id in
 	record.NextRetryTime = time.Now().Add(time.Minute * 5) // 5分钟后重试
 	record.Status = 1                                      // 重置为待处理状态
 
-	return s.recordRepo.Update(ctx, record)
+	if err := s.recordRepo.Update(ctx, record); err != nil {
+		return err
+	}
+
+	// 推送到队列，确保异步任务能处理
+	if err := s.queue.Push(ctx, "notification_queue", record); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // UpdateNotificationStatus 更新通知状态
