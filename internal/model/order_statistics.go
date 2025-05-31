@@ -28,12 +28,10 @@ func (OrderStatistics) TableName() string {
 
 // OrderStatusStat 订单状态统计
 type OrderStatusStat struct {
-	Processing          int64 `json:"processing"`           // 充值中订单数
-	Success             int64 `json:"success"`              // 成功订单数
-	Failed              int64 `json:"failed"`               // 失败订单数
-	YesterdayProcessing int64 `json:"yesterday_processing"` // 昨日充值中订单数
-	YesterdaySuccess    int64 `json:"yesterday_success"`    // 昨日成功订单数
-	YesterdayFailed     int64 `json:"yesterday_failed"`     // 昨日失败订单数
+	Processing int64 `json:"processing"` // 充值中订单数
+	Success    int64 `json:"success"`    // 成功订单数
+	Failed     int64 `json:"failed"`     // 失败订单数
+
 }
 
 // OrderStatisticsOverview 订单统计概览
@@ -44,7 +42,12 @@ type OrderStatisticsOverview struct {
 		Today     int64 `json:"today"`     // 今日订单数
 	} `json:"total"`
 
-	Status OrderStatusStat `json:"status"`
+	Status          OrderStatusStat `json:"status"`
+	YesterdayStatus struct {
+		YesterdayProcessing int64 `json:"yesterday_processing"` // 昨日充值中订单数
+		YesterdaySuccess    int64 `json:"yesterday_success"`    // 昨日成功订单数
+		YesterdayFailed     int64 `json:"yesterday_failed"`     // 昨日失败订单数
+	} `json:"yesterday_status"`
 
 	Profit struct {
 		CostAmount   float64 `json:"costAmount"`   // 成本价格
@@ -54,13 +57,8 @@ type OrderStatisticsOverview struct {
 
 // OrderStatisticsOperator 运营商订单统计
 type OrderStatisticsOperator struct {
-	Operator      string  `json:"operator"`      // 运营商
-	TotalOrders   int64   `json:"totalOrders"`   // 总订单数
-	SuccessOrders int64   `json:"successOrders"` // 成功订单数
-	FailedOrders  int64   `json:"failedOrders"`  // 失败订单数
-	SuccessRate   float64 `json:"successRate"`   // 成功率
-	CostAmount    float64 `json:"costAmount"`    // 成本金额
-	ProfitAmount  float64 `json:"profitAmount"`  // 盈利金额
+	Isp         int   `json:"isp"`
+	TotalOrders int64 `json:"totalOrders"`
 }
 
 // OrderStatisticsDaily 每日订单统计

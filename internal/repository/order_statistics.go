@@ -119,12 +119,12 @@ func (r *orderStatisticsRepo) GetOperatorStats(ctx context.Context, startDate, e
 		return nil, err
 	}
 
-	// 计算成功率
-	for i := range stats {
-		if stats[i].TotalOrders > 0 {
-			stats[i].SuccessRate = float64(stats[i].SuccessOrders) / float64(stats[i].TotalOrders) * 100
-		}
-	}
+	// // 计算成功率
+	// for i := range stats {
+	// 	if stats[i].TotalOrders > 0 {
+	// 		stats[i].SuccessRate = float64(stats[i].SuccessOrders) / float64(stats[i].TotalOrders) * 100
+	// 	}
+	// }
 
 	return stats, nil
 }

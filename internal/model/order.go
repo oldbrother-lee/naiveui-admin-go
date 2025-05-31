@@ -99,6 +99,7 @@ type Order struct {
 	UserOrderId       string      `json:"user_order_id" gorm:"size:64;comment:用户订单ID"`
 	PlatformName      string      `json:"platform_name" gorm:"size:255;comment:平台名称"`
 	PlatformCode      string      `json:"platform_code" gorm:"size:50;comment:平台代码"`
+	ConstPrice        float64     `json:"const_price" gorm:"type:decimal(10,2);comment:成本价格"`
 	// 平台配置信息
 	PlatformAppKey      string         `json:"platform_app_key" gorm:"size:255;comment:平台AppKey"`
 	PlatformSecretKey   string         `json:"platform_secret_key" gorm:"size:255;comment:平台SecretKey"`

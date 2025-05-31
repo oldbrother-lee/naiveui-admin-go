@@ -364,7 +364,7 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*
 		Debug().
 		Where("DATE(create_time) = ?", today).
 		Select(
-			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as processing", model.OrderStatusRecharging),
+			fmt.Sprintf("SUM(CASE WHEN status IN (%d, %d) THEN 1 ELSE 0 END) as processing", model.OrderStatusRecharging, model.OrderStatusProcessing),
 			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as success", model.OrderStatusSuccess),
 			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as failed", model.OrderStatusFailed),
 		).
@@ -373,15 +373,23 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*
 		return nil, err
 	}
 
-	// 统计昨日 充值中、成功、失败）
 	err = r.db.WithContext(ctx).Model(&model.Order{}).
+		Where("DATE(create_time) = ?", today).
+		Select("COUNT(*) as today").
+		Scan(&overview.Total.Today).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 统计昨日 充值中、成功、失败）
+	err = r.db.WithContext(ctx).Debug().Model(&model.Order{}).
 		Where("DATE(create_time) = ?", yesterday).
 		Select(
-			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_processing", model.OrderStatusRecharging),
+			fmt.Sprintf("SUM(CASE WHEN status IN (%d, %d) THEN 1 ELSE 0 END) as yesterday_processing", model.OrderStatusRecharging, model.OrderStatusProcessing),
 			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_success", model.OrderStatusSuccess),
 			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_failed", model.OrderStatusFailed),
 		).
-		Scan(&overview.Status).Error
+		Scan(&overview.YesterdayStatus).Error
 	if err != nil {
 		return nil, err
 	}
@@ -390,8 +398,8 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*
 	err = r.db.WithContext(ctx).Model(&model.Order{}).
 		Where("DATE(create_time) = ?", today).
 		Select(
-			"COALESCE(SUM(denom), 0) as cost_amount",
-			"COALESCE(SUM(user_quote_payment - denom), 0) as profit_amount",
+			"COALESCE(SUM(price), 0) as cost_amount",
+			"COALESCE(SUM(const_price - price), 0) as profit_amount",
 		).
 		Scan(&overview.Profit).Error
 	if err != nil {
@@ -404,27 +412,16 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*
 // GetOperatorRealtimeStatistics 获取运营商实时统计
 func (r *OrderRepositoryImpl) GetOperatorRealtimeStatistics(ctx context.Context, start, end time.Time) ([]model.OrderStatisticsOperator, error) {
 	var stats []model.OrderStatisticsOperator
-	sql := fmt.Sprintf(`products.isp as operator, 
-		COUNT(*) as total_orders, 
-		SUM(CASE WHEN orders.status = %d THEN 1 ELSE 0 END) as success_orders, 
-		SUM(CASE WHEN orders.status = %d THEN 1 ELSE 0 END) as failed_orders, 
-		COALESCE(SUM(orders.denom), 0) as cost_amount, 
-		COALESCE(SUM(orders.user_quote_payment - orders.denom), 0) as profit_amount`,
-		model.OrderStatusSuccess, model.OrderStatusFailed)
+	sql := `orders.isp, COUNT(*) as total_orders`
 	err := r.db.Table("orders").
 		Select(sql).
-		Joins("JOIN products ON orders.product_id = products.id").
-		Where("DATE(orders.create_time) BETWEEN ? AND ?", start.Format("2006-01-02"), end.Format("2006-01-02")).
-		Group("products.isp").
+		Where("DATE(orders.create_time) = ? AND orders.isp IN (1,2,3)", start.Format("2006-01-02")).
+		Group("orders.isp").
 		Scan(&stats).Error
 	if err != nil {
 		return nil, err
 	}
-	for i := range stats {
-		if stats[i].TotalOrders > 0 {
-			stats[i].SuccessRate = float64(stats[i].SuccessOrders) / float64(stats[i].TotalOrders) * 100
-		}
-	}
+
 	return stats, nil
 }
 
