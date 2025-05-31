@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"recharge-go/internal/model"
 	notificationModel "recharge-go/internal/model/notification"
 	"recharge-go/internal/repository"
@@ -136,7 +135,7 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 		return fmt.Errorf("get platform api failed: %v", err)
 	}
 	logger.Info(fmt.Sprintf("【获取平台API信息成功】api %+v: \n", api))
-
+	fmt.Println(apiParam, "apiParam+!!!!!!!!!!!!!!!!!!1+++++++")
 	// 3. 提交订单到平台
 	logger.Info(fmt.Sprintf("【开始提交订单到平台】order_id: %d, platform: %d", orderID, api.PlatformID))
 	if err := s.manager.SubmitOrder(ctx, order, api, apiParam); err != nil {
@@ -258,6 +257,17 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 	} else {
 		logger.Info("【验证更新结果】order_id: %d, status: %d, platform_id: %d",
 			orderID, updatedOrder.Status, updatedOrder.PlatformId)
+	}
+
+	// 提交成功后，更新订单的 const_price 字段为 apiParam.Price
+	err = s.orderRepo.DB().Model(&model.Order{}).
+		Where("id = ?", order.ID).
+		Update("const_price", apiParam.Price).Error
+	if err != nil {
+		logger.Error("【更新订单成本价失败】", "order_id", order.ID, "error", err)
+		// 可选：return err
+	} else {
+		logger.Info("【更新订单成本价成功】", "order_id", order.ID, "const_price", apiParam.Price)
 	}
 
 	logger.Info("【充值流程完成】order_id: %d", orderID)
@@ -442,6 +452,7 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 			"order_id", order.ID)
 		return fmt.Errorf("get platform API failed: %v", err)
 	}
+	fmt.Println(apiParam, "apiParam+$$$$$$$$$$$$$$$$$$$$$$$$$$")
 	logger.Info("【获取API信息成功】",
 		"order_id", order.ID,
 		"api_id", api.ID,
@@ -644,6 +655,16 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 	logger.Info("【订单状态更新成功】",
 		"order_id", order.ID,
 		"status", model.OrderStatusRecharging)
+
+	// 更新订单成本价
+	err = s.orderRepo.DB().Model(&model.Order{}).
+		Where("id = ?", order.ID).
+		Update("const_price", apiParam.Price).Error
+	if err != nil {
+		logger.Error("【更新订单成本价失败】", "order_id", order.ID, "error", err)
+	} else {
+		logger.Info("【更新订单成本价成功】", "order_id", order.ID, "const_price", apiParam.Price)
+	}
 
 	// 从处理队列中移除
 	if err := s.RemoveFromProcessingQueue(ctx, order.ID); err != nil {
@@ -887,20 +908,45 @@ func (s *rechargeService) SubmitOrder(ctx context.Context, order *model.Order, a
 	if err != nil {
 		return fmt.Errorf("get platform failed: %v", err)
 	}
-
 	// 提交订单到平台
 	err = platform.SubmitOrder(ctx, order, api, apiParam)
 	if err != nil {
 		return fmt.Errorf("submit order failed: %v", err)
 	}
 
-	// 更新订单状态为充值中
-	if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusRecharging); err != nil {
-		log.Printf("【更新订单状态失败】order_id: %d, error: %v", order.ID, err)
-		return fmt.Errorf("update order status failed: %v", err)
+	// 开启事务
+	tx := s.orderRepo.(*repository.OrderRepositoryImpl).DB().Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			logger.Error("【事务回滚】order_id: %d, panic: %v", order.ID, r)
+		}
+	}()
+
+	// 更新订单状态和成本价
+	result := tx.Model(&model.Order{}).Where("id = ?", order.ID).Updates(map[string]interface{}{
+		"status":      model.OrderStatusRecharging,
+		"const_price": apiParam.Price,
+	})
+	if result.Error != nil {
+		tx.Rollback()
+		logger.Error("【更新订单状态和成本价失败】order_id: %d, error: %v", order.ID, result.Error)
+		return fmt.Errorf("update order status and cost price failed: %v", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		logger.Error("【更新订单状态和成本价失败】order_id: %d, 没有记录被更新", order.ID)
+		return fmt.Errorf("no record updated")
 	}
 
-	log.Printf("【订单状态更新成功】order_id: %d, status: %d", order.ID, model.OrderStatusRecharging)
+	// 提交事务
+	if err := tx.Commit().Error; err != nil {
+		logger.Error("【提交事务失败】order_id: %d, error: %v", order.ID, err)
+		return fmt.Errorf("commit transaction failed: %v", err)
+	}
+
+	logger.Info("【订单状态和成本价更新成功】order_id: %d, status: %d, const_price: %f",
+		order.ID, model.OrderStatusRecharging, apiParam.Price)
 	return nil
 }
 
@@ -964,7 +1010,10 @@ func (s *rechargeService) ProcessRetryTask(ctx context.Context, retryRecord *mod
 	// 6. 更新订单状态
 	logger.Info("【开始更新订单状态】retry_id: %d, order_id: %d, order_number: %s, old_status: %d, new_status: %d",
 		retryRecord.ID, retryRecord.OrderID, order.OrderNumber, order.Status, model.OrderStatusRecharging)
-	result := tx.Model(&model.Order{}).Where("id = ?", retryRecord.OrderID).Update("status", model.OrderStatusRecharging)
+	result := tx.Model(&model.Order{}).Where("id = ?", retryRecord.OrderID).Updates(map[string]interface{}{
+		"status":      model.OrderStatusRecharging,
+		"const_price": apiParam.Price,
+	})
 	if result.Error != nil {
 		tx.Rollback()
 		logger.Error("【更新订单状态失败】retry_id: %d, order_id: %d, error: %v",
@@ -977,8 +1026,8 @@ func (s *rechargeService) ProcessRetryTask(ctx context.Context, retryRecord *mod
 			retryRecord.ID, retryRecord.OrderID)
 		return fmt.Errorf("no record updated")
 	}
-	logger.Info("【更新订单状态成功】retry_id: %d, order_id: %d, rows_affected: %d",
-		retryRecord.ID, retryRecord.OrderID, result.RowsAffected)
+	logger.Info("【更新订单状态和成本价成功】retry_id: %d, order_id: %d, rows_affected: %d, const_price: %f",
+		retryRecord.ID, retryRecord.OrderID, result.RowsAffected, apiParam.Price)
 
 	// 7. 更新平台信息
 	logger.Info("【开始更新平台信息】retry_id: %d, order_id: %d, platform_id: %d, api_id: %d, param_id: %d",
@@ -1025,6 +1074,17 @@ func (s *rechargeService) ProcessRetryTask(ctx context.Context, retryRecord *mod
 		return fmt.Errorf("commit transaction failed: %v", err)
 	}
 	logger.Info("【提交事务成功】retry_id: %d, order_id: %d", retryRecord.ID, retryRecord.OrderID)
+
+	// 9.1 更新订单成本价
+	logger.Info("【开始更新订单成本价】retry_id: %d, order_id: %d, const_price: %f", retryRecord.ID, retryRecord.OrderID, apiParam.Price)
+	err = s.orderRepo.DB().Model(&model.Order{}).
+		Where("id = ?", retryRecord.OrderID).
+		Update("const_price", apiParam.Price).Error
+	if err != nil {
+		logger.Error("【更新订单成本价失败】retry_id: %d, order_id: %d, error: %v", retryRecord.ID, retryRecord.OrderID, err)
+	} else {
+		logger.Info("【更新订单成本价成功】retry_id: %d, order_id: %d, const_price: %f", retryRecord.ID, retryRecord.OrderID, apiParam.Price)
+	}
 
 	// 10. 验证更新结果
 	updatedOrder, err := s.orderRepo.GetByID(ctx, retryRecord.OrderID)

@@ -307,7 +307,7 @@ func (s *RetryService) executeRetry(ctx context.Context, record *model.OrderRetr
 	}
 	logger.Info(fmt.Sprintf("【获取订单信息成功】record_id: %d, order_id: %d, status: %d, order_number: %s",
 		record.ID, record.OrderID, order.Status, order.OrderNumber))
-
+	fmt.Println(order, "order+@@@@@@!!!!!!!!!!!!!!!!!!1+++++++")
 	// 2. 获取可用的API关系列表
 	relations, err := s.getAvailableAPIRelations(ctx, record.OrderID, order.ProductID)
 	if err != nil {

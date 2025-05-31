@@ -395,8 +395,8 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*
 	}
 
 	// 盈利统计（成本、利润）
-	err = r.db.WithContext(ctx).Model(&model.Order{}).
-		Where("DATE(create_time) = ?", today).
+	err = r.db.WithContext(ctx).Debug().Model(&model.Order{}).
+		Where("DATE(create_time) = ? AND status = ?", today, model.OrderStatusSuccess).
 		Select(
 			"COALESCE(SUM(price), 0) as cost_amount",
 			"COALESCE(SUM(const_price - price), 0) as profit_amount",

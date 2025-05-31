@@ -71,12 +71,10 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 	)
 
 	// 获取API密钥和密钥
-	fmt.Printf("【开始提交闲赚侠订单】api 信息: %+v\n", api)
-	appKey, appSecret, accountName, err := p.getAPIKeyAndSecret(uint(api.AccountID))
+	appKey, _, accountName, err := p.getAPIKeyAndSecret(uint(api.AccountID))
 	if err != nil {
 		return fmt.Errorf("获取API密钥失败: %v", err)
 	}
-	fmt.Printf("【提交闲赚侠订单】appKey: %s, appSecret: %s, accountName: %s\n", appKey, appSecret, accountName)
 
 	// 构建请求参数
 	params := map[string]string{
@@ -119,7 +117,7 @@ func (p *XianzhuanxiaPlatform) SubmitOrder(ctx context.Context, order *model.Ord
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Auth_Token", authToken)
-
+	logger.Info(fmt.Sprintf("请求参数 req: %+v", req))
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
