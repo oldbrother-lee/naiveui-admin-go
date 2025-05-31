@@ -451,9 +451,9 @@ func (s *orderService) GetProductID(price float64, isp int, status int) (int64, 
 // GetOrderStatistics 按 customer_id 统计今日订单总数、成功订单数、失败订单数、今日成交金额（Denom 字段）
 func (s *orderService) GetOrderStatistics(ctx context.Context, customerID int64) (*OrderStatistics, error) {
 	today := time.Now().Format("2006-01-02")
-	loc := time.Local
-	startTime, _ := time.ParseInLocation("2006-01-02", today, loc)
-	endTime := startTime.Add(24 * time.Hour)
+	// loc := time.Local
+	// startTime, _ := time.ParseInLocation("2006-01-02", today, loc)
+	// endTime := startTime.Add(24 * time.Hour)
 
 	var (
 		totalCount      int64
@@ -464,7 +464,7 @@ func (s *orderService) GetOrderStatistics(ctx context.Context, customerID int64)
 	)
 
 	db := s.orderRepo.DB().WithContext(ctx).Model(&model.Order{})
-	db = db.Where("customer_id = ? AND created_at >= ? AND created_at < ?", customerID, startTime, endTime).Debug()
+	db = db.Where("platform_account_id = ? AND DATE(created_at) = ?", customerID, today).Debug()
 	db.Count(&totalCount)
 	db.Where("status = ?", model.OrderStatusSuccess).Count(&successCount)
 	db.Where("status = ?", model.OrderStatusFailed).Count(&failedCount)
