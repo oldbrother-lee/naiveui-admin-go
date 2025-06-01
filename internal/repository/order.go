@@ -69,6 +69,8 @@ type OrderRepository interface {
 	// GetOperatorOrderCount 按运营商分组统计订单总数
 	GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error)
 	GetByUserID(ctx context.Context, userID int64, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error)
+	// SoftDeleteByID 软删除订单
+	SoftDeleteByID(ctx context.Context, id int64) error
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -493,4 +495,9 @@ func (r *OrderRepositoryImpl) GetByUserID(ctx context.Context, userID int64, par
 	}
 
 	return orders, total, nil
+}
+
+// SoftDeleteByID 软删除订单
+func (r *OrderRepositoryImpl) SoftDeleteByID(ctx context.Context, id int64) error {
+	return r.db.Model(&model.Order{}).Where("id = ?", id).Update("is_del", 1).Error
 }

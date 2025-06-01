@@ -73,19 +73,19 @@ func RegisterOrderRoutes(r *gin.RouterGroup, userService *service.UserService) {
 	// 注册路由
 	order := r.Group("/order")
 	{
-		order.GET("/list", orderController.GetOrders)                              // 获取订单列表（管理员接口）
-		order.GET("/:id", orderController.GetOrderByID)                            // 获取订单详情
-		order.POST("", orderController.CreateOrder)                                // 创建订单
-		order.PUT("/:id/status", orderController.UpdateOrderStatus)                // 更新订单状态
+		order.GET("/list", orderController.GetOrders)   // 获取订单列表（管理员接口）
+		order.GET("/:id", orderController.GetOrderByID) // 获取订单详情
+		order.POST("", orderController.CreateOrder)     // 创建订单
+		// order.PUT("/:id/status", orderController.UpdateOrderStatus)                // 更新订单状态
 		order.GET("/customer/:customer_id", orderController.GetOrdersByCustomerID) // 获取客户订单列表
-		order.POST("/:id/payment", orderController.ProcessOrderPayment)
-		order.POST("/:id/recharge", orderController.ProcessOrderRecharge)
+		// order.POST("/:id/payment", orderController.ProcessOrderPayment)
+		// order.POST("/:id/recharge", orderController.ProcessOrderRecharge)
 		order.POST("/:id/success", orderController.ProcessOrderSuccess)
 		order.POST("/:id/fail", orderController.ProcessOrderFail)
-		order.POST("/:id/refund", orderController.ProcessOrderRefund)
-		order.POST("/:id/cancel", orderController.ProcessOrderCancel)
-		order.POST("/:id/split", orderController.ProcessOrderSplit)
-		order.POST("/:id/partial", orderController.ProcessOrderPartial)
+		// order.POST("/:id/refund", orderController.ProcessOrderRefund)
+		// order.POST("/:id/cancel", orderController.ProcessOrderCancel)
+		// order.POST("/:id/split", orderController.ProcessOrderSplit)
+		// order.POST("/:id/partial", orderController.ProcessOrderPartial)
 		order.POST("/:id/delete", orderController.DeleteOrder)
 
 		// 只允许管理员访问的订单清理接口

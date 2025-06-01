@@ -10,6 +10,7 @@ import (
 	"recharge-go/internal/utils"
 	"recharge-go/pkg/logger"
 	"recharge-go/pkg/queue"
+	"strconv"
 	"time"
 )
 
@@ -135,9 +136,23 @@ func (s *orderService) GetOrdersByCustomerID(ctx context.Context, customerID int
 	return s.orderRepo.GetByCustomerID(ctx, customerID, page, pageSize)
 }
 
+// 工具函数：判断是否超级管理员
+func isSuperAdmin(ctx context.Context) bool {
+	roles, ok := ctx.Value("roles").([]string)
+	if !ok {
+		return false
+	}
+	for _, r := range roles {
+		if r == "SUPER_ADMIN" {
+			return true
+		}
+	}
+	return false
+}
+
 // UpdateOrderStatus 更新订单状态
 func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status model.OrderStatus) error {
-	fmt.Println(id, "开始更新订单状态orderID++++++++")
+	userID := ctx.Value("user_id").(int64)
 	logger.Info("开始更新订单状态",
 		"order_id", id,
 		"new_status", status,
@@ -160,6 +175,17 @@ func (s *orderService) UpdateOrderStatus(ctx context.Context, id int64, status m
 			"order_id", id,
 		)
 		return fmt.Errorf("get order failed: %v", err)
+	}
+
+	// 权限校验：只有超级管理员才能操作
+	if !isSuperAdmin(ctx) && order.CustomerID != userID {
+		tx.Rollback()
+		logger.Error("无权限操作该订单",
+			"order_id", id,
+			"user_id", userID,
+			"order_customer_id", order.CustomerID,
+		)
+		return fmt.Errorf("无权限操作该订单")
 	}
 
 	logger.Info("获取到订单信息",
@@ -382,8 +408,23 @@ func (s *orderService) SetRechargeService(rechargeService RechargeService) {
 // DeleteOrder 删除订单（软删除）
 func (s *orderService) DeleteOrder(ctx context.Context, id string) error {
 	logger.Info("开始软删除订单", "order_id", id)
-	// 软删除：更新 is_del 字段为 1
-	if err := s.orderRepo.DB().Model(&model.Order{}).Where("id = ?", id).Update("is_del", 1).Error; err != nil {
+	orderID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		logger.Error("订单ID格式错误", "order_id", id, "error", err)
+		return fmt.Errorf("订单ID格式错误: %v", err)
+	}
+	// 查询订单信息
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		logger.Error("订单不存在", "order_id", id, "error", err)
+		return fmt.Errorf("订单不存在: %v", err)
+	}
+	userID := ctx.Value("user_id").(int64)
+	if !isSuperAdmin(ctx) && order.CustomerID != userID {
+		logger.Error("无权限删除该订单", "order_id", id, "user_id", userID, "order_customer_id", order.CustomerID)
+		return fmt.Errorf("无权限删除该订单")
+	}
+	if err := s.orderRepo.SoftDeleteByID(ctx, orderID); err != nil {
 		logger.Error("软删除订单失败", "order_id", id, "error", err)
 		return fmt.Errorf("软删除订单失败: %v", err)
 	}

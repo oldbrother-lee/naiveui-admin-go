@@ -344,9 +344,7 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 	// === 新增 END ===
 
 	// 更新订单状态
-	fmt.Println(order.ID, "新订单状态order.ID++++++++")
 	if err := s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatus(orderState)); err != nil {
-		fmt.Println(err, "更新订单状态失败err++++++++")
 		tx.Rollback()
 		logger.Error("更新订单状态失败: %v", err)
 		return fmt.Errorf("update order status failed: %v", err)
