@@ -55,6 +55,8 @@ type OrderService interface {
 	GetProductID(price float64, isp int, status int) (int64, error)
 	// GetOrderStatistics 按 customer_id 统计今日订单总数、成功订单数、失败订单数、今日成交金额（Denom 字段）
 	GetOrderStatistics(ctx context.Context, customerID int64) (*OrderStatistics, error)
+	// GetOrdersByUserID 根据用户ID获取订单列表
+	GetOrdersByUserID(ctx context.Context, userID int64, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error)
 }
 
 type OrderStatistics struct {
@@ -358,28 +360,13 @@ func (s *orderService) GetOrderByOutTradeNum(ctx context.Context, outTradeNum st
 
 // GetOrders 获取订单列表
 func (s *orderService) GetOrders(ctx context.Context, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error) {
-	logger.Info("开始获取订单列表",
-		"params", params,
-		"page", page,
-		"page_size", pageSize,
-	)
-
-	orders, total, err := s.orderRepo.GetOrders(ctx, params, page, pageSize)
-	if err != nil {
-		logger.Error("获取订单列表失败",
-			"error", err,
-			"params", params,
-		)
-		return nil, 0, fmt.Errorf("get orders failed: %v", err)
+	// 如果参数中包含 user_id，说明是代理商查询自己的订单
+	if userID, ok := params["user_id"].(int64); ok {
+		return s.orderRepo.GetByUserID(ctx, userID, params, page, pageSize)
 	}
 
-	logger.Info("获取订单列表成功",
-		"total", total,
-		"page", page,
-		"page_size", pageSize,
-	)
-
-	return orders, total, nil
+	// 否则是管理员查询所有订单
+	return s.orderRepo.GetOrders(ctx, params, page, pageSize)
 }
 
 // generateOrderNumber 生成订单号
@@ -478,4 +465,9 @@ func (s *orderService) GetOrderStatistics(ctx context.Context, customerID int64)
 		ProcessingCount: processingCount,
 		SuccessAmount:   successAmount,
 	}, nil
+}
+
+// GetOrdersByUserID 根据用户ID获取订单列表
+func (s *orderService) GetOrdersByUserID(ctx context.Context, userID int64, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error) {
+	return s.orderRepo.GetByUserID(ctx, userID, params, page, pageSize)
 }

@@ -32,6 +32,7 @@ func Auth() gin.HandlerFunc {
 
 		ctx.Set("user_id", claims.UserID)
 		ctx.Set("username", claims.Username)
+		ctx.Set("roles", claims.Roles)
 		ctx.Next()
 	}
 }

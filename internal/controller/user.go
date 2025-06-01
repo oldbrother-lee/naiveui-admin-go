@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
+	"recharge-go/internal/utils"
 	"recharge-go/pkg/utils/response"
 	"strconv"
 
@@ -615,8 +616,26 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 		response.Error(ctx, 404, "用户不存在")
 		return
 	}
+	roles, _ := c.userService.GetUserRoles(userID)
+	roleNames := make([]string, 0, len(roles))
+	for _, r := range roles {
+		roleNames = append(roleNames, r.Code)
+	}
+	resp := map[string]interface{}{
+		"userId":   fmt.Sprintf("%d", user.ID),
+		"userName": user.Username,
+		"roles":    roleNames,
+		"buttons":  []string{},
+	}
 
-	response.Success(ctx, user)
+	utils.Success(ctx, resp)
+
+	// ctx.JSON(200, gin.H{
+	// 	"userId":   fmt.Sprintf("%d", user.ID),
+	// 	"userName": user.Username,
+	// 	"roles":    roleNames,
+	// 	"buttons":  []string{}, // 可根据权限系统动态生成
+	// })
 }
 
 // ChangePassword 修改密码

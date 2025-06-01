@@ -9,12 +9,13 @@ import (
 )
 
 type Claims struct {
-	UserID   int64  `json:"user_id"`
-	Username string `json:"username"`
+	UserID   int64    `json:"user_id"`
+	Username string   `json:"username"`
+	Roles    []string `json:"roles"`
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(userID int64, username string) (string, string, error) {
+func GenerateJWT(userID int64, username string, roleNames []string) (string, string, error) {
 	cfg := config.GetConfig()
 
 	// Generate access token
@@ -22,6 +23,7 @@ func GenerateJWT(userID int64, username string) (string, string, error) {
 	accessClaims := &Claims{
 		UserID:   userID,
 		Username: username,
+		Roles:    roleNames,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(accessExpirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -39,6 +41,7 @@ func GenerateJWT(userID int64, username string) (string, string, error) {
 	refreshClaims := &Claims{
 		UserID:   userID,
 		Username: username,
+		Roles:    roleNames,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(refreshExpirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

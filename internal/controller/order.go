@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
@@ -327,19 +328,19 @@ func (c *OrderController) ProcessOrderPartial(ctx *gin.Context) {
 
 // GetOrders 获取订单列表（管理员接口）
 func (c *OrderController) GetOrders(ctx *gin.Context) {
+	// 获取当前用户信息
+	userID := ctx.GetInt64("user_id")
+	roles, _ := ctx.Get("roles")
+	var userRole string
+	if rolesSlice, ok := roles.([]string); ok && len(rolesSlice) > 0 {
+		userRole = rolesSlice[0]
+	}
+
 	// 获取分页参数
 	page := ctx.DefaultQuery("page", "1")
 	pageSize := ctx.DefaultQuery("page_size", "10")
-	pageInt, err := strconv.Atoi(page)
-	if err != nil {
-		utils.Error(ctx, http.StatusBadRequest, "invalid page")
-		return
-	}
-	pageSizeInt, err := strconv.Atoi(pageSize)
-	if err != nil {
-		utils.Error(ctx, http.StatusBadRequest, "invalid page size")
-		return
-	}
+	pageInt, _ := strconv.Atoi(page)
+	pageSizeInt, _ := strconv.Atoi(pageSize)
 
 	// 获取查询参数
 	params := make(map[string]interface{})
@@ -349,8 +350,16 @@ func (c *OrderController) GetOrders(ctx *gin.Context) {
 			params[param] = value
 		}
 	}
+	fmt.Println("userRole", userRole)
+	fmt.Println("userID", userID)
+	// 如果是代理商，只查询自己的订单
+	if userRole == "AGENT" {
+		params["user_id"] = userID
+	} else if userRole == "" {
+		utils.Error(ctx, http.StatusBadRequest, "没有权限，联系管理员")
+		return
+	}
 
-	// 获取订单列表
 	orders, total, err := c.orderService.GetOrders(ctx, params, pageInt, pageSizeInt)
 	if err != nil {
 		logger.Error("获取订单列表失败: %v", err)

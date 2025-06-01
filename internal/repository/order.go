@@ -68,6 +68,7 @@ type OrderRepository interface {
 	GetOperatorRealtimeStatistics(ctx context.Context, start, end time.Time) ([]model.OrderStatisticsOperator, error)
 	// GetOperatorOrderCount 按运营商分组统计订单总数
 	GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error)
+	GetByUserID(ctx context.Context, userID int64, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error)
 }
 
 // OrderRepositoryImpl 订单仓库实现
@@ -435,4 +436,66 @@ func (r *OrderRepositoryImpl) GetOperatorOrderCount(ctx context.Context, start, 
 		Group("products.isp").
 		Scan(&result).Error
 	return result, err
+}
+
+// GetByUserID 根据用户ID获取订单列表
+func (r *OrderRepositoryImpl) GetByUserID(ctx context.Context, userID int64, params map[string]interface{}, page, pageSize int) ([]*model.Order, int64, error) {
+	var orders []*model.Order
+	var total int64
+	fmt.Println("userID#########################", userID)
+	query := r.db.Model(&model.Order{}).Where("is_del = 0 AND customer_id = ?", userID)
+
+	// 添加其他查询条件
+	for key, value := range params {
+		if key == "user_id" {
+			continue // 跳过 user_id，因为已经作为基础条件
+		}
+		strValue, ok := value.(string)
+		if !ok || strValue == "" {
+			continue
+		}
+		switch key {
+		case "client":
+			clientID, err := strconv.ParseInt(strValue, 10, 64)
+			if err != nil {
+				logger.Error("解析client参数失败: %v", err)
+				continue
+			}
+			if clientID > 0 {
+				query = query.Where("client = ?", clientID)
+			}
+		case "status":
+			status, err := strconv.ParseInt(strValue, 10, 64)
+			if err != nil {
+				logger.Error("解析status参数失败: %v", err)
+				continue
+			}
+			if status >= 0 {
+				query = query.Where("status = ?", status)
+			}
+		case "order_number":
+			query = query.Where("order_number LIKE ?", "%"+strValue+"%")
+		case "mobile":
+			query = query.Where("mobile LIKE ?", "%"+strValue+"%")
+		case "start_time":
+			query = query.Where("create_time >= ?", strValue)
+		case "end_time":
+			query = query.Where("create_time <= ?", strValue)
+		case "platform_code":
+			query = query.Where("platform_code = ?", strValue)
+		default:
+			query = query.Where(key+" = ?", strValue)
+		}
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Order("create_time DESC").Offset(offset).Limit(pageSize).Find(&orders).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return orders, total, nil
 }

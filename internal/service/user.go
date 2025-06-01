@@ -109,10 +109,19 @@ func (s *UserService) Register(ctx context.Context, req *model.UserRegisterReque
 }
 
 // Login 用户登录
-func (s *UserService) Login(ctx context.Context, req *model.UserLoginRequest) (*LoginResponse, error) {
+func (s *UserService) Login(ctx context.Context, req *model.UserLoginRequest) (*UserLoginResponse, error) {
 	user, err := s.userRepo.GetByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, err
+	}
+
+	roles, err := s.userRepo.GetUserRoles(user.ID) // 返回 []model.Role
+	if err != nil {
+		return nil, err
+	}
+	roleNames := make([]string, 0, len(roles))
+	for _, r := range roles {
+		roleNames = append(roleNames, r.Code) // 或 r.Name
 	}
 
 	// 验证密码
@@ -126,14 +135,21 @@ func (s *UserService) Login(ctx context.Context, req *model.UserLoginRequest) (*
 	}
 
 	// 生成访问令牌和刷新令牌
-	token, refreshToken, err := utils.GenerateJWT(user.ID, user.Username)
+	token, refreshToken, err := utils.GenerateJWT(user.ID, user.Username, roleNames)
 	if err != nil {
 		return nil, err
 	}
+	userInfo := UserInfo{
+		UserId:   fmt.Sprintf("%d", user.ID),
+		UserName: user.Username,
+		Roles:    roleNames,
+		Buttons:  []string{}, // 可根据权限系统填充
+	}
 
-	return &LoginResponse{
+	return &UserLoginResponse{
 		Token:        token,
 		RefreshToken: refreshToken,
+		UserInfo:     userInfo,
 	}, nil
 }
 
@@ -156,7 +172,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken string) (*L
 	}
 
 	// 生成新的访问令牌和刷新令牌
-	newToken, newRefreshToken, err := utils.GenerateJWT(user.ID, user.Username)
+	newToken, newRefreshToken, err := utils.GenerateJWT(user.ID, user.Username, claims.Roles)
 	if err != nil {
 		return nil, err
 	}
@@ -466,4 +482,8 @@ func (s *UserService) RemoveUserTag(ctx context.Context, userID, tagID int64) er
 // GetUserTags 获取用户的所有标签
 func (s *UserService) GetUserTags(ctx context.Context, userID int64) ([]model.UserTag, error) {
 	return s.userTagRelationRepo.GetUserTags(ctx, userID)
+}
+
+func (s *UserService) GetUserRoles(userID int64) ([]model.Role, error) {
+	return s.userRepo.GetUserRoles(userID)
 }
