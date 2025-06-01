@@ -3,6 +3,7 @@ package notification
 import (
 	"context"
 	"recharge-go/internal/model/notification"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -34,6 +35,14 @@ func (r *RepositoryImpl) Create(ctx context.Context, record *notification.Notifi
 
 // UpdateStatus 更新通知状态
 func (r *RepositoryImpl) UpdateStatus(ctx context.Context, id int64, status int) error {
+	if status == 3 {
+		return r.db.WithContext(ctx).Model(&notification.NotificationRecord{}).
+			Where("id = ?", id).
+			Updates(map[string]interface{}{
+				"status":     status,
+				"success_at": time.Now(),
+			}).Error
+	}
 	return r.db.WithContext(ctx).Model(&notification.NotificationRecord{}).
 		Where("id = ?", id).
 		Update("status", status).Error
