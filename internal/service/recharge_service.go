@@ -265,7 +265,19 @@ func (s *rechargeService) Recharge(ctx context.Context, orderID int64) error {
 		Update("const_price", apiParam.Price).Error
 	if err != nil {
 		logger.Error("【更新订单成本价失败】", "order_id", order.ID, "error", err)
-		// 可选：return err
+		// 新增：将订单状态设置为失败，并写入备注
+		_ = s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusFailed)
+		_ = s.orderRepo.UpdateRemark(ctx, order.ID, "余额不足，订单失败")
+		// 新增：推送订单失败通知
+		notification := &notificationModel.NotificationRecord{
+			OrderID:          order.ID,
+			PlatformCode:     order.PlatformCode,
+			NotificationType: "order_status_changed",
+			Content:          "订单失败：余额不足",
+			Status:           1, // 待处理
+		}
+		_ = s.notificationRepo.Create(ctx, notification)
+		_ = s.queue.Push(ctx, "notification_queue", notification)
 	} else {
 		logger.Info("【更新订单成本价成功】", "order_id", order.ID, "const_price", apiParam.Price)
 	}
@@ -505,6 +517,19 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 			"error", err,
 			"account_id", order.PlatformAccountID,
 			"amount", order.Price)
+		// 新增：将订单状态设置为失败，并写入备注
+		_ = s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusFailed)
+		_ = s.orderRepo.UpdateRemark(ctx, order.ID, "余额不足，订单失败")
+		// 新增：推送订单失败通知
+		notification := &notificationModel.NotificationRecord{
+			OrderID:          order.ID,
+			PlatformCode:     order.PlatformCode,
+			NotificationType: "order_status_changed",
+			Content:          "订单失败：余额不足",
+			Status:           1, // 待处理
+		}
+		_ = s.notificationRepo.Create(ctx, notification)
+		_ = s.queue.Push(ctx, "notification_queue", notification)
 		return fmt.Errorf("deduct balance failed: %v", err)
 	}
 	logger.Info("【扣除平台账号余额成功】",
