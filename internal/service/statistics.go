@@ -21,7 +21,7 @@ type StatisticsService interface {
 	GetDailyStatistics(ctx context.Context, startDate, endDate time.Time) ([]model.OrderStatisticsDaily, error)
 	GetTrendStatistics(ctx context.Context, startDate, endDate time.Time, operator string) ([]model.OrderStatisticsTrend, error)
 	UpdateStatistics(ctx context.Context) error
-	GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error)
+	GetOrderRealtimeStatistics(ctx context.Context, userId int64) (interface{}, error)
 	GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error)
 }
 
@@ -147,8 +147,9 @@ func (s *statisticsService) UpdateStatistics(ctx context.Context) error {
 	return nil
 }
 
-func (s *statisticsService) GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error) {
-	return s.orderRepo.GetOrderRealtimeStatistics(ctx)
+func (s *statisticsService) GetOrderRealtimeStatistics(ctx context.Context, userId int64) (interface{}, error) {
+	// 直接传递 userId 给仓库层
+	return s.orderRepo.GetOrderRealtimeStatistics(ctx, userId)
 }
 
 func (s *statisticsService) GetOperatorOrderCount(ctx context.Context, start, end time.Time) ([]model.OperatorOrderCount, error) {

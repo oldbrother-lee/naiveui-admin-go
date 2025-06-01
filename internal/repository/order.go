@@ -63,7 +63,7 @@ type OrderRepository interface {
 	// UpdateStatusAndAPIID 更新订单状态和API ID
 	UpdateStatusAndAPIID(ctx context.Context, id int64, status model.OrderStatus, apiID int64, usedAPIs string) error
 	// GetOrderRealtimeStatistics 获取实时统计
-	GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error)
+	GetOrderRealtimeStatistics(ctx context.Context, userId int64) (*model.OrderStatisticsOverview, error)
 	// GetOperatorRealtimeStatistics 获取运营商实时统计
 	GetOperatorRealtimeStatistics(ctx context.Context, start, end time.Time) ([]model.OrderStatisticsOperator, error)
 	// GetOperatorOrderCount 按运营商分组统计订单总数
@@ -338,72 +338,67 @@ func (r *OrderRepositoryImpl) UpdateStatusAndAPIID(ctx context.Context, id int64
 }
 
 // GetOrderRealtimeStatistics 获取实时统计
-func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context) (*model.OrderStatisticsOverview, error) {
+func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context, userId int64) (*model.OrderStatisticsOverview, error) {
 	var overview model.OrderStatisticsOverview
 
-	// 总订单数
-	err := r.db.WithContext(ctx).Model(&model.Order{}).
-		Select("COUNT(*) as total").
-		Scan(&overview.Total.Total).Error
-	if err != nil {
+	baseQuery := r.db.Model(&model.Order{}).Where("is_del = 0")
+	if userId > 0 {
+		baseQuery = baseQuery.Where("customer_id = ?", userId)
+	}
+
+	// 获取总订单数
+	if err := baseQuery.Count(&overview.Total.Total).Error; err != nil {
 		return nil, err
 	}
 
-	// 昨日订单数
+	// 获取昨日订单数
 	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-	err = r.db.WithContext(ctx).Model(&model.Order{}).
-		Where("DATE(create_time) = ?", yesterday).
-		Select("COUNT(*) as yesterday").
-		Scan(&overview.Total.Yesterday).Error
-	if err != nil {
+	queryYesterday := r.db.Model(&model.Order{}).Where("is_del = 0")
+	if userId > 0 {
+		queryYesterday = queryYesterday.Where("customer_id = ?", userId)
+	}
+	if err := queryYesterday.Where("DATE(create_time) = ?", yesterday).
+		Count(&overview.Total.Yesterday).Error; err != nil {
 		return nil, err
 	}
 
-	// 今日订单数
+	// 获取今日订单数
 	today := time.Now().Format("2006-01-02")
-	err = r.db.WithContext(ctx).Model(&model.Order{}).
-		Debug().
-		Where("DATE(create_time) = ?", today).
+	queryToday := r.db.Model(&model.Order{}).Where("is_del = 0")
+	if userId > 0 {
+		queryToday = queryToday.Where("customer_id = ?", userId)
+	}
+	if err := queryToday.Where("DATE(create_time) = ?", today).
+		Count(&overview.Total.Today).Error; err != nil {
+		return nil, err
+	}
+
+	// 获取订单状态统计
+	queryStatus := r.db.Model(&model.Order{}).Where("is_del = 0")
+	if userId > 0 {
+		queryStatus = queryStatus.Where("customer_id = ?", userId)
+	}
+	if err := queryStatus.Where("DATE(create_time) = ?", today).
 		Select(
-			fmt.Sprintf("SUM(CASE WHEN status IN (%d, %d) THEN 1 ELSE 0 END) as processing", model.OrderStatusRecharging, model.OrderStatusProcessing),
-			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as success", model.OrderStatusSuccess),
-			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as failed", model.OrderStatusFailed),
+			"COUNT(CASE WHEN status = 0 THEN 1 END) as processing",
+			"COUNT(CASE WHEN status = 1 THEN 1 END) as success",
+			"COUNT(CASE WHEN status IN (2,3,4) THEN 1 END) as failed",
 		).
-		Scan(&overview.Status).Error
-	if err != nil {
+		Scan(&overview.Status).Error; err != nil {
 		return nil, err
 	}
 
-	err = r.db.WithContext(ctx).Model(&model.Order{}).
-		Where("DATE(create_time) = ?", today).
-		Select("COUNT(*) as today").
-		Scan(&overview.Total.Today).Error
-	if err != nil {
-		return nil, err
+	// 获取盈利统计
+	queryProfit := r.db.Model(&model.Order{}).Where("is_del = 0")
+	if userId > 0 {
+		queryProfit = queryProfit.Where("customer_id = ?", userId)
 	}
-
-	// 统计昨日 充值中、成功、失败）
-	err = r.db.WithContext(ctx).Debug().Model(&model.Order{}).
-		Where("DATE(create_time) = ?", yesterday).
-		Select(
-			fmt.Sprintf("SUM(CASE WHEN status IN (%d, %d) THEN 1 ELSE 0 END) as yesterday_processing", model.OrderStatusRecharging, model.OrderStatusProcessing),
-			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_success", model.OrderStatusSuccess),
-			fmt.Sprintf("SUM(CASE WHEN status = %d THEN 1 ELSE 0 END) as yesterday_failed", model.OrderStatusFailed),
-		).
-		Scan(&overview.YesterdayStatus).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// 盈利统计（成本、利润）
-	err = r.db.WithContext(ctx).Debug().Model(&model.Order{}).
-		Where("DATE(create_time) = ? AND status = ?", today, model.OrderStatusSuccess).
+	if err := queryProfit.Where("DATE(create_time) = ?", today).
 		Select(
 			"COALESCE(SUM(price), 0) as cost_amount",
-			"COALESCE(SUM(const_price - price), 0) as profit_amount",
+			"COALESCE(SUM(price - const_price), 0) as profit_amount",
 		).
-		Scan(&overview.Profit).Error
-	if err != nil {
+		Scan(&overview.Profit).Error; err != nil {
 		return nil, err
 	}
 

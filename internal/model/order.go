@@ -111,6 +111,13 @@ type Order struct {
 	DeletedAt           gorm.DeletedAt `json:"deleted_at" gorm:"index"`
 }
 
+type StatisticsQuery struct {
+	UserID int64  // 用户ID
+	Start  string // 开始时间
+	End    string // 结束时间
+	// 可根据需要添加更多字段
+}
+
 // TableName 表名
 func (Order) TableName() string {
 	return "orders"

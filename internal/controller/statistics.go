@@ -148,11 +148,25 @@ func (c *StatisticsController) TriggerStatistics(ctx *gin.Context) {
 // @Success 200 {object} model.OrderStatisticsOverview
 // @Router /api/v1/statistics/order/realtime [get]
 func (c *StatisticsController) GetOrderRealtimeStatistics(ctx *gin.Context) {
-	result, err := c.statisticsSvc.GetOrderRealtimeStatistics(ctx)
+	roles, _ := ctx.Get("roles")
+	userId := ctx.GetInt64("user_id")
+
+	var result interface{}
+	var err error
+
+	if utils.HasRole(roles.([]string), "SUPER_ADMIN") {
+		// 管理员可以查看所有订单统计
+		result, err = c.statisticsSvc.GetOrderRealtimeStatistics(ctx, 0)
+	} else {
+		// 代理商只能查看自己的订单统计
+		result, err = c.statisticsSvc.GetOrderRealtimeStatistics(ctx, userId)
+	}
+
 	if err != nil {
 		utils.Error(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	utils.Success(ctx, result)
 }
 
