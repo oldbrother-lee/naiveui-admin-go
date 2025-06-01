@@ -487,3 +487,32 @@ func (s *UserService) GetUserTags(ctx context.Context, userID int64) ([]model.Us
 func (s *UserService) GetUserRoles(userID int64) ([]model.Role, error) {
 	return s.userRepo.GetUserRoles(userID)
 }
+
+// ResetPassword 管理员重置用户密码
+func (s *UserService) ResetPassword(ctx context.Context, userID int64, newPassword string) (string, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return "", errors.New("用户不存在")
+	}
+	if newPassword == "" {
+		newPassword = "123456"
+	}
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	user.Password = string(hashedPassword)
+	user.UpdatedAt = time.Now()
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return "", err
+	}
+	// 记录密码重置日志
+	log := &model.UserLog{
+		UserID:    userID,
+		Action:    model.UserLogActionPassword,
+		Content:   "管理员重置密码",
+		CreatedAt: time.Now(),
+	}
+	_ = s.userLogRepo.Create(ctx, log)
+	return newPassword, nil
+}

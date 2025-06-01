@@ -37,6 +37,7 @@ func RegisterUserRoutes(r *gin.RouterGroup, userController *controller.UserContr
 		users.PUT("/:id", userController.UpdateUser)
 		users.DELETE("/:id", userController.DeleteUser)
 		users.PUT("/:id/status", userController.UpdateUserStatus)
+		users.POST("/:id/reset-password", userController.ResetPassword)
 	}
 
 	// User log routes

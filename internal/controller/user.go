@@ -626,6 +626,8 @@ func (c *UserController) GetProfile(ctx *gin.Context) {
 		"userName": user.Username,
 		"roles":    roleNames,
 		"buttons":  []string{},
+		"balance":  user.Balance,
+		"credit":   user.Credit,
 	}
 
 	utils.Success(ctx, resp)
@@ -799,4 +801,34 @@ func (c *UserController) DeleteUser(ctx *gin.Context) {
 	}
 
 	response.Success(ctx, nil)
+}
+
+// ResetPassword 管理员重置用户密码
+// @Summary 管理员重置用户密码
+// @Description 管理员重置指定用户的密码为初始密码
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Success 200 {object} response.Response{data=string}
+// @Router /api/v1/users/{id}/reset-password [post]
+func (c *UserController) ResetPassword(ctx *gin.Context) {
+	userID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, 400, "无效的用户ID")
+		return
+	}
+
+	var req struct {
+		NewPassword string `json:"newPassword"`
+	}
+	_ = ctx.ShouldBindJSON(&req)
+
+	newPwd, err := c.userService.ResetPassword(ctx, userID, req.NewPassword)
+	if err != nil {
+		response.Error(ctx, 500, err.Error())
+		return
+	}
+
+	response.Success(ctx, gin.H{"new_password": newPwd})
 }
