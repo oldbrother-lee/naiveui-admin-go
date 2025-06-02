@@ -294,6 +294,7 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 		logger.Error(fmt.Sprintf("解析回调数据失败: %v", err))
 		return fmt.Errorf("parse callback data failed service 层: %v", err)
 	}
+	logger.Info(fmt.Sprintf("收到秘史回调，解析回调数据成功: %+v", callbackData))
 
 	// 2. 检查是否已处理过该回调
 	exists, err := s.callbackLogRepo.GetByOrderIDAndType(ctx, callbackData.OrderID, callbackData.CallbackType)
@@ -328,7 +329,6 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 	}
 
 	// 4.1 更新订单状态
-	fmt.Println(callbackData.Status, "callbackData.Status++++++++")
 	orderState, err := strconv.Atoi(callbackData.Status)
 	if err != nil {
 		tx.Rollback()
@@ -361,6 +361,7 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 		logger.Error("更新订单状态失败: %v", err)
 		return fmt.Errorf("update order status failed: %v", err)
 	}
+	logger.Info(fmt.Sprintf("mishi回调更新订单状态成功: 订单号%s, 订单id%d, 状态%s", order.OrderNumber, order.ID, orderState))
 
 	// 创建通知记录
 	notification := &notificationModel.NotificationRecord{
@@ -382,6 +383,7 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 		)
 		return fmt.Errorf("create notification record failed: %v", err)
 	}
+	logger.Info(fmt.Sprintf("秘史创建通知记录成功: 订单号%s, 订单id%d, 状态%s", order.OrderNumber, order.ID, orderState))
 
 	// 推送通知到队列
 	logger.Info("准备推送通知到队列", "order_id", order.ID, "status", orderState)
@@ -391,9 +393,8 @@ func (s *rechargeService) HandleCallback(ctx context.Context, platformName strin
 		logger.Error("推送通知到队列失败", "order_id", order.ID, "error", err)
 		return fmt.Errorf("push notification to queue failed: %v", err)
 	}
-	logger.Info("推送通知到队列成功", "order_id", order.ID)
+	logger.Info("秘史推送通知到队列成功", "order_id", order.ID)
 
-	fmt.Println("记录回调日志&&&&&&&&&")
 	// 5. 记录回调日志
 	log := &model.CallbackLog{
 		OrderID:      callbackData.OrderID,

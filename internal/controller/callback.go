@@ -182,6 +182,7 @@ func (c *CallbackController) HandleMishiCallback(ctx *gin.Context) {
 
 	// 业务处理交给 service
 	if err := c.rechargeService.HandleCallback(ctx, "mishi", body); err != nil {
+		logger.Error("返回：500 处理回调失败", zap.Error(err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "failed to process callback"})
 		return
 	}

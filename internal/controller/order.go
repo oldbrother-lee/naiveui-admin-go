@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"net/http"
 	"recharge-go/internal/model"
 	"recharge-go/internal/service"
@@ -350,8 +349,7 @@ func (c *OrderController) GetOrders(ctx *gin.Context) {
 			params[param] = value
 		}
 	}
-	fmt.Println("userRole", userRole)
-	fmt.Println("userID", userID)
+
 	// 如果是代理商，只查询自己的订单
 	if userRole == "AGENT" {
 		params["user_id"] = userID

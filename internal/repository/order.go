@@ -278,9 +278,10 @@ func (r *OrderRepositoryImpl) UpdatePlatformID(ctx context.Context, orderID int6
 // GetIDsByTimeRange 查询指定时间范围的订单ID
 func (r *OrderRepositoryImpl) GetIDsByTimeRange(ctx context.Context, start, end string) ([]int64, error) {
 	var ids []int64
-	err := r.db.Model(&model.Order{}).
+	err := r.db.Model(&model.Order{}).Debug().
 		Where("create_time BETWEEN ? AND ?", start, end).
 		Pluck("id", &ids).Error
+	fmt.Println("ids########", ids)
 	return ids, err
 }
 
@@ -368,7 +369,7 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context, us
 	today := time.Now().Format("2006-01-02")
 	queryToday := r.db.Model(&model.Order{}).Where("is_del = 0")
 	if userId > 0 {
-		queryToday = queryToday.Where("customer_id = ?", userId)
+		queryToday = queryToday.Where("customer_id = ? and DATE(create_time) = ?", userId, today)
 	}
 	if err := queryToday.Where("DATE(create_time) = ?", today).
 		Count(&overview.Total.Today).Error; err != nil {
@@ -378,24 +379,39 @@ func (r *OrderRepositoryImpl) GetOrderRealtimeStatistics(ctx context.Context, us
 	// 获取订单状态统计
 	queryStatus := r.db.Model(&model.Order{}).Where("is_del = 0")
 	if userId > 0 {
-		queryStatus = queryStatus.Where("customer_id = ?", userId)
+		queryStatus = queryStatus.Where("customer_id = ? and DATE(create_time) = ?", userId, today)
 	}
-	if err := queryStatus.Where("DATE(create_time) = ?", today).
+	if err := queryStatus.Where("DATE(create_time) = ? ", today).
 		Select(
-			"COUNT(CASE WHEN status = 0 THEN 1 END) as processing",
-			"COUNT(CASE WHEN status = 1 THEN 1 END) as success",
-			"COUNT(CASE WHEN status IN (2,3,4) THEN 1 END) as failed",
+			"COUNT(CASE WHEN status in (3,10) THEN 1 END) as processing",
+			"COUNT(CASE WHEN status = 4 THEN 1 END) as success",
+			"COUNT(CASE WHEN status = 5 THEN 1 END) as failed",
 		).
 		Scan(&overview.Status).Error; err != nil {
+		return nil, err
+	}
+
+	//获取昨日订单状态统计
+	queryStatusYesterday := r.db.Model(&model.Order{}).Where("is_del = 0")
+	if userId > 0 {
+		queryStatusYesterday = queryStatusYesterday.Where("customer_id = ? and DATE(create_time) = ?", userId, yesterday)
+	}
+	if err := queryStatusYesterday.Where("DATE(create_time) = ?", yesterday).
+		Select(
+			"COUNT(CASE WHEN status in (3,10) THEN 1 END) as yesterday_processing",
+			"COUNT(CASE WHEN status = 4 THEN 1 END) as yesterday_success",
+			"COUNT(CASE WHEN status = 5 THEN 1 END) as yesterday_failed",
+		).
+		Scan(&overview.YesterdayStatus).Error; err != nil {
 		return nil, err
 	}
 
 	// 获取盈利统计
 	queryProfit := r.db.Model(&model.Order{}).Where("is_del = 0")
 	if userId > 0 {
-		queryProfit = queryProfit.Where("customer_id = ?", userId)
+		queryProfit = queryProfit.Where("customer_id = ? and DATE(create_time) = ?", userId, today)
 	}
-	if err := queryProfit.Where("DATE(create_time) = ?", today).
+	if err := queryProfit.Where("DATE(create_time) = ? and status = 4", today).
 		Select(
 			"COALESCE(SUM(price), 0) as cost_amount",
 			"COALESCE(SUM(price - const_price), 0) as profit_amount",
