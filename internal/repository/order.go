@@ -287,7 +287,7 @@ func (r *OrderRepositoryImpl) GetIDsByTimeRange(ctx context.Context, start, end 
 
 // DeleteByIDs 批量删除订单
 func (r *OrderRepositoryImpl) DeleteByIDs(ctx context.Context, ids []int64) (int64, error) {
-	res := r.db.Where("id IN ?", ids).Delete(&model.Order{})
+	res := r.db.Unscoped().Where("id IN ?", ids).Delete(&model.Order{})
 	return res.RowsAffected, res.Error
 }
 
