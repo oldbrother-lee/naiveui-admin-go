@@ -194,21 +194,9 @@ func (s *UserService) UpdateUser(ctx context.Context, userID int64, req *model.U
 	oldInfo := *user
 	changes := make([]string, 0)
 
-	if req.Nickname != nil && *req.Nickname != oldInfo.Nickname {
-		changes = append(changes, fmt.Sprintf("昵称: %s -> %s", oldInfo.Nickname, *req.Nickname))
-		user.Nickname = *req.Nickname
-	}
-	if req.Email != nil && *req.Email != oldInfo.Email {
-		changes = append(changes, fmt.Sprintf("邮箱: %s -> %s", oldInfo.Email, *req.Email))
-		user.Email = *req.Email
-	}
 	if req.Phone != nil && *req.Phone != oldInfo.Phone {
 		changes = append(changes, fmt.Sprintf("手机: %s -> %s", oldInfo.Phone, *req.Phone))
 		user.Phone = *req.Phone
-	}
-	if req.Avatar != nil && *req.Avatar != oldInfo.Avatar {
-		changes = append(changes, fmt.Sprintf("头像: %s -> %s", oldInfo.Avatar, *req.Avatar))
-		user.Avatar = *req.Avatar
 	}
 
 	user.UpdatedAt = time.Now()
@@ -515,4 +503,42 @@ func (s *UserService) ResetPassword(ctx context.Context, userID int64, newPasswo
 	}
 	_ = s.userLogRepo.Create(ctx, log)
 	return newPassword, nil
+}
+
+// AssignRoles 为用户分配角色
+func (s *UserService) AssignRoles(ctx context.Context, userID int64, roleIDs []int64) error {
+	// 先删除用户现有的所有角色
+	if err := s.userRepo.RemoveAllUserRoles(userID); err != nil {
+		return fmt.Errorf("移除用户现有角色失败: %v", err)
+	}
+
+	// 添加新的角色
+	if err := s.userRepo.AssignRoles(userID, roleIDs); err != nil {
+		return fmt.Errorf("分配角色失败: %v", err)
+	}
+
+	// 记录用户角色分配日志
+	log := &model.UserLog{
+		UserID:    userID,
+		Action:    model.UserLogActionUpdate,
+		Content:   fmt.Sprintf("分配角色: %v", roleIDs),
+		CreatedAt: time.Now(),
+	}
+	return s.userLogRepo.Create(ctx, log)
+}
+
+// RemoveRole 移除用户角色
+func (s *UserService) RemoveRole(ctx context.Context, userID int64, roleID int64) error {
+	if err := s.userRepo.RemoveUserRole(userID, roleID); err != nil {
+		return fmt.Errorf("移除角色失败: %v", err)
+	}
+
+	// 记录用户角色移除日志
+	log := &model.UserLog{
+		UserID:    userID,
+		Action:    model.UserLogActionUpdate,
+		Content:   fmt.Sprintf("移除角色: %d", roleID),
+		CreatedAt: time.Now(),
+	}
+	return s.userLogRepo.Create(ctx, log)
 }

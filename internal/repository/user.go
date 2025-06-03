@@ -298,3 +298,26 @@ func (r *UserGradeRelationRepository) GetUserGrade(ctx context.Context, userID i
 	}
 	return &grade, nil
 }
+
+// AssignRoles 为用户分配多个角色
+func (r *UserRepository) AssignRoles(userID int64, roleIDs []int64) error {
+	// 开启事务
+	tx := r.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	// 批量创建用户角色关系
+	for _, roleID := range roleIDs {
+		if err := tx.Create(&model.UserRole{
+			UserID: userID,
+			RoleID: roleID,
+		}).Error; err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// 提交事务
+	return tx.Commit().Error
+}

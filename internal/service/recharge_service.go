@@ -590,6 +590,18 @@ func (s *rechargeService) ProcessRechargeTask(ctx context.Context, order *model.
 		if nextAPIID == 0 {
 			logger.Error("【没有可用的API】",
 				"order_id", order.ID)
+			_ = s.orderRepo.UpdateStatus(ctx, order.ID, model.OrderStatusFailed)
+			_ = s.orderRepo.UpdateRemark(ctx, order.ID, "无可用API")
+			// 新增：推送订单失败通知
+			notification := &notificationModel.NotificationRecord{
+				OrderID:          order.ID,
+				PlatformCode:     order.PlatformCode,
+				NotificationType: "order_status_changed",
+				Content:          "订单失败：无可用API",
+				Status:           1, // 待处理
+			}
+			_ = s.notificationRepo.Create(ctx, notification)
+			_ = s.queue.Push(ctx, "notification_queue", notification)
 			return fmt.Errorf("no available API")
 		}
 

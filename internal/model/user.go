@@ -115,15 +115,9 @@ type UserRegisterRequest struct {
 }
 
 type UserUpdateRequest struct {
-	Username *string  `json:"username"`
-	Nickname *string  `json:"nickname"`
-	Email    *string  `json:"email" binding:"omitempty,email"`
-	Phone    *string  `json:"phone"`
-	Avatar   *string  `json:"avatar"`
-	Status   *int     `json:"status"`
-	Type     *int     `json:"type"`
-	Gender   *int     `json:"gender"`
-	Credit   *float64 `json:"credit"`
+	Username *string `json:"username"`
+	Phone    *string `json:"phone"`
+	Status   *int    `json:"status"`
 }
 
 type UserChangePasswordRequest struct {

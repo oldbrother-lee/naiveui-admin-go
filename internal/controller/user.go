@@ -832,3 +832,90 @@ func (c *UserController) ResetPassword(ctx *gin.Context) {
 
 	response.Success(ctx, gin.H{"new_password": newPwd})
 }
+
+// AssignRoles 为用户分配角色
+// @Summary 为用户分配角色
+// @Description 为用户分配一个或多个角色
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Param request body []int64 true "角色ID列表"
+// @Success 200 {object} response.Response
+// @Router /api/v1/users/{id}/roles [post]
+func (c *UserController) AssignRoles(ctx *gin.Context) {
+	userID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, 400, "无效的用户ID")
+		return
+	}
+
+	var roleIDs []int64
+	if err := ctx.ShouldBindJSON(&roleIDs); err != nil {
+		response.Error(ctx, 400, "参数错误")
+		return
+	}
+
+	if err := c.userService.AssignRoles(ctx, userID, roleIDs); err != nil {
+		response.Error(ctx, 500, err.Error())
+		return
+	}
+
+	response.Success(ctx, nil)
+}
+
+// GetUserRoles 获取用户角色
+// @Summary 获取用户角色
+// @Description 获取指定用户的所有角色
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Success 200 {object} response.Response{data=[]model.Role}
+// @Router /api/v1/users/{id}/roles [get]
+func (c *UserController) GetUserRoles(ctx *gin.Context) {
+	userID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, 400, "无效的用户ID")
+		return
+	}
+
+	roles, err := c.userService.GetUserRoles(userID)
+	if err != nil {
+		response.Error(ctx, 500, err.Error())
+		return
+	}
+
+	response.Success(ctx, roles)
+}
+
+// RemoveRole 移除用户角色
+// @Summary 移除用户角色
+// @Description 移除用户的指定角色
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Param id path int true "用户ID"
+// @Param role_id path int true "角色ID"
+// @Success 200 {object} response.Response
+// @Router /api/v1/users/{id}/roles/{role_id} [delete]
+func (c *UserController) RemoveRole(ctx *gin.Context) {
+	userID, err := strconv.ParseInt(ctx.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, 400, "无效的用户ID")
+		return
+	}
+
+	roleID, err := strconv.ParseInt(ctx.Param("role_id"), 10, 64)
+	if err != nil {
+		response.Error(ctx, 400, "无效的角色ID")
+		return
+	}
+
+	if err := c.userService.RemoveRole(ctx, userID, roleID); err != nil {
+		response.Error(ctx, 500, err.Error())
+		return
+	}
+
+	response.Success(ctx, nil)
+}
